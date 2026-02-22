@@ -1,93 +1,231 @@
-# Isaac-Sim-MSOE
+# Isaac Sim — MSOE Rosie
 
+Robotics simulation demos built with NVIDIA Isaac Sim 5.1.0 on MSOE's Rosie supercomputer.
 
+## Overview
 
-## Getting started
+Isaac Sim is NVIDIA's robotics simulation platform. Since Rosie's compute nodes don't have monitors, there are two ways to run simulations:
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+- **Option A — Headless (SLURM batch job):** Run a simulation script in the background, record video output to a file. No live view needed.
+- **Option B — WebRTC Streaming:** Run Isaac Sim in streaming mode on a GPU node and connect to its full GUI from your local machine over an SSH tunnel.
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+**Current demos:**
+- **Hospital** — Nova Carter AMR navigating a hospital environment with a third-person follow camera
+- **Robot Arm** — Franka robotic arm with a side-angle camera
 
-## Add your files
+---
 
-* [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+## Prerequisites
+
+- MSOE account with Rosie access
+- MSOE VPN (GlobalProtect) if off campus — connect to `vpn.msoe.edu`
+- SSH client on your local machine (PowerShell on Windows, Terminal on Mac/Linux)
+
+---
+
+## Step 1: Clone this Repo
+
+SSH into Rosie:
+```bash
+ssh <username>@ad.msoe.edu@dh-mgmt2.hpc.msoe.edu
+```
+
+Clone the repo:
+```bash
+cd ~
+git clone https://gitlab.com/manchado53/isaac-sim-msoe.git
+cd isaac-sim-msoe
+```
+
+---
+
+## Step 2: Install Isaac Sim (One-Time Setup)
+
+> Skip this if Isaac Sim is already installed at `~/isaacsim/`.
+
+```bash
+cd ~
+wget https://download.isaacsim.omniverse.nvidia.com/isaac-sim-standalone-5.1.0-linux-x86_64.zip
+mkdir ~/isaacsim
+unzip isaac-sim-standalone-5.1.0-linux-x86_64.zip -d ~/isaacsim
+cd ~/isaacsim
+./post_install.sh
+```
+
+The zip is large — this only needs to be done once.
+
+---
+
+## Step 3: Install ffmpeg (One-Time Setup, Option A only)
+
+```bash
+mkdir -p ~/bin
+wget -O /tmp/ffmpeg.tar.xz https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+tar -xf /tmp/ffmpeg.tar.xz -C /tmp/
+cp /tmp/ffmpeg-*-amd64-static/ffmpeg ~/bin/ffmpeg
+chmod +x ~/bin/ffmpeg
+```
+
+---
+
+## Option A: Headless Batch Job (Video Recording)
+
+Run a simulation fully in the background via SLURM. The script records the camera output to an `.mp4` file using ffmpeg.
+
+### Submit the job
+
+```bash
+sbatch scripts/hospital/run_jetbot_hospital.sh
+```
+
+```bash
+sbatch scripts/robot-arm/run_franka_camera.sh
+```
+
+### Monitor progress
+
+```bash
+squeue -u <username>@ad.msoe.edu       # check job status and assigned node
+tail -f slurm-<job_id>.out             # live log output
+```
+
+### Output
+
+Videos are saved to `~/isaac-sim-msoe/output/` when the job completes.
+
+To target a specific node:
+```bash
+sbatch --nodelist=dh-node17 scripts/hospital/run_jetbot_hospital.sh
+```
+
+---
+
+## Option B: WebRTC Streaming (Live GUI)
+
+Stream Isaac Sim's full GUI to your local machine over an SSH tunnel. This gives you an interactive live view.
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/manchado53/isaac-sim-msoe.git
-git branch -M main
-git push -uf origin main
+[Your PC] <--SSH tunnel--> [Rosie Login Node] <--network--> [Compute Node + GPU]
+ Streaming Client (49100)    dh-mgmt2                         Isaac Sim + T4 GPU
 ```
 
-## Integrate with your tools
+### Step B1: Download the WebRTC Streaming Client (one-time, on your local machine)
 
-* [Set up project integrations](https://gitlab.com/manchado53/isaac-sim-msoe/-/settings/integrations)
+Download the Isaac Sim WebRTC Streaming Client for your OS from:
+https://docs.isaacsim.omniverse.nvidia.com/5.1.0/installation/download.html
 
-## Collaborate with your team
+### Step B2: Get an interactive GPU node on Rosie
 
-* [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+From your VS Code terminal connected to Rosie, request an interactive session:
 
-## Test and Deploy
+```bash
+srun --partition=teaching --gres=gpu:t4:1 --cpus-per-gpu=4 --time=02:00:00 --nodelist=dh-nodeX --pty bash
+```
 
-Use the built-in continuous integration in GitLab.
+> Replace `dh-nodeX` with a node that isn't busy. Check with `squeue`.
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+Once the job starts, note the node name from your terminal prompt (e.g., `dh-node5`).
 
-***
+### Step B3: Start Isaac Sim in streaming mode
 
-# Editing this README
+In the same terminal (now on the compute node):
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+```bash
+cd ~/isaacsim
+bash isaac-sim.streaming.sh
+```
 
-## Suggestions for a good README
+Wait until you see `app ready` in the output. The first launch takes several minutes due to shader compilation — subsequent launches are faster. Warnings about audio and windowing are normal.
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+### Step B4: Open an SSH tunnel from your local machine
 
-## Name
-Choose a self-explaining name for your project.
+On your **local machine** (not on Rosie), open a new terminal and run:
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+```bash
+ssh -L 49100:dh-nodeX:49100 -L 47998:dh-nodeX:47998 <username>@ad.msoe.edu@dh-mgmt2.hpc.msoe.edu
+```
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+> Replace `dh-nodeX` with your actual compute node. Leave this terminal open — closing it breaks the tunnel.
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+If you're unsure which node you're on:
+```bash
+squeue -u <username>@ad.msoe.edu    # check the NODELIST column
+```
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+### Step B5: Connect with the Streaming Client
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+1. Open the Isaac Sim WebRTC Streaming Client on your local machine
+2. Enter `127.0.0.1` as the server address
+3. Click **Connect**
+4. Isaac Sim's full GUI appears within a few seconds
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+### When you're done
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+1. Close the WebRTC Streaming Client
+2. Press `Ctrl+C` in the Isaac Sim terminal to stop it
+3. Type `exit` to release the GPU node
+4. Close the SSH tunnel terminal
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+---
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+## Project Structure
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+```
+isaac-sim-msoe/
+├── scripts/
+│   ├── hospital/
+│   │   ├── jetbot_hospital_demo.py   # Nova Carter hospital simulation
+│   │   └── run_jetbot_hospital.sh    # SLURM job script
+│   └── robot-arm/
+│       ├── franka_camera_demo.py     # Franka arm simulation
+│       └── run_franka_camera.sh      # SLURM job script
+├── output/                           # Video outputs (gitignored)
+└── README.md
+```
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+---
 
-## License
-For open source projects, say how it is licensed.
+## Useful SLURM Commands
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+```bash
+squeue -u <username>@ad.msoe.edu                                              # check running jobs and assigned nodes
+srun --partition=teaching --gres=gpu:t4:1 --cpus-per-gpu=4 --time=02:00:00 --pty bash   # interactive T4 session
+srun --partition=dgx --gres=gpu:v100:1 --cpus-per-gpu=8 --time=02:00:00 --pty bash      # interactive V100 session
+nvidia-smi                                                                    # verify GPU on compute node
+scancel <job_id>                                                              # cancel a job
+```
+
+---
+
+## Key Technical Notes
+
+**Render pipeline ordering** — The camera's `set_world_pose()` must be called *before* `world.step(render=True)`. Isaac Sim's render pipeline is asynchronous — the camera position must be set before the render step to appear in the captured frame.
+
+**Headless mode** — Batch SLURM scripts use `headless: True`. Do not change this to `False` for batch jobs.
+
+**Nova Carter specs** — wheel radius: 0.14m, wheelbase: 0.4m. Uses `joint_wheel_left` / `joint_wheel_right` DOF names with `DifferentialController`.
+
+**Performance** — The T4 GPU gives lower FPS in Isaac Sim. For better streaming performance, request a V100 on the dgx partition (`--partition=dgx --gres=gpu:v100:1`).
+
+**First launch** — Shader compilation on the first run takes several minutes. Be patient.
+
+**Time limit** — SLURM jobs on the teaching partition are typically limited to 2 hours. Save your work before it expires.
+
+---
+
+## Troubleshooting
+
+**GPU not detected / "No device could be created"**
+Make sure you included `--gres=gpu:t4:1` in your `srun` command. Verify with `nvidia-smi`.
+
+**"channel: open failed: connect failed: Name or service not known"**
+The node name in your SSH tunnel is wrong. Run `squeue` to find the correct node name.
+
+**Streaming client won't connect**
+Verify Isaac Sim shows `app ready` in the terminal. Check that your SSH tunnel terminal is still open. Confirm the node name matches.
+
+**SSH tunnel password not working**
+Connect to `dh-mgmt2.hpc.msoe.edu` (not `dh-ood` or `ad.msoe.edu`). Must be on MSOE VPN if off campus.
+
+**"GLIBC not found" errors**
+This happens with the Singularity container (`.sif`) approach. Use the standalone zip installation instead — it avoids this issue.

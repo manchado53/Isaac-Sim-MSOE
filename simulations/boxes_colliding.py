@@ -15,8 +15,8 @@ from isaacsim import SimulationApp
 
 simulation_app = SimulationApp({"headless": True})
 
-from omni.isaac.core import World
-from omni.isaac.core.objects import DynamicCuboid
+from isaacsim.core.api import World
+from isaacsim.core.api.objects import DynamicCuboid
 import numpy as np
 
 _script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -36,7 +36,6 @@ def main():
     world.scene.add_default_ground_plane()
     print("✓ Ground plane added")
 
-    # Heavy box (blue) - starts on the left, will be launched rightward
     heavy_box = world.scene.add(
         DynamicCuboid(
             prim_path="/World/HeavyBox",
@@ -49,7 +48,6 @@ def main():
     )
     print("✓ Heavy box (10 kg, blue) placed at x=-2.0")
 
-    # Light box (orange) - starts on the right, stationary
     light_box = world.scene.add(
         DynamicCuboid(
             prim_path="/World/LightBox",
@@ -65,7 +63,6 @@ def main():
     world.reset()
     print("\n✓ World reset")
 
-    # Apply initial velocity to the heavy box so it slides into the light box
     heavy_box.set_linear_velocity(np.array([10.0, 0.0, 0.0]))
     print("✓ Heavy box given velocity 10.0 m/s in +X direction")
 
