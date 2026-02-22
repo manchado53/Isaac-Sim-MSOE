@@ -14,13 +14,13 @@
 The easiest way to run a simulation:
 
 ```bash
-cd ~/isaacsim/physics-sim
+cd ~/isaacsim/isaac-sim-msoe
 sbatch submit_isaac_job.sh
 ```
 
 This will:
 - Submit a job to the `teaching` partition
-- Run the test script `simulations/hello_isaac.py`
+- Run the test script `test-simulations/hello_isaac.py`
 - Save output to `logs/isaac_<JOBID>.out`
 
 Check job status:
@@ -46,15 +46,15 @@ For development and debugging:
 srun --partition=teaching --gres=gpu:1 --time=2:00:00 --pty bash
 
 # 2. Run your simulation
-cd ~/isaacsim/physics-sim
-./run_isaac_interactive.sh simulations/hello_isaac.py
+cd ~/isaacsim/isaac-sim-msoe
+./run_isaac_interactive.sh test-simulations/hello_isaac.py
 ```
 
 ## Running Your Own Simulations
 
 ### Create a New Simulation
 
-1. Create a Python script in `simulations/` directory:
+1. Create a Python script in your simulations directory:
 
 ```python
 #!/usr/bin/env python3
@@ -73,8 +73,8 @@ simulation_app.close()
 2. Submit it as a job:
 
 ```bash
-cd ~/isaacsim/physics-sim
-sbatch submit_isaac_job.sh simulations/your_script.py
+cd ~/isaacsim/isaac-sim-msoe
+sbatch submit_isaac_job.sh path/to/your_script.py
 ```
 
 ## Available GPU Partitions
@@ -107,7 +107,7 @@ scontrol show job <JOBID>
 sinfo -p teaching
 
 # View recent log files
-ls -lt ~/isaacsim/physics-sim/logs/
+ls -lt ~/isaacsim/isaac-sim-msoe/logs/
 ```
 
 ## Troubleshooting
@@ -148,7 +148,7 @@ with VideoRecorder("my_sim") as recorder:
 Retrieve videos from Rosie:
 ```bash
 # From your local machine:
-scp <username>@dh-ood.hpc.msoe.edu:~/isaacsim/physics-sim/videos/*.mp4 .
+scp <username>@dh-ood.hpc.msoe.edu:~/isaacsim/isaac-sim-msoe/videos/*.mp4 .
 
 # Or use the Rosie web portal Files browser at https://dh-ood.hpc.msoe.edu/
 ```

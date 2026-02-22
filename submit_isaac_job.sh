@@ -22,7 +22,7 @@ ISAAC_SIM_DIR="$HOME/isaacsim"
 ISAAC_PYTHON="$ISAAC_SIM_DIR/python.sh"
 
 # Script to run (passed as argument or default to hello_isaac.py)
-SCRIPT="${1:-simulations/hello_isaac.py}"
+SCRIPT="${1:-test-simulations/hello_isaac.py}"
 
 echo "========================================="
 echo "Isaac Sim Job Starting"
@@ -39,7 +39,7 @@ nvidia-smi
 echo ""
 
 # Change to project directory
-cd "$HOME/isaacsim/physics-sim" || exit 1
+cd "$HOME/isaacsim/isaac-sim-msoe" || exit 1
 
 echo "Running Isaac Sim..."
 echo ""

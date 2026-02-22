@@ -4,9 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a physics simulation project using NVIDIA Isaac Sim, designed to run on MSOE's Rosie supercomputer. The project leverages GPU resources for robotics and physics simulations.
+This is a physics simulation project using NVIDIA Isaac Sim, designed to run on MSOE's Rosie supercomputer. The project leverages GPU resources for robotics and physics simulations. This is a **team repository** — all simulation development happens here.
 
-**Installation Status**: ✅ Verified and operational
+**Repository**: `~/isaacsim/isaac-sim-msoe/` (git-tracked)
+
+**Installation Status**: Verified and operational
 - Isaac Sim 5.1.0-rc.19 installed at `~/isaacsim`
 - Python 3.11.13 environment included
 - Successfully tested on Tesla T4 GPUs
@@ -52,7 +54,7 @@ export OMNI_KIT_ACCEPT_EULA=YES
 
 **Important Notes**:
 - Isaac Sim MUST run on GPU nodes (will crash on login nodes)
-- Use SLURM scripts in `~/isaacsim/physics-sim/` for job submission
+- Use SLURM scripts in `~/isaacsim/isaac-sim-msoe/` for job submission
 - First run may be slower due to shader compilation
 - Print statements in scripts go to Isaac Sim's internal logs, not SLURM stdout
 - Exit code 0 indicates successful simulation
@@ -61,7 +63,7 @@ export OMNI_KIT_ACCEPT_EULA=YES
 
 **Video Recording**:
 - Uses `imageio-ffmpeg` bundled ffmpeg binary (no system ffmpeg needed on Rosie)
-- Videos saved to `physics-sim/videos/`
+- Videos saved to `videos/` in the project root
 - Import with: `from sim_utils.video_capture import VideoRecorder`
 - Always use `render=True` in `world.step()` when recording
 
@@ -82,7 +84,7 @@ export OMNI_KIT_ACCEPT_EULA=YES
 
 Submit a batch job to run simulations:
 ```bash
-cd ~/isaacsim/physics-sim
+cd ~/isaacsim/isaac-sim-msoe
 sbatch submit_isaac_job.sh [optional_script.py]
 ```
 
@@ -100,13 +102,13 @@ For testing and debugging, use an interactive GPU session:
 srun --partition=teaching --gres=gpu:1 --time=2:00:00 --pty bash
 
 # Run simulation
-cd ~/isaacsim/physics-sim
-./run_isaac_interactive.sh simulations/your_script.py
+cd ~/isaacsim/isaac-sim-msoe
+./run_isaac_interactive.sh test-simulations/your_script.py
 ```
 
 ### Running Simulations on Rosie
 
-1. **Create simulation scripts** in `~/isaacsim/physics-sim/simulations/`
+1. **Create simulation scripts** in `test-simulations/` (or your own directory)
 2. **Test with interactive session** (optional but recommended)
 3. **Submit GPU jobs via SLURM** for production runs
 4. **Monitor job status**: `squeue -u $USER`
@@ -115,28 +117,31 @@ cd ~/isaacsim/physics-sim
 ## File Organization
 
 ```
-~/isaacsim/                           # Isaac Sim installation (DO NOT MODIFY)
-├── python.sh                         # Isaac Sim Python launcher
-├── isaac-sim.sh                      # Main launcher
-├── kit/                              # Isaac Sim core
-└── physics-sim/                      # THIS PROJECT (your workspace)
-    ├── simulations/                  # Your simulation scripts HERE
-    │   ├── hello_isaac.py           # Falling cube test (verified working)
-    │   └── bouncing_balls_video.py  # Multi-ball demo with video
-    ├── sim_utils/                    # Shared utilities
-    │   ├── __init__.py
-    │   └── video_capture.py         # VideoRecorder for MP4 output
-    ├── videos/                       # Rendered MP4 output (gitignored)
-    ├── logs/                         # SLURM output logs
-    ├── submit_isaac_job.sh           # Batch job submission
-    ├── run_isaac_interactive.sh      # Interactive runner
-    ├── CLAUDE.md                     # This file
-    ├── README.md                     # User documentation
-    └── QUICKSTART.md                 # Quick reference
+~/isaacsim/                              # Isaac Sim installation (DO NOT MODIFY)
+├── python.sh                            # Isaac Sim Python launcher
+├── isaac-sim.sh                         # Main launcher
+└── kit/                                 # Isaac Sim core
+
+~/isaacsim/isaac-sim-msoe/               # THIS REPO (team workspace)
+├── test-simulations/                    # Test/example simulation scripts
+│   ├── hello_isaac.py                   # Falling cube test (verified working)
+│   ├── bouncing_balls.py                # Multi-ball demo with video
+│   └── boxes_colliding.py              # Box collision demo
+├── sim_utils/                           # Shared utilities (Python package)
+│   ├── __init__.py
+│   └── video_capture.py                # VideoRecorder for MP4 output
+├── videos/                              # Rendered MP4 output (gitignored)
+├── logs/                                # SLURM output logs
+├── submit_isaac_job.sh                  # Batch job submission
+├── run_isaac_interactive.sh             # Interactive runner
+├── CLAUDE.md                            # This file
+├── README.md                            # User documentation
+└── QUICKSTART.md                        # Quick reference
 ```
 
 **Best Practices**:
-- Create new simulation scripts in `simulations/` directory
+- Create new simulation scripts in an appropriate directory
+- `test-simulations/` is for test and example scripts
 - Use `submit_isaac_job.sh` to submit jobs
 - Check `logs/` for job output and errors
 - Test scripts interactively before batch submission
@@ -178,6 +183,8 @@ if __name__ == "__main__":
     main()
 ```
 
+**Note**: The `sim_utils/` directory must use underscores (not hyphens) to be importable by Python.
+
 ## GPU Partitions on Rosie
 
 | Partition | GPU Type | Time Limit | Use Case |
@@ -192,10 +199,11 @@ if __name__ == "__main__":
 ## Troubleshooting
 
 **Common Issues**:
-1. **"CUDA error: no device detected"** → Running on login node, need GPU node
-2. **"Exit Code: 139" (segfault)** → Missing GPU, ensure job requested `--gres=gpu:1`
-3. **Print statements not visible** → Normal; Isaac Sim captures stdout. Check exit code instead.
-4. **Job pending** → GPU nodes busy, wait or try different partition
+1. **"CUDA error: no device detected"** -> Running on login node, need GPU node
+2. **"Exit Code: 139" (segfault)** -> Missing GPU, ensure job requested `--gres=gpu:1`
+3. **Print statements not visible** -> Normal; Isaac Sim captures stdout. Check exit code instead.
+4. **Job pending** -> GPU nodes busy, wait or try different partition
+5. **`ModuleNotFoundError: No module named 'sim_utils'`** -> The directory is `sim_utils/` (hyphen). Either rename it to `sim_utils/` or ensure `sys.path` is set correctly in the script.
 
 **Verification**:
 - Exit code 0 = simulation successful
@@ -203,6 +211,6 @@ if __name__ == "__main__":
 - Simulation runtime shown in log timestamps
 
 **Harmless Warnings** (safe to ignore in logs):
-- `Failed to create secure directory (/run/user/.../pulse)` — no audio device on compute nodes
-- `omni.isaac.core.objects.* has been deprecated in favor of isaacsim.core.api.objects.*` — still functional
-- `carb.audio.device` / `carb.audio.output` warnings — headless mode, no audio needed
+- `Failed to create secure directory (/run/user/.../pulse)` -- no audio device on compute nodes
+- `omni.isaac.core.objects.* has been deprecated in favor of isaacsim.core.api.objects.*` -- still functional
+- `carb.audio.device` / `carb.audio.output` warnings -- headless mode, no audio needed

@@ -33,7 +33,7 @@ if [ $# -eq 0 ]; then
     echo "Usage: $0 <script.py>"
     echo ""
     echo "Example:"
-    echo "  $0 simulations/hello_isaac.py"
+    echo "  $0 test-simulations/hello_isaac.py"
     echo ""
     echo "To get an interactive GPU session first:"
     echo "  srun --partition=teaching --gres=gpu:1 --time=2:00:00 --pty bash"
@@ -57,6 +57,6 @@ else
     fi
 
     # Run the script
-    cd "$HOME/isaacsim/physics-sim" || exit 1
+    cd "$HOME/isaacsim/isaac-sim-msoe" || exit 1
     "$ISAAC_PYTHON" "$SCRIPT"
 fi
