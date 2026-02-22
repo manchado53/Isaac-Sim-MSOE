@@ -6,9 +6,6 @@
 # NOTE: This script must be run on a GPU node (via srun or in an interactive session)
 #
 
-# Load required modules
-module load cuda/current
-
 # Set EULA acceptance
 export OMNI_KIT_ACCEPT_EULA=YES
 export PRIVACY_CONSENT=Y
@@ -33,7 +30,7 @@ if [ $# -eq 0 ]; then
     echo "Usage: $0 <script.py>"
     echo ""
     echo "Example:"
-    echo "  $0 test-simulations/hello_isaac.py"
+    echo "  $0 simulations/hello_isaac.py"
     echo ""
     echo "To get an interactive GPU session first:"
     echo "  srun --partition=teaching --gres=gpu:1 --time=2:00:00 --pty bash"
@@ -57,6 +54,6 @@ else
     fi
 
     # Run the script
-    cd "$HOME/isaacsim/isaac-sim-msoe" || exit 1
+    cd "$HOME/isaac-sim-msoe" || exit 1
     "$ISAAC_PYTHON" "$SCRIPT"
 fi
