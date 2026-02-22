@@ -10,9 +10,6 @@
 # Isaac Sim SLURM Job Script
 # Submit with: sbatch submit_isaac_job.sh <your_script.py>
 
-# Load modules
-module load cuda/current
-
 # Set environment variables
 export OMNI_KIT_ACCEPT_EULA=YES
 export PRIVACY_CONSENT=Y
@@ -22,7 +19,7 @@ ISAAC_SIM_DIR="$HOME/isaacsim"
 ISAAC_PYTHON="$ISAAC_SIM_DIR/python.sh"
 
 # Script to run (passed as argument or default to hello_isaac.py)
-SCRIPT="${1:-test-simulations/hello_isaac.py}"
+SCRIPT="${1:-simulations/hello_isaac.py}"
 
 echo "========================================="
 echo "Isaac Sim Job Starting"
@@ -39,7 +36,7 @@ nvidia-smi
 echo ""
 
 # Change to project directory
-cd "$HOME/isaacsim/isaac-sim-msoe" || exit 1
+cd "$HOME/isaac-sim-msoe" || exit 1
 
 echo "Running Isaac Sim..."
 echo ""

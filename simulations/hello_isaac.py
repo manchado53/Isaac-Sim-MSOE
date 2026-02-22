@@ -7,16 +7,14 @@ Tests that Isaac Sim is working by creating a basic scene with physics
 import os
 import sys
 
-# Accept EULA if not already set
 os.environ["OMNI_KIT_ACCEPT_EULA"] = "YES"
 
 from isaacsim import SimulationApp
 
-# Launch Isaac Sim headless
 simulation_app = SimulationApp({"headless": True})
 
-from omni.isaac.core import World
-from omni.isaac.core.objects import DynamicCuboid
+from isaacsim.core.api import World
+from isaacsim.core.api.objects import DynamicCuboid
 import numpy as np
 
 # Add project root to path for sim_utils import
@@ -30,15 +28,12 @@ def main():
     print("Isaac Sim Test - Hello Isaac!")
     print("=" * 60)
 
-    # Create a world
     world = World()
     print("\n✓ World created")
 
-    # Add a ground plane
     world.scene.add_default_ground_plane()
     print("✓ Ground plane added")
 
-    # Add a dynamic cube that will fall
     cube = world.scene.add(
         DynamicCuboid(
             prim_path="/World/Cube",
@@ -50,11 +45,9 @@ def main():
     )
     print("✓ Dynamic cube added at height 2.0m")
 
-    # Reset the world
     world.reset()
     print("\n✓ World reset - simulation ready")
 
-    # Run simulation with video recording
     num_steps = 150
     print(f"\nRunning physics simulation for {num_steps} steps with video recording...")
 
@@ -70,10 +63,9 @@ def main():
     print("\n" + "=" * 60)
     print("Test completed successfully!")
     print("Isaac Sim is working correctly on this node.")
-    print("Video saved to: videos/falling_cube.mp4")
+    print("Video saved to: output/videos/falling_cube.mp4")
     print("=" * 60)
 
-    # Cleanup
     simulation_app.close()
 
 if __name__ == "__main__":
