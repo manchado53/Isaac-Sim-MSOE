@@ -14,7 +14,7 @@
 The easiest way to run a simulation:
 
 ```bash
-cd ~/isaacsim/isaac-sim-msoe
+cd ~/isaac-sim-msoe
 sbatch submit_isaac_job.sh
 ```
 
