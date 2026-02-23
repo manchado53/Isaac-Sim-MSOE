@@ -22,6 +22,7 @@ _script_dir = os.path.dirname(os.path.abspath(__file__))
 _project_dir = os.path.abspath(os.path.join(_script_dir, ".."))
 sys.path.insert(0, _project_dir)
 from sim_utils.video_capture import VideoRecorder
+from sim_utils.follow_camera import FollowCamera
 
 # Get assets
 assets_root_path = get_assets_root_path()
@@ -61,21 +62,24 @@ my_carter = my_world.scene.add(
 # Differential controller (Nova Carter: 280mm wheel diameter, ~400mm wheelbase)
 my_controller = DifferentialController(name="simple_control", wheel_radius=0.14, wheel_base=0.4)
 
-# Third-person side-angle follow camera
-# Key: set_world_pose BEFORE world.step(render=True) due to async render pipeline
-CAMERA_OFFSET = np.array([5.0, -5.0, 4.0])
-side_orient = rot_utils.euler_angles_to_quats(np.array([0, 30, 135]), degrees=True)
-
-camera = Camera(
+# Follow camera — hospital ceiling = 3.0m (from USD BBox inspection)
+camera = FollowCamera(
     prim_path="/World/follow_camera",
-    position=np.array([5.0, -5.0, 4.0]),
-    frequency=20,
+    local_offset=[-6.0, 0.0, 2.0],  # 6m behind robot, 2m above floor
     resolution=(640, 480),
-    orientation=side_orient,
+    fps=20,
+    z_clamp=(0.5, 2.5),
 )
 
 my_world.reset()
+simulation_app.update()
 camera.initialize()
+
+# Warmup — renderer needs 10 steps before get_rgba() returns valid data
+# (per standalone_examples/api/isaacsim.sensors.camera/camera_annotator_device.py)
+print("Warming up renderer...")
+for _ in range(10):
+    my_world.step(render=True)
 
 # Navigation sequence: [linear_velocity m/s, angular_velocity rad/s]
 nav_sequence = [
@@ -98,6 +102,7 @@ def get_command(step):
             return cmd
     return [0, 0]
 
+
 max_frames = 2500
 frame_count = 0
 
@@ -105,18 +110,18 @@ print(f"Simulating {max_frames} frames...")
 
 with VideoRecorder("jetbot_hospital", fps=15) as recorder:
     while frame_count < max_frames:
+        # Update camera BEFORE world.step so the renderer picks up the new pose
         if my_world.is_playing():
-            # Drive the robot
-            my_carter.apply_wheel_actions(my_controller.forward(command=get_command(frame_count)))
-
-            # Update camera position BEFORE render step
-            carter_pos, _ = my_carter.get_world_pose()
-            camera.set_world_pose(position=carter_pos + CAMERA_OFFSET, orientation=side_orient)
+            carter_pos, carter_quat = my_carter.get_world_pose()
+            camera.update(carter_pos, carter_quat)
 
         my_world.step(render=True)
 
-        if my_world.is_playing() and frame_count % 2 == 0 and frame_count > 0:
-            recorder.capture_rgba(camera.get_rgba())
+        if my_world.is_playing():
+            my_carter.apply_wheel_actions(my_controller.forward(command=get_command(frame_count)))
+
+            if frame_count % 2 == 0:
+                recorder.capture_rgba(camera.get_rgba())
 
         if frame_count % 500 == 0:
             print(f"Frame {frame_count}/{max_frames}")

@@ -13,6 +13,7 @@
 # Set environment variables
 export OMNI_KIT_ACCEPT_EULA=YES
 export PRIVACY_CONSENT=Y
+export PYTHONUNBUFFERED=1   # force Python print() to flush immediately to SLURM log
 
 # Isaac Sim installation path
 ISAAC_SIM_DIR="$HOME/isaacsim"

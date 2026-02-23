@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a physics simulation project using NVIDIA Isaac Sim, designed to run on MSOE's Rosie supercomputer. The project leverages GPU resources for robotics and physics simulations. This is a **team repository** — all simulation development happens here.
 
-**Repository**: `~/isaacsim/isaac-sim-msoe/` (git-tracked)
+**Repository**: `~/isaac-sim-msoe/` (git-tracked)
 
 **Installation Status**: Verified and operational
 - Isaac Sim 5.1.0-rc.19 installed at `~/isaacsim`

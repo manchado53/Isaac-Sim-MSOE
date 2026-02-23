@@ -1,17 +1,60 @@
-# Isaac Sim — MSOE Rosie
+# Isaac Sim — MSOE Digital Twin Research
 
-Robotics simulation demos built with NVIDIA Isaac Sim 5.1.0 on MSOE's Rosie supercomputer.
+Autonomous robot simulation platform built with NVIDIA Isaac Sim 5.1.0, deployed on MSOE's Rosie HPC cluster (T4 GPUs, SLURM).
 
-## Overview
+## What This Project Is
 
-Isaac Sim is NVIDIA's robotics simulation platform. Since Rosie's compute nodes don't have monitors, there are two ways to run simulations:
+This repository is the simulation infrastructure for a research project at the Milwaukee School of Engineering (MSOE). We are building a framework that converts **architectural BIM data (Revit) into simulation-ready digital twins** where autonomous robots can be trained and evaluated entirely in software — before the physical building is even complete.
 
-- **Option A — Headless (SLURM batch job):** Run a simulation script in the background, record video output to a file. No live view needed.
-- **Option B — WebRTC Streaming:** Run Isaac Sim in streaming mode on a GPU node and connect to its full GUI from your local machine over an SSH tunnel.
+The target environment is the **Robert D. Kern Engineering Innovation Center**, a 97,000 sq ft facility currently under construction at MSOE that will connect to two existing campus buildings, forming a multi-building complex. Using the building's Revit model, we convert the design into USD format and import it into NVIDIA Isaac Sim for physics-realistic robot simulation.
 
-**Current demos:**
-- **Hospital** — Nova Carter AMR navigating a hospital environment with a third-person follow camera
-- **Robot Arm** — Franka robotic arm with a side-angle camera
+### Research Goals
+
+- **BIM-to-Sim Pipeline** — Convert Revit architectural models to USD, augment with collision geometry and semantic annotations, and import into Isaac Sim
+- **Navigation Graph Extraction** — Generate NavMesh from building geometry, compute optimized patrol routes using classical path planning
+- **Robot Training** — Train a simulated mobile robot (LiDAR + camera) via reinforcement learning for local navigation and obstacle avoidance across multi-building routes
+- **Synthetic Data Generation** — Generate onboard sensor data to train visual anomaly detection models (open doors, obstructions, irregular room states)
+- **Scalable HPC Deployment** — Run parallelized training on MSOE's Rosie cluster with NVIDIA T4 GPUs via SLURM
+
+### Current Stage
+
+We are in the **environment setup and navigation phase**:
+- Isaac Sim 5.1 is deployed and running headlessly on Rosie via SLURM batch jobs
+- The Isaac Sim hospital environment is loaded with a Nova Carter AMR navigating corridors (follow camera + overhead camera demos working)
+- The MSOE Kern Center Revit model has been exported to USD and is being imported into Isaac Sim (scale conversion, collision setup, ceiling/roof hiding for overhead views)
+- NavMesh generation from building geometry is next — this will feed the topological navigation graph for route planning
+
+### What's Next
+
+- Generate NavMesh for the hospital ground floor using `omni.anim.navigation.core`
+- Build the topological navigation graph with pairwise walkable distances
+- Integrate reinforcement learning for local navigation policy training
+- Import the full Kern Center multi-building complex
+- Generate synthetic sensor data for anomaly detection model training
+
+### Demo: Hospital Follow Camera
+
+A Nova Carter AMR navigating the Isaac Sim hospital environment with a third-person follow camera:
+
+![Hospital Follow Camera Demo](assets/demos/hospital_follow_cam_10s.mp4)
+
+### Current Simulations
+
+| Simulation | Description |
+|---|---|
+| `jetbot_hospital_demo.py` | Nova Carter navigating hospital corridors — follow camera (640x480) |
+| `jetbot_hospital_overhead.py` | Same hospital from a bird's-eye static camera — ceiling hidden (1280x720) |
+| `testbuilding_overhead.py` | MSOE TestBuilding (Revit export) — overhead view with roof hidden |
+| `franka_camera_demo.py` | Franka robotic arm with side-angle camera |
+
+---
+
+## How It Runs
+
+Since Rosie's compute nodes have no monitors, there are two ways to run simulations:
+
+- **Option A — Headless (SLURM batch job):** Submit a script, it renders to `.mp4` via ffmpeg. No live view.
+- **Option B — WebRTC Streaming:** Stream Isaac Sim's full GUI to your local machine over SSH tunnel.
 
 ---
 
@@ -72,30 +115,31 @@ chmod +x ~/bin/ffmpeg
 
 Run a simulation fully in the background via SLURM. The script records the camera output to an `.mp4` file using ffmpeg.
 
-### Submit the job
+### Submit a job
+
+All simulations are run through a single generic job script:
 
 ```bash
-sbatch scripts/hospital/run_jetbot_hospital.sh
-```
-
-```bash
-sbatch scripts/robot-arm/run_franka_camera.sh
+sbatch submit_isaac_job.sh simulations/jetbot_hospital_demo.py
+sbatch submit_isaac_job.sh simulations/jetbot_hospital_overhead.py
+sbatch submit_isaac_job.sh simulations/testbuilding_overhead.py
+sbatch submit_isaac_job.sh simulations/franka_camera_demo.py
 ```
 
 ### Monitor progress
 
 ```bash
-squeue -u <username>@ad.msoe.edu       # check job status and assigned node
-tail -f slurm-<job_id>.out             # live log output
+squeue -u <username>@ad.msoe.edu            # check job status
+tail -f logs/isaac_<job_id>.out              # live log output
 ```
 
 ### Output
 
-Videos are saved to `~/isaac-sim-msoe/output/` when the job completes.
+Videos are saved to `~/isaac-sim-msoe/output/<simulation_name>/` when the job completes.
 
 To target a specific node:
 ```bash
-sbatch --nodelist=dh-node17 scripts/hospital/run_jetbot_hospital.sh
+sbatch --nodelist=dh-node17 submit_isaac_job.sh simulations/jetbot_hospital_demo.py
 ```
 
 ---
@@ -172,15 +216,23 @@ squeue -u <username>@ad.msoe.edu    # check the NODELIST column
 
 ```
 isaac-sim-msoe/
-├── scripts/
-│   ├── hospital/
-│   │   ├── jetbot_hospital_demo.py   # Nova Carter hospital simulation
-│   │   └── run_jetbot_hospital.sh    # SLURM job script
-│   └── robot-arm/
-│       ├── franka_camera_demo.py     # Franka arm simulation
-│       └── run_franka_camera.sh      # SLURM job script
-├── output/                           # Video outputs (gitignored)
-└── README.md
+├── simulations/                          # All simulation scripts
+│   ├── hello_isaac.py                    # Minimal test (cube drop)
+│   ├── jetbot_hospital_demo.py           # Hospital — follow camera
+│   ├── jetbot_hospital_overhead.py       # Hospital — overhead camera
+│   ├── testbuilding_overhead.py          # MSOE building — overhead camera
+│   └── franka_camera_demo.py             # Franka arm demo
+├── sim_utils/                            # Reusable utilities
+│   ├── follow_camera.py                  # FollowCamera class (quaternion tracking)
+│   └── video_capture.py                  # VideoRecorder (ffmpeg pipe)
+├── assets/
+│   ├── demos/                            # Demo video clips
+│   │   └── hospital_follow_cam_10s.mp4   # 10s hospital follow-cam clip
+│   └── environments/                     # Custom building USDs (Revit exports)
+│       └── msoe_building/TestBuilding.usd
+├── submit_isaac_job.sh                   # Generic SLURM submission script
+├── logs/                                 # SLURM logs (gitignored)
+└── output/                               # Video outputs (gitignored)
 ```
 
 ---
