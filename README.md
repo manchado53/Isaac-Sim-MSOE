@@ -4,14 +4,33 @@ Autonomous robot simulation platform built with NVIDIA Isaac Sim 5.1.0, deployed
 
 ## What This Project Is
 
-We are building a **digital twin of the MSOE campus** to simulate autonomous security patrol robots before deploying them on real hardware. The platform lets us:
+This repository is the simulation infrastructure for a research project at the Milwaukee School of Engineering (MSOE). We are building a framework that converts **architectural BIM data (Revit) into simulation-ready digital twins** where autonomous robots can be trained and evaluated entirely in software — before the physical building is even complete.
 
-- **Simulate robot navigation** inside real building layouts (hospital, MSOE campus buildings) exported from Revit/BIM
-- **Generate navigation meshes (NavMesh)** from building geometry for pathfinding and route planning
-- **Record simulation footage** headlessly on HPC — no monitor or GUI needed
-- **Develop and test autonomy** — patrol route optimization, obstacle avoidance, multi-floor navigation
+The target environment is the **Robert D. Kern Engineering Innovation Center**, a 97,000 sq ft facility currently under construction at MSOE that will connect to two existing campus buildings, forming a multi-building complex. Using the building's Revit model, we convert the design into USD format and import it into NVIDIA Isaac Sim for physics-realistic robot simulation.
 
-The simulation runs entirely on MSOE's Rosie supercomputer using NVIDIA Isaac Sim in headless mode, with video output captured via ffmpeg.
+### Research Goals
+
+- **BIM-to-Sim Pipeline** — Convert Revit architectural models to USD, augment with collision geometry and semantic annotations, and import into Isaac Sim
+- **Navigation Graph Extraction** — Generate NavMesh from building geometry, compute optimized patrol routes using classical path planning
+- **Robot Training** — Train a simulated mobile robot (LiDAR + camera) via reinforcement learning for local navigation and obstacle avoidance across multi-building routes
+- **Synthetic Data Generation** — Generate onboard sensor data to train visual anomaly detection models (open doors, obstructions, irregular room states)
+- **Scalable HPC Deployment** — Run parallelized training on MSOE's Rosie cluster with NVIDIA T4 GPUs via SLURM
+
+### Current Stage
+
+We are in the **environment setup and navigation phase**:
+- Isaac Sim 5.1 is deployed and running headlessly on Rosie via SLURM batch jobs
+- The Isaac Sim hospital environment is loaded with a Nova Carter AMR navigating corridors (follow camera + overhead camera demos working)
+- The MSOE Kern Center Revit model has been exported to USD and is being imported into Isaac Sim (scale conversion, collision setup, ceiling/roof hiding for overhead views)
+- NavMesh generation from building geometry is next — this will feed the topological navigation graph for route planning
+
+### What's Next
+
+- Generate NavMesh for the hospital ground floor using `omni.anim.navigation.core`
+- Build the topological navigation graph with pairwise walkable distances
+- Integrate reinforcement learning for local navigation policy training
+- Import the full Kern Center multi-building complex
+- Generate synthetic sensor data for anomaly detection model training
 
 ### Demo: Hospital Follow Camera
 
