@@ -65,9 +65,9 @@ add_reference_to_stage(hospital_path, prim_path="/World/Hospital")
 # Lighting
 stage = omni.usd.get_context().get_stage()
 distant_light = UsdLux.DistantLight.Define(stage, Sdf.Path("/World/DistantLight"))
-distant_light.CreateIntensityAttr(500)
+distant_light.CreateIntensityAttr(2000)
 dome_light = UsdLux.DomeLight.Define(stage, Sdf.Path("/World/DomeLight"))
-dome_light.CreateIntensityAttr(200)
+dome_light.CreateIntensityAttr(1000)
 
 # ---------------------------------------------------------------------------
 # Robot — Nova Carter AMR
@@ -128,10 +128,21 @@ follow_camera = Camera(
 # ---------------------------------------------------------------------------
 # Reset & initialize cameras
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Camera 3 — SECURITY (fixed ceiling camera, simulates building surveillance)
+# ---------------------------------------------------------------------------
 
+security_camera = Camera(
+    prim_path="/World/SecurityCamera",
+    position=np.array([0.0, 0.0, 5.0]),
+    frequency=20,
+    resolution=(640, 480),
+    orientation=rot_utils.euler_angles_to_quats(np.array([0, 90, 0]), degrees=True),
+)
 my_world.reset()
 onboard_camera.initialize()
 follow_camera.initialize()
+security_camera.initialize()
 
 # ---------------------------------------------------------------------------
 # Navigation sequence: (start_frame, end_frame, [linear_vel, angular_vel])
@@ -161,14 +172,15 @@ def get_command(step):
 # Simulation loop
 # ---------------------------------------------------------------------------
 
-max_frames = 2500
+max_frames = 1800
 frame_count = 0
 
 print(f"Simulating {max_frames} frames...")
 print("Recording: onboard.mp4 (1st person) + follow.mp4 (3rd person)")
 
 with VideoRecorder("nova_carter_onboard_cam_onboard", fps=15) as onboard_recorder, \
-     VideoRecorder("nova_carter_onboard_cam_follow",  fps=15) as follow_recorder:
+     VideoRecorder("nova_carter_onboard_cam_follow",  fps=15) as follow_recorder, \
+     VideoRecorder("nova_carter_security_cam",        fps=15) as security_recorder:
 
     while frame_count < max_frames:
 
@@ -199,6 +211,12 @@ with VideoRecorder("nova_carter_onboard_cam_onboard", fps=15) as onboard_recorde
                 orientation=follow_orient,
             )
 
+            # Security camera — overhead, directly above robot
+            security_camera.set_world_pose(
+                position=np.array([carter_pos[0], carter_pos[1], 5.0]),
+                orientation=rot_utils.euler_angles_to_quats(np.array([0, -90, 0]), degrees=True),
+            )
+
         # Render step AFTER pose updates (critical for async pipeline)
         my_world.step(render=True)
 
@@ -210,6 +228,10 @@ with VideoRecorder("nova_carter_onboard_cam_onboard", fps=15) as onboard_recorde
                 onboard_recorder.capture_rgba(onboard_rgba)
             if follow_rgba is not None:
                 follow_recorder.capture_rgba(follow_rgba)
+                
+            security_rgba = security_camera.get_rgba()
+            if security_rgba is not None:
+                security_recorder.capture_rgba(security_rgba)
 
         if frame_count % 500 == 0:
             print(f"Frame {frame_count}/{max_frames}")
