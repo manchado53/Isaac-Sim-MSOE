@@ -100,11 +100,11 @@ my_controller = DifferentialController(
 # Orientation: matches the robot's heading (updated every frame)
 # ---------------------------------------------------------------------------
 
-ONBOARD_OFFSET = np.array([0.36, 0.0, 0.5])
+ONBOARD_OFFSET = np.array([0.20, 0.0, 0.65])
 
 onboard_camera = Camera(
     prim_path="/World/OnboardCamera",
-    position=np.array([0.36, 0.0, 0.5]),   # will be updated every frame
+    position=np.array([0.36, 0.0, 0.5]),
     frequency=20,
     resolution=(640, 480),
     orientation=rot_utils.euler_angles_to_quats(np.array([0, 0, 0]), degrees=True),
@@ -141,6 +141,11 @@ security_camera = Camera(
 )
 my_world.reset()
 onboard_camera.initialize()
+from pxr import UsdGeom
+camera_prim = stage.GetPrimAtPath("/World/OnboardCamera")
+usd_camera = UsdGeom.Camera(camera_prim)
+usd_camera.GetFocalLengthAttr().Set(5.0)
+usd_camera.GetClippingRangeAttr().Set((0.01, 10000.0))
 follow_camera.initialize()
 security_camera.initialize()
 
