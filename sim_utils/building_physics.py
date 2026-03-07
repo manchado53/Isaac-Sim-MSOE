@@ -13,7 +13,7 @@ Key constraint:
 """
 
 from enum import Enum, auto
-from typing import Optional
+from typing import List, Optional
 
 from pxr import Usd, UsdGeom, UsdPhysics, UsdShade, Gf, Sdf
 
@@ -101,10 +101,78 @@ _CATEGORY_RULES = [
 ]
 
 
-def categorize_prim(name: str) -> PrimCategory:
-    """Categorize a building prim by its name prefix."""
+def decode_tn_name(name: str) -> str:
+    """Strip the ``tn__`` prefix added by the Revit-to-USD exporter.
+
+    Revit-exported prims in the engineering building carry a ``tn__`` prefix
+    (e.g. ``tn__Basic_Wall_Exterior_123``).  This helper strips it so that
+    downstream rules can match on the human-readable portion.  Names without
+    the prefix pass through unchanged for backward compatibility with
+    simpler USD files like TestBuilding.
+    """
+    if name.startswith("tn__"):
+        return name[4:]
+    return name
+
+
+# Category-folder name -> PrimCategory mapping.
+# Used when the building has a hierarchical structure with explicit category
+# folders (Doors, Walls, Floors, …) under each level.  The folder name
+# (after stripping ``tn__`` and any hash suffix) is matched with startswith.
+_FOLDER_CATEGORY_MAP = {
+    # Structural
+    "Walls":              PrimCategory.STATIC_STRUCTURAL,
+    "Wall_Sweeps":        PrimCategory.STATIC_STRUCTURAL,
+    "Floors":             PrimCategory.STATIC_STRUCTURAL,
+    "Ceilings":           PrimCategory.STATIC_STRUCTURAL,
+    "Roofs":              PrimCategory.STATIC_STRUCTURAL,
+    "Ramps":              PrimCategory.STATIC_STRUCTURAL,
+    "Supports":           PrimCategory.STATIC_STRUCTURAL,
+    "StructuralColumns":  PrimCategory.STATIC_STRUCTURAL,
+    "StructuralFraming":  PrimCategory.STATIC_STRUCTURAL,
+    "Columns":            PrimCategory.STATIC_STRUCTURAL,
+    # Stairs / railings
+    "Stairs":             PrimCategory.STATIC_STAIR,
+    "Railings":           PrimCategory.STATIC_STAIR,
+    "Runs":               PrimCategory.STATIC_STAIR,
+    "Landings":           PrimCategory.STATIC_STAIR,
+    "Handrails":          PrimCategory.STATIC_STAIR,
+    "Top_Rails":          PrimCategory.STATIC_STAIR,
+    # Doors (dynamic)
+    "Doors":              PrimCategory.DYNAMIC_DOOR,
+    # Glazing
+    "Windows":            PrimCategory.STATIC_GLAZING,
+    "CurtainPanels":      PrimCategory.STATIC_GLAZING,
+    "Curtain_Panels":     PrimCategory.STATIC_GLAZING,
+    "CurtainWallMullions": PrimCategory.STATIC_GLAZING,
+    "Curtain_Wall_Mullions": PrimCategory.STATIC_GLAZING,
+    # Everything not listed here falls through to SKIP.
+}
+
+
+def categorize_prim(name: str, category_hint: Optional[str] = None) -> PrimCategory:
+    """Categorize a building prim by category-folder hint or name prefix.
+
+    Args:
+        name: The prim name (may carry a ``tn__`` prefix).
+        category_hint: Optional category-folder name such as ``"Doors"``,
+            ``"Walls"``, or ``"tn__StructuralFraming_xH"``.  When provided
+            the folder-based ``_FOLDER_CATEGORY_MAP`` is consulted first
+            (primary approach for the engineering building).  Falls back to
+            prefix-based ``_CATEGORY_RULES`` when *category_hint* is ``None``
+            (backward-compatible path for TestBuilding).
+    """
+    if category_hint is not None:
+        decoded_hint = decode_tn_name(category_hint)
+        for folder_name, category in _FOLDER_CATEGORY_MAP.items():
+            if decoded_hint.startswith(folder_name):
+                return category
+        return PrimCategory.SKIP
+
+    # Fallback: prefix-based matching (TestBuilding compatibility)
+    decoded = decode_tn_name(name)
     for prefix, category in _CATEGORY_RULES:
-        if name.startswith(prefix):
+        if decoded.startswith(prefix):
             return category
     return PrimCategory.SKIP
 
@@ -128,11 +196,44 @@ def _find_mesh_child(prim):
     return None
 
 
+def _find_mesh_descendant(prim, max_depth: int = 3) -> Optional[Usd.Prim]:
+    """Find the first Mesh descendant, searching up to *max_depth* levels.
+
+    For the engineering building most element prims are **instanceable**.
+    Meshes are hidden behind the instance boundary and invisible to normal
+    traversal.  This function calls ``SetInstanceable(False)`` when needed
+    so that the Mesh children become accessible.  After de-instancing the
+    Mesh is typically a direct child (depth 1), but a higher *max_depth*
+    is kept for safety.
+
+    Args:
+        prim: Starting Xform prim to search under.
+        max_depth: Maximum nesting levels to recurse into.
+
+    Returns:
+        The first ``UsdGeom.Mesh`` prim found, or ``None``.
+    """
+    # De-instance if the prim hides its children behind an instance boundary.
+    if prim.IsInstanceable():
+        prim.SetInstanceable(False)
+
+    if max_depth <= 0:
+        return None
+
+    for child in prim.GetChildren():
+        if child.IsA(UsdGeom.Mesh):
+            return child
+        result = _find_mesh_descendant(child, max_depth - 1)
+        if result is not None:
+            return result
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Physics Application
 # ---------------------------------------------------------------------------
 
-def apply_static_collider(stage, prim, approx="none"):
+def apply_static_collider(stage, prim, approx="none", deep_search=False):
     """
     Apply static collision to a prim (no RigidBodyAPI = infinite mass, immovable).
 
@@ -144,10 +245,15 @@ def apply_static_collider(stage, prim, approx="none"):
         prim: Xform prim containing a Mesh child
         approx: Collision approximation — "none" for triangle mesh (static only),
                  "convexHull", "convexDecomposition", "boundingCube", "boundingSphere"
+        deep_search: If True, use _find_mesh_descendant() to search nested/instanced
+                     hierarchies. Default False preserves backward compatibility.
     Returns:
         True if collision was applied, False if no mesh child found
     """
-    mesh_prim = _find_mesh_child(prim)
+    if deep_search:
+        mesh_prim = _find_mesh_descendant(prim)
+    else:
+        mesh_prim = _find_mesh_child(prim)
     if mesh_prim is None:
         return False
 
@@ -160,7 +266,7 @@ def apply_static_collider(stage, prim, approx="none"):
     return True
 
 
-def apply_dynamic_rigid_body(stage, prim, mass=15.0):
+def apply_dynamic_rigid_body(stage, prim, mass=15.0, deep_search=False):
     """
     Apply dynamic rigid body physics to a prim (e.g. a door).
 
@@ -171,10 +277,15 @@ def apply_dynamic_rigid_body(stage, prim, mass=15.0):
         stage: USD stage
         prim: Xform prim containing a Mesh child
         mass: Mass in kg
+        deep_search: If True, use _find_mesh_descendant() to search nested/instanced
+                     hierarchies. Default False preserves backward compatibility.
     Returns:
         True if physics was applied, False if no mesh child found
     """
-    mesh_prim = _find_mesh_child(prim)
+    if deep_search:
+        mesh_prim = _find_mesh_descendant(prim)
+    else:
+        mesh_prim = _find_mesh_child(prim)
     if mesh_prim is None:
         return False
 
@@ -360,3 +471,148 @@ def setup_physics_scene(stage, gravity=-9.81, time_steps_per_second=60,
         pass
 
     return scene
+
+
+# ---------------------------------------------------------------------------
+# Building Traversal
+# ---------------------------------------------------------------------------
+
+def _find_wrapper(prim):
+    """Return the Xform child of *prim* that has the most children.
+
+    In the engineering building the model root sits inside one or two
+    wrapper Xforms.  The wrapper is the Xform child with the most
+    sub-prims (level prims, category folders, etc.).  Scope prims are
+    skipped because they hold materials, not geometry.
+    """
+    best = None
+    best_count = -1
+    for child in prim.GetChildren():
+        if child.GetTypeName() == "Scope":
+            continue
+        if not child.IsA(UsdGeom.Xform):
+            continue
+        count = len(child.GetChildren())
+        if count > best_count:
+            best = child
+            best_count = count
+    return best
+
+
+def _has_level_children(prim):
+    """Return True if *prim* has any children with ``LEVEL`` in their decoded name."""
+    for child in prim.GetChildren():
+        if "LEVEL" in decode_tn_name(child.GetName()).upper():
+            return True
+    return False
+
+
+def _iter_leaf_elements(prim, max_depth: int = 6):
+    """Yield leaf-element Xform prims under *prim*.
+
+    Recurses through type sub-folders and extra wrappers until it finds
+    actual building elements.  An element is detected by either:
+
+    * ``IsInstanceable()`` — meshes hidden behind an instance boundary
+      (engineering building with tn__ prefix export).
+    * Having a direct Mesh child — non-instanced elements where the Mesh
+      is a regular child prim (MSOEBuildingTake2 / newer exports).
+
+    Non-leaf Xforms (folders/wrappers with only Xform children) are
+    recursed into up to *max_depth* levels.
+    """
+    if max_depth <= 0:
+        return
+    for child in prim.GetChildren():
+        if child.GetTypeName() == "Scope":
+            continue
+        if not child.IsA(UsdGeom.Xform):
+            continue
+        if child.IsInstanceable():
+            yield child
+        elif _find_mesh_child(child) is not None:
+            yield child
+        else:
+            yield from _iter_leaf_elements(child, max_depth - 1)
+
+
+def iter_building_elements(stage, building_prim, level_filter=None):
+    """Yield ``(level_name, category_name, element_prim)`` tuples.
+
+    Automatically detects the building structure:
+
+    * **Flat** (TestBuilding) — children of *building_prim* are element
+      Xforms directly.  Yields ``("default", None, prim)``.
+    * **Category-based** (MSOEBuildingTake2) — single wrapper with a
+      ``Geometry`` child containing category folders (``Walls``, ``Doors``,
+      …).  No floor-level grouping.  Yields ``("default", cat_name, prim)``.
+    * **Hierarchical** (older engineering building export) — double-wrapped
+      with level prims containing category folders.
+
+    Args:
+        stage: The USD stage.
+        building_prim: Root prim of the building (e.g. ``/World/Building``).
+        level_filter: Optional list of substrings.  Only levels whose
+            decoded name contains one of these substrings (case-insensitive)
+            are included.  ``None`` means all levels.
+
+    Yields:
+        ``(level_name, category_name, element_prim)`` where *level_name*
+        is the decoded floor-level name, *category_name* is the decoded
+        category-folder name (or ``None`` for flat buildings), and
+        *element_prim* is the Xform to apply physics to.
+    """
+    outer = _find_wrapper(building_prim)
+
+    # --- detect category-based structure (Geometry folder) ---
+    geometry_prim = None
+    if outer is not None:
+        for child in outer.GetChildren():
+            if child.GetName() == "Geometry" and child.IsA(UsdGeom.Xform):
+                geometry_prim = child
+                break
+
+    if geometry_prim is not None:
+        # -- category-based mode (MSOEBuildingTake2) --
+        for cat_prim in geometry_prim.GetChildren():
+            if cat_prim.GetTypeName() == "Scope":
+                continue
+            if not cat_prim.IsA(UsdGeom.Xform):
+                continue
+            category_name = cat_prim.GetName()
+            for element in _iter_leaf_elements(cat_prim):
+                yield ("default", category_name, element)
+        return
+
+    # --- detect hierarchical structure (level-based) ---
+    inner = None
+    if outer is not None:
+        if _has_level_children(outer):
+            inner = outer
+        else:
+            candidate = _find_wrapper(outer)
+            if candidate is not None and _has_level_children(candidate):
+                inner = candidate
+
+    if inner is not None:
+        # -- hierarchical mode (older engineering building export) --
+        for level_prim in inner.GetChildren():
+            level_name = decode_tn_name(level_prim.GetName())
+
+            if "LEVEL" not in level_name.upper():
+                continue
+
+            if level_filter is not None:
+                if not any(f.upper() in level_name.upper() for f in level_filter):
+                    continue
+
+            # Each child of the level prim is a category folder.
+            for cat_prim in level_prim.GetChildren():
+                category_name = decode_tn_name(cat_prim.GetName())
+                for element in _iter_leaf_elements(cat_prim):
+                    yield (level_name, category_name, element)
+    else:
+        # -- flat mode (TestBuilding) --
+        for child in building_prim.GetChildren():
+            if child.IsA(UsdGeom.Xform) and child.GetTypeName() != "Scope":
+                yield ("default", None, child)
