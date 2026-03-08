@@ -1,0 +1,74 @@
+{
+  "floor": "floor_1",
+  "cell_size_cm": 3.0,
+  "xy_min": [
+    -8640.602063726465,
+    -1050.9439888000488
+  ],
+  "nodes": [
+    {
+      "label": "node_1",
+      "grid_col": 1750,
+      "grid_row": 1723,
+      "world_x": -3390.6020637264646,
+      "world_y": 4118.056011199951,
+      "cluster_size": 1111
+    },
+    {
+      "label": "node_2",
+      "grid_col": 2095,
+      "grid_row": 1753,
+      "world_x": -2355.6020637264646,
+      "world_y": 4208.056011199951,
+      "cluster_size": 1057
+    },
+    {
+      "label": "node_3",
+      "grid_col": 2576,
+      "grid_row": 1753,
+      "world_x": -912.6020637264646,
+      "world_y": 4208.056011199951,
+      "cluster_size": 1046
+    },
+    {
+      "label": "node_4",
+      "grid_col": 1556,
+      "grid_row": 1899,
+      "world_x": -3972.6020637264646,
+      "world_y": 4646.056011199951,
+      "cluster_size": 1152
+    },
+    {
+      "label": "node_5",
+      "grid_col": 2102,
+      "grid_row": 2017,
+      "world_x": -2334.6020637264646,
+      "world_y": 5000.056011199951,
+      "cluster_size": 1037
+    },
+    {
+      "label": "node_6",
+      "grid_col": 2617,
+      "grid_row": 2093,
+      "world_x": -789.6020637264646,
+      "world_y": 5228.056011199951,
+      "cluster_size": 1059
+    },
+    {
+      "label": "node_7",
+      "grid_col": 2108,
+      "grid_row": 2163,
+      "world_x": -2316.6020637264646,
+      "world_y": 5438.056011199951,
+      "cluster_size": 1029
+    },
+    {
+      "label": "node_8",
+      "grid_col": 2600,
+      "grid_row": 2514,
+      "world_x": -840.6020637264646,
+      "world_y": 6491.056011199951,
+      "cluster_size": 1044
+    }
+  ]
+}

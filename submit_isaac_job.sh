@@ -2,7 +2,7 @@
 #SBATCH --job-name=isaac-sim
 #SBATCH --partition=teaching
 #SBATCH --gres=gpu:1
-#SBATCH --time=02:00:00
+#SBATCH --time=05:00:00
 #SBATCH --mem=16G
 #SBATCH --output=logs/isaac_%j.out
 #SBATCH --error=logs/isaac_%j.err
@@ -19,7 +19,10 @@ ISAAC_SIM_DIR="$HOME/isaacsim"
 ISAAC_PYTHON="$ISAAC_SIM_DIR/python.sh"
 
 # Script to run (passed as argument or default to hello_isaac.py)
+# Extra args after the script path are passed through to the Python script
 SCRIPT="${1:-simulations/hello_isaac.py}"
+shift 2>/dev/null || true
+EXTRA_ARGS="$@"
 
 echo "========================================="
 echo "Isaac Sim Job Starting"
@@ -40,7 +43,7 @@ cd "$HOME/isaac-sim-msoe" || exit 1
 
 echo "Running Isaac Sim..."
 echo ""
-"$ISAAC_PYTHON" "$SCRIPT"
+"$ISAAC_PYTHON" "$SCRIPT" $EXTRA_ARGS
 
 EXIT_CODE=$?
 

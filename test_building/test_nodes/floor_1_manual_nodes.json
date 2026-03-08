@@ -1,0 +1,35 @@
+{
+  "floor": "floor_1",
+  "cell_size_cm": 3.0,
+  "xy_min": [
+    -8640.602063726465,
+    -1050.9439888000488
+  ],
+  "xy_max": [
+    4300.455061024582,
+    13197.551789658177
+  ],
+  "nodes": [
+    {
+      "label": "node_1",
+      "world_x": -2000.0,
+      "world_y": 5000.0,
+      "grid_col": 2214,
+      "grid_row": 2017
+    },
+    {
+      "label": "node_2",
+      "world_x": -1000.0,
+      "world_y": 6000.0,
+      "grid_col": 2547,
+      "grid_row": 2350
+    },
+    {
+      "label": "node_3",
+      "world_x": 0.0,
+      "world_y": 7000.0,
+      "grid_col": 2880,
+      "grid_row": 2684
+    }
+  ]
+}

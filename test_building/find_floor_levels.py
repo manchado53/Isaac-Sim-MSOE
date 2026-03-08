@@ -21,7 +21,7 @@ from pxr import Usd, UsdGeom, Gf
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(PROJECT_DIR, "output")
 USD_PATH = os.path.join(os.path.dirname(PROJECT_DIR),
-                        "assets", "environments", "msoe_building", "TestBuilding.usd")
+                        "assets", "environments", "msoe_building", "MSOEBuildingTake2.usd")
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 

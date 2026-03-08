@@ -15,6 +15,7 @@ Run with:
 import os
 import sys
 import json
+import argparse
 import numpy as np
 
 os.environ["OMNI_KIT_ACCEPT_EULA"] = "YES"
@@ -33,7 +34,7 @@ from pxr import Usd, UsdGeom, UsdPhysics, PhysxSchema, Sdf
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(PROJECT_DIR, "output")
 USD_PATH = os.path.join(os.path.dirname(PROJECT_DIR),
-                        "assets", "environments", "msoe_building", "TestBuilding.usd")
+                        "assets", "environments", "msoe_building", "MSOEBuildingTake2.usd")
 
 CELL_SIZE = 3.0  # 3 cm per cell (finer detail)
 OCCUPIED = 1
@@ -196,14 +197,11 @@ def main():
     # ------------------------------------------------------------------
     print("\nApplying collision to architectural mesh prims...")
     # Skip non-architectural geometry that creates noise in occupancy maps
+    # MSOEBuildingTake2.usd has no HVAC/structural steel meshes, but skip
+    # Room volume meshes (Revit room labels) as they may interfere
     SKIP_PREFIXES = (
-        "Rectangular_Duct", "Round_Duct", "Flex_Duct", "Rectangular_Transition",
-        "Rectangular_Elbow", "Rectangular_Takeoff", "Rectangular_Endcap",
-        "Round_Takeoff", "VAV_Unit", "Supply_Diffuser", "Return_Grille",
-        "Exhaust_Gr", "Outlet_", "Strip_Lighting", "Switch_",
-        "Duplex_Receptacle", "Model_Text",
-        "W_Shapes_", "HSS_", "C_Shapes_",  # structural steel
-        "Footing_",  # underground footings
+        "Room_",  # Revit room volume/label meshes
+        "Model_Text",
     )
     mesh_count = 0
     skipped = 0
@@ -286,23 +284,47 @@ def main():
     # ------------------------------------------------------------------
     # Step 6: Floor slices (based on floor_analysis.json from find_floor_levels.py)
     # ------------------------------------------------------------------
-    # Actual floor slab Z levels from geometry analysis:
-    #   Ground slab:  Z ≈ -16 cm  (z_min=-30, z_max=0)
-    #   Ceiling elems: Z ≈ 218-280 cm
-    #   2nd slab:     Z ≈ 339 cm  (z_min=303, z_max=404)
-    #   3rd slab:     Z ≈ 450 cm  (z_min=442, z_max=457)
-    #   Roof struct:  Z ≈ 838-858 cm
-    #   Roof slab:    Z ≈ 927 cm  (z_min=910, z_max=941)
-    # Wall clusters: most start at Z=0-10, end at Z=460
+    # Floor slab Z levels from MSOEBuildingTake2.usd geometry analysis:
+    #   Ground/basement slab:  Z ≈ 870 cm  (range 856-884)
+    #   Floor 1 slab:          Z ≈ 1351 cm (range 1313-1387, large area 41M cm²)
+    #   Floor 1 ceiling:       Z ≈ 1662 cm (range 1600-1701)
+    #   Floor 2 slab:          Z ≈ 1797 cm (range 1732-1867)
+    #   Floor 2 ceiling:       Z ≈ 2131 cm (range 2113-2139, large area 73M cm²)
+    #   Floor 3 slab:          Z ≈ 2550 cm (range 2525-2566, large area 77M cm²)
+    #   Roof structure:        Z ≈ 2982 cm (range 2936-3012)
+    #   Top roof:              Z ≈ 3572 cm (range 3548-3597)
+    # Walls: Z range 838-3597, clusters at Z-min ~860-870 and ~1200-1230
     #
     # Scan at robot height (~50-150cm above each floor slab)
     # Keep Z ranges NARROW to avoid hitting ceiling/slab geometry
-    floor_slices = [
-        ("basement",     -280.0, -40.0),   # below ground slab (avoid slab at -30 to 0)
-        ("floor_1",        50.0, 200.0),   # ground floor: above slab, below ceiling at 218
-        ("floor_2",       360.0, 430.0),   # between 2nd slab (top≈404) and 3rd slab (bottom≈442)
-        ("floor_3",       470.0, 820.0),   # above 3rd slab, below roof struct at 838
+    all_floor_slices = [
+        ("basement",      900.0, 1300.0),   # above ground slab (884), below floor 1 slab (1313)
+        ("floor_1",      1400.0, 1600.0),   # above floor 1 slab (1387), below ceiling (1600)
+        ("floor_2",      1870.0, 2100.0),   # above floor 2 slab (1867), below ceiling (2113)
+        ("floor_3",      2200.0, 2500.0),   # above floor 2 ceiling (2139), below floor 3 slab (2525)
     ]
+
+    # Parse floor filter from OMAP_FLOOR env var or --floor command line arg
+    # Usage: OMAP_FLOOR=floor_2 sbatch submit_isaac_job.sh ...
+    #   OR:  ./python.sh script.py --floor floor_2
+    floor_filter = os.environ.get("OMAP_FLOOR", None)
+    if not floor_filter:
+        for i, arg in enumerate(sys.argv):
+            if arg == "--floor" and i + 1 < len(sys.argv):
+                floor_filter = sys.argv[i + 1]
+                break
+
+    if floor_filter:
+        floor_slices = [(n, zlo, zhi) for n, zlo, zhi in all_floor_slices
+                        if n == floor_filter]
+        if not floor_slices:
+            valid = [n for n, _, _ in all_floor_slices]
+            print(f"  ERROR: Unknown floor '{floor_filter}'. Valid: {valid}")
+            simulation_app.close()
+            sys.exit(1)
+        print(f"\n  Processing single floor: {floor_filter}")
+    else:
+        floor_slices = all_floor_slices
 
     print(f"\n  Floor slices (from geometry analysis):")
     for name, z_lo, z_hi in floor_slices:
@@ -326,6 +348,12 @@ def main():
     world_max_x = bb_max[0] + padding
     world_max_y = bb_max[1] + padding
 
+    # Pre-compute the expected grid dimensions from global bounds
+    expected_width = int(np.ceil((world_max_x - world_min_x) / CELL_SIZE))
+    expected_height = int(np.ceil((world_max_y - world_min_y) / CELL_SIZE))
+    print(f"\n  Expected grid size: {expected_width} x {expected_height} "
+          f"(from global XY bounds)")
+
     # Pre-compute the grid of origin points spread across the building
     origin_xs = np.linspace(bb_min[0] + 50, bb_max[0] - 50, GRID_ORIGINS_X)
     origin_ys = np.linspace(bb_min[1] + 50, bb_max[1] - 50, GRID_ORIGINS_Y)
@@ -338,8 +366,9 @@ def main():
 
         origin_z = (z_min + z_max) / 2.0
 
-        # --- Round 1: Grid of origins ---
-        base_grid = None
+        # --- Pre-allocate fixed-size grid from global bounds ---
+        base_grid = np.full((expected_height, expected_width), UNKNOWN,
+                            dtype=np.float32)
         scan_count = 0
 
         print(f"\n  Round 1: Scanning from {GRID_ORIGINS_X}x{GRID_ORIGINS_Y} = "
@@ -365,12 +394,9 @@ def main():
                     continue
 
                 scan_count += 1
-                if base_grid is None:
-                    base_grid = grid.copy()
-                else:
-                    base_grid = merge_grids(base_grid, grid)
+                base_grid = merge_grids(base_grid, grid)
 
-        if base_grid is None:
+        if scan_count == 0:
             print(f"  WARNING: No valid scans for {floor_name}")
             continue
 
@@ -422,6 +448,7 @@ def main():
             sys.stdout.flush()
 
         # --- Save final merged result ---
+        dims = (base_grid.shape[1], base_grid.shape[0])  # (width, height)
         meta_base = {
             "floor_name": floor_name,
             "grid_width": dims[0],
