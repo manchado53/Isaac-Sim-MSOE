@@ -3,5 +3,3 @@ logs/
 output/
 __pycache__/
 .claude/
-*.usd
-*.log
