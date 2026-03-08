@@ -87,13 +87,12 @@ class VideoRecorder:
         if self._ffmpeg_proc is not None:
             # rgba pipe mode — finalize the ffmpeg process
             self._ffmpeg_proc.stdin.close()
-            self._ffmpeg_proc.wait()
+            self._ffmpeg_proc.wait(timeout=60)
             output_path = self.output_dir / f"{self.video_name}.mp4"
             if self._ffmpeg_proc.returncode == 0:
                 print(f"[VideoRecorder] ✓ Video saved: {output_path} ({self.frame_count} frames)")
             else:
-                stderr = self._ffmpeg_proc.stderr.read().decode()
-                print(f"[VideoRecorder] ffmpeg failed: {stderr}")
+                print(f"[VideoRecorder] ffmpeg failed (exit code {self._ffmpeg_proc.returncode})")
         else:
             # viewport/PNG mode — assemble from captured PNGs
             if exc_type is not None:
@@ -180,7 +179,7 @@ class VideoRecorder:
             str(output_path),
         ]
         self._ffmpeg_proc = subprocess.Popen(
-            cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
         )
         print(f"[VideoRecorder] Piping {width}x{height} @ {self.fps}fps → {output_path}")
 
