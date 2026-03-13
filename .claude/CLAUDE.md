@@ -4,7 +4,35 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a physics simulation project using NVIDIA Isaac Sim, designed to run on MSOE's Rosie supercomputer. The project leverages GPU resources for robotics and physics simulations. This is a **team repository** — all simulation development happens here.
+This is a **team repository** for a research project using NVIDIA Isaac Sim on MSOE's Rosie supercomputer.
+
+### Research Goal
+
+Deploy autonomous robots for indoor building operations (material delivery, facility monitoring, security patrol) by training them entirely in simulation before the physical building is complete. The framework converts architectural BIM (Revit) data into simulation-ready digital twins in NVIDIA Isaac Sim.
+
+### Target Environment
+
+A multi-story university engineering facility currently under construction at MSOE, featuring multi-building connections, mixed-use spaces, and varied floor plans.
+
+### Pipeline
+
+1. **BIM-to-Sim Conversion**: Revit architectural model → USD format → Isaac Sim import
+2. **Environment Augmentation**: Collision geometry, semantic annotations, sensor-realistic rendering
+3. **Navigation Graph Extraction**: Topological graph from building geometry with optimized operational routes via classical path planning
+4. **Robot Training (RL)**: Mobile robot with LiDAR + camera sensors trained via reinforcement learning for local navigation and obstacle avoidance
+5. **Synthetic Data Generation**: Onboard sensor data used to train visual anomaly detection models (open doors, obstructions, irregular room states)
+6. **HPC-Scale Training**: Parallelized on Rosie cluster with NVIDIA T4 GPUs
+
+### Key Metrics
+
+- Task completion rate
+- Path efficiency
+- Collision frequency
+- Performance across routes of varying complexity spanning the multi-building complex
+
+### Broader Impact
+
+Architectural BIM data (standard in modern building design) can serve as the foundation for scalable robot training without physical access to the target environment. The pipeline is repeatable for any building with available BIM data, with implications for sim-to-real transfer and robot-friendly architectural design.
 
 **Repository**: `~/isaac-sim-msoe/` (git-tracked)
 
@@ -54,7 +82,7 @@ export OMNI_KIT_ACCEPT_EULA=YES
 
 **Important Notes**:
 - Isaac Sim MUST run on GPU nodes (will crash on login nodes)
-- Use SLURM scripts in `~/isaacsim/isaac-sim-msoe/` for job submission
+- Use SLURM scripts in `~/isaac-sim-msoe/` for job submission
 - First run may be slower due to shader compilation
 - Print statements in scripts go to Isaac Sim's internal logs, not SLURM stdout
 - Exit code 0 indicates successful simulation
@@ -84,7 +112,7 @@ export OMNI_KIT_ACCEPT_EULA=YES
 
 Submit a batch job to run simulations:
 ```bash
-cd ~/isaacsim/isaac-sim-msoe
+cd ~/isaac-sim-msoe
 sbatch submit_isaac_job.sh [optional_script.py]
 ```
 
@@ -102,7 +130,7 @@ For testing and debugging, use an interactive GPU session:
 srun --partition=teaching --gres=gpu:1 --time=2:00:00 --pty bash
 
 # Run simulation
-cd ~/isaacsim/isaac-sim-msoe
+cd ~/isaac-sim-msoe
 ./run_isaac_interactive.sh test-simulations/your_script.py
 ```
 
@@ -122,7 +150,7 @@ cd ~/isaacsim/isaac-sim-msoe
 ├── isaac-sim.sh                         # Main launcher
 └── kit/                                 # Isaac Sim core
 
-~/isaacsim/isaac-sim-msoe/               # THIS REPO (team workspace)
+~/isaac-sim-msoe/                        # THIS REPO (team workspace)
 ├── test-simulations/                    # Test/example simulation scripts
 │   ├── hello_isaac.py                   # Falling cube test (verified working)
 │   ├── bouncing_balls.py                # Multi-ball demo with video

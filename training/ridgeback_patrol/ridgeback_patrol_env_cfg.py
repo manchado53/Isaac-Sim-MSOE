@@ -72,6 +72,20 @@ RIDGEBACK_BASE_CFG = ArticulationCfg(
             stiffness=0.0,
             damping=1e5,
         ),
+        # Lock the Franka arm in its neutral pose so it doesn't flop
+        # under gravity and tip the robot over
+        "arm_lock": ImplicitActuatorCfg(
+            joint_names_expr=["panda_joint.*"],
+            effort_limit_sim=1000.0,
+            stiffness=1e4,
+            damping=1e3,
+        ),
+        "gripper_lock": ImplicitActuatorCfg(
+            joint_names_expr=["panda_finger_joint.*"],
+            effort_limit_sim=100.0,
+            stiffness=1e4,
+            damping=1e2,
+        ),
     },
 )
 """Ridgeback base config with only dummy base joints actuated (arm ignored)."""
