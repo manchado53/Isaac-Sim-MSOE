@@ -44,7 +44,8 @@ UNKNOWN = 2
 # Multi-origin grid: how many origins to place along each axis
 GRID_ORIGINS_X = 5  # origins spread across X
 GRID_ORIGINS_Y = 5  # origins spread across Y
-MAX_RESCAN_ROUNDS = 3  # additional rounds targeting remaining unknown regions
+MAX_RESCAN_ROUNDS = 6  # additional rounds targeting remaining unknown regions
+RESCAN_ORIGINS_PER_ROUND = 50  # origins per rescan round (placed inside unknown regions)
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -205,16 +206,23 @@ def main():
     )
     mesh_count = 0
     skipped = 0
+    door_skipped = 0
     for prim in stage.Traverse():
         if prim.IsA(UsdGeom.Mesh):
+            path_str = str(prim.GetPath())
             name = prim.GetName()
+            # Skip door geometry so raycasts pass through doorways into rooms
+            if "/Doors/" in path_str:
+                door_skipped += 1
+                continue
             if any(name.startswith(prefix) for prefix in SKIP_PREFIXES):
                 skipped += 1
                 continue
             mesh_count += 1
             if not prim.HasAPI(UsdPhysics.CollisionAPI):
                 UsdPhysics.CollisionAPI.Apply(prim)
-    print(f"  Meshes with collision: {mesh_count} (skipped {skipped} non-architectural)")
+    print(f"  Meshes with collision: {mesh_count} (skipped {skipped} non-architectural, "
+          f"{door_skipped} door prims)")
     sys.stdout.flush()
 
     # ------------------------------------------------------------------
@@ -298,10 +306,11 @@ def main():
     # Scan at robot height (~50-150cm above each floor slab)
     # Keep Z ranges NARROW to avoid hitting ceiling/slab geometry
     all_floor_slices = [
-        ("basement",      900.0, 1300.0),   # above ground slab (884), below floor 1 slab (1313)
+        ("basement",      900.0, 1100.0),   # above ground slab (884), walking height, below floor 1 slab (1313)
         ("floor_1",      1400.0, 1600.0),   # above floor 1 slab (1387), below ceiling (1600)
-        ("floor_2",      1870.0, 2100.0),   # above floor 2 slab (1867), below ceiling (2113)
-        ("floor_3",      2200.0, 2500.0),   # above floor 2 ceiling (2139), below floor 3 slab (2525)
+        ("floor_2",      1950.0, 2050.0),   # walking height above floor 2 slab (1867), below ceiling (2113)
+        ("floor_3",      2350.0, 2450.0),   # ECBE rooms (Z 2250-2570), walking height
+        ("floor_4",      2750.0, 2900.0),   # CAECM rooms (Z 2677-2997), walking height above slab
     ]
 
     # Parse floor filter from OMAP_FLOOR env var or --floor command line arg
@@ -407,6 +416,7 @@ def main():
         sys.stdout.flush()
 
         # --- Rounds 2+: Target remaining unknown regions ---
+        prev_unknown_pct = 100 * n_unknown / total
         for round_num in range(MAX_RESCAN_ROUNDS):
             n_unknown = int(np.sum(base_grid == UNKNOWN))
             if n_unknown == 0:
@@ -414,14 +424,21 @@ def main():
                 break
 
             unknown_pct = 100 * n_unknown / total
-            if unknown_pct < 1.0:
+            if unknown_pct < 0.5:
                 print(f"  Only {unknown_pct:.1f}% unknown, good enough")
+                break
+
+            # Stagnation detection: if unknown % didn't improve by at least 0.1%
+            # from the previous round, stop — these are likely unreachable cells
+            if round_num > 0 and (prev_unknown_pct - unknown_pct) < 0.1:
+                print(f"  Stagnation detected: {unknown_pct:.1f}% unknown "
+                      f"(was {prev_unknown_pct:.1f}%), stopping rescans")
                 break
 
             # Find origins inside unknown regions
             extra_origins = find_unknown_origins(
                 base_grid, world_min_x, world_min_y, CELL_SIZE, origin_z,
-                num_origins=15)
+                num_origins=RESCAN_ORIGINS_PER_ROUND)
 
             if not extra_origins:
                 break
@@ -442,6 +459,7 @@ def main():
                     base_grid = merge_grids(base_grid, grid)
                     scan_count += 1
 
+            prev_unknown_pct = unknown_pct
             n_unknown = int(np.sum(base_grid == UNKNOWN))
             print(f"  After {scan_count} total scans: "
                   f"{100*n_unknown/total:.1f}% unknown remaining")

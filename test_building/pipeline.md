@@ -2,10 +2,26 @@
 
 ## Overview
 
-This pipeline converts 3D building geometry (USD) into a 2D navigation graph for robot pathfinding. It has two stages:
+This pipeline converts the 3D MSOE Diercks Hall building model (USD from Revit) into 2D navigation graphs for robot pathfinding. It has two stages:
 
 1. **Occupancy Map Generation** — runs inside Isaac Sim on Rosie (GPU required)
 2. **Navigation Graph Building** — runs locally with plain Python (no Isaac Sim needed)
+
+The building model (`MSOEBuildingTake2.usd`) contains 18,690 prims exported from Revit, covering 5 floors: basement + 4 above-ground floors.
+
+---
+
+## Cell Classification
+
+The occupancy map classifies every 3cm x 3cm cell into one of three states:
+
+| Value | Name | Color (PNG) | Meaning |
+|-------|------|-------------|---------|
+| **0** | **Free** (white space) | White | Open, navigable space. The raycast confirmed nothing blocks this cell — a robot can drive through it. Includes hallways, room interiors, and open areas. |
+| **1** | **Occupied** | Black | A solid obstacle exists here. The raycast hit a wall, column, furniture, or other physical geometry. The robot cannot pass through this cell. |
+| **2** | **Unknown** | Gray | No raycast was able to reach this cell from any origin point. This happens when geometry completely blocks line-of-sight (e.g., behind thick walls, outside the building envelope, or in areas the scanner can't access). In nav graph building, unknowns are conservatively treated as walls. |
+
+**How raycasting determines cell state:** From each origin point, the scanner fires rays outward in all directions across the floor plane. If a ray reaches a cell without hitting anything, that cell is marked **free**. If a ray hits geometry at a cell, that cell is marked **occupied**. Cells that no ray from any origin can reach remain **unknown**. Multiple scans are merged — if any scan marks a cell as free or occupied, that overrides unknown from other scans.
 
 ---
 
@@ -13,89 +29,126 @@ This pipeline converts 3D building geometry (USD) into a 2D navigation graph for
 
 **Script:** `generate_occupancy_map.py`
 **Runs on:** Rosie HPC via `sbatch submit_isaac_job.sh test_building/generate_occupancy_map.py`
-**Requires:** Isaac Sim 5.1.0 (isaacsim.asset.gen.omap extension)
+**Requires:** Isaac Sim 5.1.0 (`isaacsim.asset.gen.omap` extension), GPU with PhysX
 
 ### What it does
 
-1. Loads `TestBuilding.usd` into Isaac Sim
-2. Applies `UsdPhysics.CollisionAPI` to all architectural meshes (walls, panels, doors) while skipping HVAC ducts, structural steel, and footings
-3. Sets up PhysX physics scene
-4. For each floor (basement, floor_1, floor_2, floor_3):
-   - Scans from a 5x5 grid of origin points using the occupancy map raycaster
-   - Each cell is classified as **occupied** (wall), **free** (open space), or **unknown** (unreachable)
-   - Merges all scans — free/occupied overrides unknown
-   - Runs up to 3 additional rescan rounds targeting remaining unknown regions
-5. Saves results per floor
+1. **Loads the USD scene** — Opens `MSOEBuildingTake2.usd` (Revit export of Diercks Hall) into Isaac Sim headless
+2. **Applies physics collision** — Adds `UsdPhysics.CollisionAPI` to all architectural mesh prims (~8,500 meshes), while skipping:
+   - **Door geometry** (189 mesh prims under `/Doors/` paths) — skipped so raycasts pass through doorways into rooms
+   - **Room volume meshes** (`Room_*` prefixes) — Revit labels, not real geometry
+   - **Model text** (`Model_Text*`) — annotation geometry
+3. **Sets up PhysX** physics scene and starts the simulation timeline
+4. **For each floor** (basement through floor_4):
+   - **Round 1**: Scans from a 5x5 grid of origin points (25 origins) spread across the building's XY bounds
+   - Each origin fires raycasts to classify cells as **occupied** (1 = wall), **free** (0 = open space), or **unknown** (2 = unreachable)
+   - Merges all 25 scans — free/occupied always overrides unknown
+   - **Rounds 2-7** (up to `MAX_RESCAN_ROUNDS=6`): Places 50 new origins inside remaining unknown regions and rescans
+   - **Stagnation detection**: If unknown % doesn't improve by at least 0.1% between rounds, stops early to avoid wasting time on genuinely unreachable cells
+   - **Early exit**: If unknown drops below 0.5%, declares "good enough" and stops
+5. **Saves per-floor results**: `.npy` occupancy grid, `.png` visualization, `_meta.json` metadata
+
+### Door Bypass
+
+The key insight enabling room access: Revit exports doors as solid mesh geometry. Without modification, raycasts hit door surfaces and can't see into rooms. The script identifies door prims by checking if `/Doors/` appears in the USD prim path (covers both `/Geometry/Doors/` placed instances and `/FamilyData/Doors/` templates). These prims are excluded from collision, making raycasts pass through doorways.
 
 ### Floor Z Slices
 
-| Floor    | Z min (cm) | Z max (cm) | Description                |
-|----------|-----------|-----------|----------------------------|
-| basement | -280      | -40       | Below ground slab          |
-| floor_1  | 50        | 200       | Ground floor, below ceiling|
-| floor_2  | 360       | 430       | Between 2nd and 3rd slabs  |
-| floor_3  | 470       | 820       | Above 3rd slab, below roof |
+Scan heights are set at robot walking height (~50-150cm above each floor slab), with narrow Z ranges to avoid hitting ceiling geometry.
+
+| Floor    | Z min (cm) | Z max (cm) | Description                          |
+|----------|-----------|-----------|--------------------------------------|
+| basement | 900       | 1100      | Above ground slab (884), 5 utility rooms |
+| floor_1  | 1400      | 1600      | Above floor 1 slab (1387), ground floor |
+| floor_2  | 1950      | 2050      | Above floor 2 slab (1867)           |
+| floor_3  | 2350      | 2450      | ECBE rooms (Z 2250-2570)            |
+| floor_4  | 2750      | 2900      | CAECM rooms (Z 2677-2997)           |
+
+Z values are in Revit's coordinate system (centimeters, Z-up). The basement is at Z ~900 (not negative) because the Revit model's ground plane is at Z ~838.
+
+### Single Floor Mode
+
+To scan just one floor (e.g., after adding floor_4):
+```bash
+# Via environment variable
+OMAP_FLOOR=floor_4 sbatch submit_isaac_job.sh test_building/generate_occupancy_map.py
+
+# Via command line argument
+./python.sh test_building/generate_occupancy_map.py --floor floor_4
+```
 
 ### Output Files
 
 | File | Description |
 |------|-------------|
-| `{floor}_occupancy.npy` | 2D numpy array (0=free, 1=occupied, 2=unknown) |
+| `{floor}_occupancy.npy` | 2D numpy array, shape 4314x4750 (0=free, 1=occupied, 2=unknown) |
 | `{floor}_occupancy.png` | Visual: black=walls, white=free, gray=unknown |
 | `{floor}_meta.json` | Grid dimensions, cell size, world coordinate bounds |
-| `bbox_info.json` | Building bounding box |
 
 ### Key Parameters
 
 | Parameter | Value | Description |
 |-----------|-------|-------------|
 | `CELL_SIZE` | 3.0 cm | Grid resolution |
-| `GRID_ORIGINS_X/Y` | 5x5 | Number of scan origins per axis |
-| `MAX_RESCAN_ROUNDS` | 3 | Extra passes for unknown regions |
+| `GRID_ORIGINS_X/Y` | 5x5 | Initial scan origins per axis (25 total) |
+| `MAX_RESCAN_ROUNDS` | 6 | Max additional passes for unknown regions |
+| `RESCAN_ORIGINS_PER_ROUND` | 50 | Origins per rescan round (placed in unknown areas) |
+| Stagnation threshold | 0.1% | Minimum improvement to continue rescanning |
+| Early exit threshold | 0.5% | Unknown % below which scanning stops |
+
+### Current Occupancy Results
+
+| Floor    | Final Unknown % | Rounds Used | Total Scans |
+|----------|----------------|-------------|-------------|
+| basement | 1.0%           | 2 (stagnation) | 75       |
+| floor_1  | 1.8%           | 2 (stagnation) | 75       |
+| floor_2  | 1.3%           | 3 (stagnation) | 125      |
+| floor_3  | 1.0%           | 3 (stagnation) | 125      |
+| floor_4  | 0.6%           | 3 (stagnation) | 125      |
 
 ---
 
 ## Stage 2: Navigation Graph Building
 
 **Script:** `build_nav_graph.py`
-**Runs on:** Any machine with Python 3 + numpy, scipy, scikit-image, networkx, Pillow
-**Input:** `.npy` occupancy grids from Stage 1
+**Runs on:** Any machine with Python 3 + dependencies (no Isaac Sim needed)
+**Input:** `.npy` occupancy grids and `_meta.json` files from Stage 1
 
 ### Pipeline Steps
 
 #### Step 1: Clean Occupancy Grid
 - Loads the `.npy` array
 - Applies morphological closing (10cm radius) to fill small gaps
-- Treats unknown cells as occupied (conservative)
+- Treats unknown cells as occupied (conservative — prevents routing through unseen areas)
 - Produces a binary free/not-free mask
 
 #### Step 2: Erode by Robot Radius
 - Shrinks free space by the robot's physical radius (default 25cm)
-- Prevents the robot from clipping walls
-- At 3cm cell size, this erodes by 8 cells
+- Prevents the robot from clipping walls or tight spaces
+- At 3cm cell size, this erodes by 8 cells in all directions
 
 #### Step 3: Skeletonize
-- Applies topological skeletonization to find corridor center-lines
-- Reduces the free space to 1-pixel-wide paths
-- Floor 1 produces ~15,500 skeleton pixels
+- Applies topological skeletonization (scikit-image) to find corridor center-lines
+- Reduces the free space to 1-pixel-wide paths representing the medial axis
+- These skeleton paths naturally follow hallway centers and room midpoints
 
 #### Step 4: Build Raw Graph
 - Converts skeleton pixels to a NetworkX graph
-- 8-connected neighbors (cardinal weight=1.0, diagonal weight=1.414)
-- Keeps only the largest connected component
+- 8-connected neighbors: cardinal weight = 1.0, diagonal weight = 1.414
+- Keeps only the largest connected component (discards tiny disconnected fragments)
 
 #### Step 5: Simplify Graph
 - Identifies **key nodes**: junctions (degree > 2), endpoints (degree 1), dead-ends
-- Chains of degree-2 nodes become single weighted edges
+- Chains of degree-2 nodes (straight corridors) become single weighted edges
 - Removes short dead-end edges (< 5 cells) as noise
-- Typical reduction: 15,000+ nodes → ~200 junction nodes
+- Typical reduction: tens of thousands of raw nodes → hundreds of junction nodes
 
 #### Step 6: Wall-Crossing Validation
 - Checks every simplified edge against the original occupancy grid
 - For each edge, verifies the stored skeleton path doesn't pass through any wall (occupied/unknown) cell
 - If no skeleton path is stored, checks a Bresenham straight line between the two endpoint nodes
 - Edges that cross walls are removed entirely
-- Isolated nodes (nodes with no remaining valid edges) are kept but shown in orange in the visualization — they represent valid locations that simply cannot be reached without crossing a wall
+- Isolated nodes (no remaining valid edges) are kept but shown in orange — valid locations that can't be reached without crossing a wall
 
 #### Step 7: Pathfinding (optional)
 - Given start/end world coordinates, finds the nearest graph nodes
@@ -123,18 +176,17 @@ python3 test_building/build_nav_graph.py --robot-radius 30
 | File | Description |
 |------|-------------|
 | `{floor}_nav_graph.json` | Graph as JSON: nodes with world coords + edges with weights |
-| `{floor}_nav_graph.png` | Visualization: gray=occupancy, green=validated edges, red=connected nodes, orange=isolated nodes, yellow=Dijkstra path |
+| `{floor}_nav_graph.png` | Visualization: gray=occupancy, green=edges, red=nodes, orange=isolated nodes, yellow=Dijkstra path |
 
-### Current Results (without props)
+### Current Nav Graph Results
 
-| Floor    | Skeleton Pixels | Raw Nodes | Simplified Nodes | Edges (before) | Wall-Crossing Removed | Final Edges | Isolated Nodes |
-|----------|----------------|-----------|-----------------|---------------|----------------------|-------------|---------------|
-| basement | 12,917         | 7,231*    | 99              | 131           | 0                    | 131         | 0             |
-| floor_1  | 15,578         | 15,578    | 235             | 365           | 40                   | 325         | 2             |
-| floor_2  | 13,411         | 13,411    | 199             | 297           | 52                   | 245         | 11            |
-| floor_3  | 7,575          | 7,575     | 47              | 70            | 6                    | 64          | 1             |
-
-*basement has 3 disconnected components; only the largest is used
+| Floor    | Nodes | Edges | Notes |
+|----------|-------|-------|-------|
+| basement | 29    | 40    | Small — only 5 utility/mechanical rooms in model |
+| floor_1  | 674   | 907   | Ground floor, main entrance, labs |
+| floor_2  | 709   | 978   | Offices, classrooms |
+| floor_3  | 720   | 989   | ECBE department rooms |
+| floor_4  | 590   | 800   | CAECM department rooms |
 
 ### Coordinate Systems
 
@@ -145,13 +197,58 @@ python3 test_building/build_nav_graph.py --robot-radius 30
 
 ---
 
+## Full Pipeline Summary
+
+```
+MSOEBuildingTake2.usd (Revit 3D model)
+        │
+        ▼
+┌─────────────────────────────────┐
+│  Stage 1: generate_occupancy_   │  Rosie GPU (Isaac Sim)
+│  map.py                         │
+│                                 │
+│  1. Load USD scene              │
+│  2. Skip door collision         │
+│  3. Apply physics to walls      │
+│  4. Per floor:                  │
+│     - Raycast from 25 origins   │
+│     - Rescan unknown regions    │
+│     - Stagnation detection      │
+│  5. Save .npy + .png + .json    │
+└─────────────────────────────────┘
+        │
+        ▼  {floor}_occupancy.npy
+        │  {floor}_meta.json
+        ▼
+┌─────────────────────────────────┐
+│  Stage 2: build_nav_graph.py    │  Any Python environment
+│                                 │
+│  1. Clean grid (morphological)  │
+│  2. Erode by robot radius       │
+│  3. Skeletonize → center-lines  │
+│  4. Build NetworkX graph        │
+│  5. Simplify (remove degree-2)  │
+│  6. Remove wall-crossing edges  │
+│  7. Optional: Dijkstra path     │
+└─────────────────────────────────┘
+        │
+        ▼  {floor}_nav_graph.json
+           {floor}_nav_graph.png
+```
+
+---
+
 ## Known Limitations
 
-1. **Missing interior walls** — The USD file references 2,176 prop files (interior walls, doors, partitions) at `~/props/` that aren't available yet. Once the props folder is obtained and placed correctly, re-running Stage 1 will produce much more detailed occupancy maps with actual room boundaries.
+1. **Basement is sparse** — The Revit model only contains 5 basement rooms (utility/mechanical). The occupancy map and nav graph are small because there's little geometry to scan.
 
-2. **No multi-floor connections** — The current pipeline processes each floor independently. Stairwells and elevators are not yet connected between floors.
+2. **No multi-floor connections** — Each floor is processed independently. Stairwells and elevators are not yet connected between floor graphs.
 
-3. **Conservative unknown handling** — Unknown cells are treated as walls, which may block some valid paths near building edges.
+3. **Conservative unknown handling** — Unknown cells are treated as walls, which may block some valid paths near building edges or in areas raycasts can't reach.
+
+4. **Remaining unknowns (~1-2%)** — Some cells remain unknown due to geometry that raycasts can't reach (e.g., behind thick walls, outside the building envelope). Stagnation detection stops wasting time on these.
+
+5. **No furniture/props** — The USD model includes architectural geometry (walls, floors, doors) but interior furniture is not present, so rooms appear as open rectangles.
 
 ---
 
@@ -160,17 +257,22 @@ python3 test_building/build_nav_graph.py --robot-radius 30
 ### Stage 1 (Rosie HPC)
 - NVIDIA Isaac Sim 5.1.0
 - `isaacsim.asset.gen.omap` extension
-- GPU with PhysX support
+- GPU with PhysX support (T4 or better)
 
 ### Stage 2 (Local)
-- Python 3.12+
-- numpy
-- scipy
-- scikit-image (skimage)
-- networkx
-- Pillow (PIL)
+- Python 3.10+
+- numpy, scipy, scikit-image, networkx, Pillow
 
 Install Stage 2 dependencies:
 ```bash
 pip install numpy scipy scikit-image networkx Pillow
 ```
+
+---
+
+## Helper Scripts
+
+| Script | Purpose | Requires |
+|--------|---------|----------|
+| `inspect_door_prims.py` | Analyze door prim hierarchy in the USD file | Isaac Sim |
+| `check_basement_rooms.py` | List room prims and Z levels per floor | Isaac Sim |
