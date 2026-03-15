@@ -2,6 +2,9 @@ videos/
 logs/
 output/
 __pycache__/
+checkpoints/
+tb_logs/
 .claude/
 *.usd
 *.log
+/logs/
