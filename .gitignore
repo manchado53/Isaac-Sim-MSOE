@@ -7,3 +7,4 @@ tb_logs/
 .claude/
 *.usd
 *.log
+/logs/

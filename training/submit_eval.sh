@@ -1,13 +1,13 @@
 #!/bin/bash
-#SBATCH --job-name=eval-ridgeback
+#SBATCH --job-name=eval-nova-carter
 #SBATCH --partition=teaching
 #SBATCH --gres=gpu:1
 #SBATCH --time=01:00:00
-#SBATCH --mem=32G
+#SBATCH --mem=64G
 #SBATCH --output=/home/ad.msoe.edu/manchadoa/isaac-sim-msoe/training/logs/eval_%j.out
 #SBATCH --error=/home/ad.msoe.edu/manchadoa/isaac-sim-msoe/training/logs/eval_%j.err
 
-# Evaluate trained Ridgeback model and record video
+# Evaluate trained Nova Carter model and record video
 # Usage: sbatch training/submit_eval.sh [path/to/model.zip]
 #
 # If no checkpoint given, uses the latest training run's final model.
@@ -33,7 +33,7 @@ mkdir -p "$PROJECT_DIR/training/logs"
 # Find checkpoint: use argument or latest run
 CHECKPOINT="${1:-}"
 if [ -z "$CHECKPOINT" ]; then
-    LATEST_RUN=$(ls -td "$PROJECT_DIR/training/logs/sb3/Ridgeback-Patrol"/*/ 2>/dev/null | head -1)
+    LATEST_RUN=$(ls -td "$PROJECT_DIR/training/logs/sb3/NovaCarter-Patrol"/*/ 2>/dev/null | head -1)
     if [ -z "$LATEST_RUN" ]; then
         echo "ERROR: No training runs found and no checkpoint specified."
         exit 1
@@ -47,7 +47,7 @@ if [ ! -f "$CHECKPOINT" ]; then
 fi
 
 echo "========================================="
-echo "Ridgeback Patrol Evaluation"
+echo "Nova Carter Patrol Evaluation"
 echo "Job ID:       $SLURM_JOB_ID"
 echo "Node:         $SLURMD_NODENAME"
 echo "Checkpoint:   $CHECKPOINT"
@@ -57,7 +57,7 @@ echo ""
 nvidia-smi
 echo ""
 
-CMD="$ISAAC_LAB_DIR/isaaclab.sh -p $PROJECT_DIR/training/eval_ridgeback.py --checkpoint $CHECKPOINT --headless --num_envs 16 --video_length 500"
+CMD="$ISAAC_LAB_DIR/isaaclab.sh -p $PROJECT_DIR/training/eval_nova_carter.py --checkpoint $CHECKPOINT --headless --num_envs 16 --video_length 500 --num_videos 6"
 
 echo "Running: $CMD"
 echo ""

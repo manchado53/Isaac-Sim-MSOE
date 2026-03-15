@@ -1,13 +1,13 @@
 #!/bin/bash
-#SBATCH --job-name=rl-ridgeback
+#SBATCH --job-name=rl-nova-carter
 #SBATCH --partition=teaching
 #SBATCH --gres=gpu:1
 #SBATCH --time=08:00:00
-#SBATCH --mem=32G
+#SBATCH --mem=64G
 #SBATCH --output=/home/ad.msoe.edu/manchadoa/isaac-sim-msoe/training/logs/train_%j.out
 #SBATCH --error=/home/ad.msoe.edu/manchadoa/isaac-sim-msoe/training/logs/train_%j.err
 
-# Ridgeback Patrol RL Training
+# Nova Carter Patrol RL Training
 # Submit with: cd ~/isaac-sim-msoe && sbatch training/submit_training.sh
 
 set -e
@@ -47,7 +47,7 @@ print(f'VIDEO_INTERVAL={VIDEO_INTERVAL}')
 ")"
 
 # ── Build training command ──
-CMD="$ISAAC_LAB_DIR/isaaclab.sh -p $PROJECT_DIR/training/train_ridgeback.py --headless --num_envs $NUM_ENVS --seed $SEED"
+CMD="$ISAAC_LAB_DIR/isaaclab.sh -p $PROJECT_DIR/training/train_nova_carter.py --headless --num_envs $NUM_ENVS --seed $SEED"
 
 if [ -n "$MAX_ITER" ]; then
     CMD="$CMD --max_iterations $MAX_ITER"
@@ -63,7 +63,7 @@ fi
 
 # ── Job info ──
 echo "========================================="
-echo "Ridgeback Patrol RL Training"
+echo "Nova Carter Patrol RL Training"
 echo "Job ID:       $SLURM_JOB_ID"
 echo "Node:         $SLURMD_NODENAME"
 echo "Envs:         $NUM_ENVS"
@@ -80,8 +80,37 @@ echo "Running: $CMD"
 echo ""
 
 eval $CMD
+TRAIN_EXIT=$?
 
 echo ""
 echo "========================================="
-echo "Training Complete (exit code: $?)"
+echo "Training Complete (exit code: $TRAIN_EXIT)"
 echo "========================================="
+
+# ── Auto-evaluate if training succeeded ──
+if [ $TRAIN_EXIT -eq 0 ]; then
+    echo ""
+    echo "========================================="
+    echo "Running Evaluation"
+    echo "========================================="
+
+    # Find the latest training run (the one we just finished)
+    LATEST_RUN=$(ls -td "$PROJECT_DIR/training/logs/sb3/NovaCarter-Patrol"/*/ 2>/dev/null | head -1)
+    CHECKPOINT="${LATEST_RUN}model.zip"
+
+    if [ -f "$CHECKPOINT" ]; then
+        EVAL_CMD="$ISAAC_LAB_DIR/isaaclab.sh -p $PROJECT_DIR/training/eval_nova_carter.py --checkpoint $CHECKPOINT --headless --num_envs 16 --video_length 500 --num_videos 6"
+        echo "Checkpoint:   $CHECKPOINT"
+        echo "Running: $EVAL_CMD"
+        echo ""
+        eval $EVAL_CMD
+        echo ""
+        echo "========================================="
+        echo "Evaluation Complete (exit code: $?)"
+        echo "========================================="
+    else
+        echo "WARNING: No model.zip found at $CHECKPOINT — skipping eval."
+    fi
+else
+    echo "Training failed — skipping evaluation."
+fi
