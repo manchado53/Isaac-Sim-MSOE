@@ -383,8 +383,8 @@ class RewardsCfg:
     # Velocity near goal — teach the robot to decelerate on approach
     velocity_near_goal = RewTerm(
         func=rew_mdp.velocity_near_goal,
-        weight=-2.0,
-        params={"command_name": "pose_command", "threshold": 1.0},
+        weight=-0.3,
+        params={"command_name": "pose_command", "threshold": 0.5},
     )
     collision = RewTerm(
         func=rew_mdp.collision_penalty,
@@ -399,7 +399,7 @@ class RewardsCfg:
     # Bonus reward for reaching the goal — explicit success signal
     goal_reached = RewTerm(
         func=rew_mdp.goal_reached,
-        weight=2.0,
+        weight=10.0,
         params={"command_name": "pose_command", "threshold": 0.5},
     )
     action_smoothness = RewTerm(func=mdp.action_rate_l2, weight=-0.1)
