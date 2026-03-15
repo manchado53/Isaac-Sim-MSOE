@@ -35,7 +35,7 @@ from ridgeback_patrol.mdp import terminations as term_mdp
 # Shared rigid body props for static objects (walls + furniture)
 _STATIC_RIGID_PROPS = sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True)
 _STATIC_MASS_PROPS = sim_utils.MassPropertiesCfg(mass=100.0)
-_STATIC_COLLISION_PROPS = sim_utils.CollisionPropertiesCfg()
+_STATIC_COLLISION_PROPS = sim_utils.CollisionPropertiesCfg(collision_enabled=True)
 
 
 ##
@@ -45,15 +45,22 @@ _STATIC_COLLISION_PROPS = sim_utils.CollisionPropertiesCfg()
 RIDGEBACK_BASE_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
         usd_path=f"{ISAAC_NUCLEUS_DIR}/Robots/Clearpath/RidgebackFranka/ridgeback_franka.usd",
-        articulation_props=sim_utils.ArticulationRootPropertiesCfg(enabled_self_collisions=False),
+        articulation_props=sim_utils.ArticulationRootPropertiesCfg(
+            enabled_self_collisions=False,
+            fix_root_link=True,
+        ),
         activate_contact_sensors=False,
     ),
     init_state=ArticulationCfg.InitialStateCfg(
+        # Spawn above ground so the base doesn't clip through the floor.
+        # Every mobile robot in Isaac Lab uses a positive Z offset
+        # (ANYmal=0.6, Spot=0.5). Ridgeback chassis is ~0.3m tall.
+        pos=(0.0, 0.0, 0.5),
         joint_pos={
             "dummy_base_prismatic_x_joint": 0.0,
             "dummy_base_prismatic_y_joint": 0.0,
             "dummy_base_revolute_z_joint": 0.0,
-            # Lock arm joints in a neutral pose
+            # Arm in official default pose (elbow fully bent = compact)
             "panda_joint1": 0.0,
             "panda_joint2": -0.569,
             "panda_joint3": 0.0,
@@ -72,23 +79,23 @@ RIDGEBACK_BASE_CFG = ArticulationCfg(
             stiffness=0.0,
             damping=1e5,
         ),
-        # Lock the Franka arm in its neutral pose so it doesn't flop
-        # under gravity and tip the robot over
+        # Lock the Franka arm rigidly — high stiffness + damping to
+        # prevent any droop under gravity that would tip the robot
         "arm_lock": ImplicitActuatorCfg(
             joint_names_expr=["panda_joint.*"],
             effort_limit_sim=1000.0,
-            stiffness=1e4,
-            damping=1e3,
+            stiffness=1e7,
+            damping=1e5,
         ),
         "gripper_lock": ImplicitActuatorCfg(
             joint_names_expr=["panda_finger_joint.*"],
             effort_limit_sim=100.0,
-            stiffness=1e4,
-            damping=1e2,
+            stiffness=1e6,
+            damping=1e4,
         ),
     },
 )
-"""Ridgeback base config with only dummy base joints actuated (arm ignored)."""
+"""Ridgeback with Franka arm locked rigidly in a compact upright pose."""
 
 
 ##
@@ -166,7 +173,7 @@ class RidgebackPatrolSceneCfg(InteractiveSceneCfg):
 
     # ── Furniture (randomized positions at reset) ──
 
-    # Table — wide, low
+    # Table — wide, low (max dim 1.2 → 0.6m wall buffer)
     furniture_table = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/Furniture_table",
         spawn=sim_utils.CuboidCfg(
@@ -176,10 +183,10 @@ class RidgebackPatrolSceneCfg(InteractiveSceneCfg):
             collision_props=_STATIC_COLLISION_PROPS,
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.55, 0.35, 0.17)),
         ),
-        init_state=RigidObjectCfg.InitialStateCfg(pos=(3.0, 1.0, 0.375)),
+        init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.375)),
     )
 
-    # Bookshelf — tall, narrow
+    # Bookshelf — tall, narrow (max dim 1.2 → 0.6m wall buffer)
     furniture_bookshelf = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/Furniture_bookshelf",
         spawn=sim_utils.CuboidCfg(
@@ -189,10 +196,10 @@ class RidgebackPatrolSceneCfg(InteractiveSceneCfg):
             collision_props=_STATIC_COLLISION_PROPS,
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.4, 0.25, 0.12)),
         ),
-        init_state=RigidObjectCfg.InitialStateCfg(pos=(-3.0, 3.0, 0.9)),
+        init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.9)),
     )
 
-    # Chair — small, medium height
+    # Chair — small, medium height (max dim 0.45 → 0.25m wall buffer)
     furniture_chair = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/Furniture_chair",
         spawn=sim_utils.CuboidCfg(
@@ -202,10 +209,10 @@ class RidgebackPatrolSceneCfg(InteractiveSceneCfg):
             collision_props=_STATIC_COLLISION_PROPS,
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.3, 0.3, 0.35)),
         ),
-        init_state=RigidObjectCfg.InitialStateCfg(pos=(1.0, -2.0, 0.45)),
+        init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.45)),
     )
 
-    # Desk — wide, standard height
+    # Desk — wide, standard height (max dim 1.5 → 0.75m wall buffer)
     furniture_desk = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/Furniture_desk",
         spawn=sim_utils.CuboidCfg(
@@ -215,10 +222,10 @@ class RidgebackPatrolSceneCfg(InteractiveSceneCfg):
             collision_props=_STATIC_COLLISION_PROPS,
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.6, 0.5, 0.35)),
         ),
-        init_state=RigidObjectCfg.InitialStateCfg(pos=(-2.0, -1.0, 0.375)),
+        init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.375)),
     )
 
-    # Filing cabinet — tall, compact
+    # Filing cabinet — tall, compact (max dim 0.5 → 0.25m wall buffer)
     furniture_cabinet = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/Furniture_cabinet",
         spawn=sim_utils.CuboidCfg(
@@ -228,10 +235,10 @@ class RidgebackPatrolSceneCfg(InteractiveSceneCfg):
             collision_props=_STATIC_COLLISION_PROPS,
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.45, 0.45, 0.5)),
         ),
-        init_state=RigidObjectCfg.InitialStateCfg(pos=(2.5, -3.5, 0.7)),
+        init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.7)),
     )
 
-    # Couch — long, low
+    # Couch — long, low (max dim 1.8 → 0.9m wall buffer)
     furniture_couch = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/Furniture_couch",
         spawn=sim_utils.CuboidCfg(
@@ -241,10 +248,10 @@ class RidgebackPatrolSceneCfg(InteractiveSceneCfg):
             collision_props=_STATIC_COLLISION_PROPS,
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.2, 0.3, 0.55)),
         ),
-        init_state=RigidObjectCfg.InitialStateCfg(pos=(-1.0, 3.5, 0.3)),
+        init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.3)),
     )
 
-    # Trash bin — small
+    # Trash bin — small (max dim 0.3 → 0.15m wall buffer)
     furniture_bin = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/Furniture_bin",
         spawn=sim_utils.CuboidCfg(
@@ -254,7 +261,7 @@ class RidgebackPatrolSceneCfg(InteractiveSceneCfg):
             collision_props=_STATIC_COLLISION_PROPS,
             visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.15, 0.25, 0.15)),
         ),
-        init_state=RigidObjectCfg.InitialStateCfg(pos=(3.5, -1.5, 0.25)),
+        init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.25)),
     )
 
     # LiDAR sensor (2D, 20 rays, 360-degree, 10m range)
@@ -443,69 +450,92 @@ class EventCfg:
         },
     )
 
+    # Reset ALL joint positions to defaults on every episode reset.
+    # Without this, the arm joints drift under gravity and never recover
+    # because reset_root_state_uniform only resets the root pose, not joints.
+    reset_robot_joints = EventTerm(
+        func=mdp.reset_joints_by_offset,
+        mode="reset",
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "position_range": (0.0, 0.0),
+            "velocity_range": (0.0, 0.0),
+        },
+    )
+
     # Furniture randomized in specific zones AWAY from the robot's spawn area.
-    # Each piece is assigned a quadrant or edge zone (min 1.5m from center)
-    # to prevent overlap with the robot at ±1.0m.
+    # init_state is at origin, so pose_range = absolute room coordinates.
+    # Each zone avoids robot spawn (±1.0m center) and stays inside walls
+    # with margin for furniture size under any rotation (max_dim/2).
+    # Room interior: ~±4.9m (walls at ±5.0, 0.15m thick)
+
+    # Table (1.2x0.6) → 0.6m buffer → NE quadrant
     reset_furniture_table = EventTerm(
         func=mdp.reset_root_state_uniform,
         mode="reset",
         params={
             "asset_cfg": SceneEntityCfg("furniture_table"),
-            "pose_range": {"x": (1.5, 3.5), "y": (1.5, 3.5), "yaw": (-math.pi, math.pi)},
+            "pose_range": {"x": (1.5, 4.3), "y": (1.5, 4.3), "yaw": (-math.pi, math.pi)},
             "velocity_range": {},
         },
     )
+    # Bookshelf (0.4x1.2) → 0.6m buffer → NW quadrant
     reset_furniture_bookshelf = EventTerm(
         func=mdp.reset_root_state_uniform,
         mode="reset",
         params={
             "asset_cfg": SceneEntityCfg("furniture_bookshelf"),
-            "pose_range": {"x": (-3.5, -1.5), "y": (1.5, 3.5), "yaw": (-math.pi, math.pi)},
+            "pose_range": {"x": (-4.3, -1.5), "y": (1.5, 4.3), "yaw": (-math.pi, math.pi)},
             "velocity_range": {},
         },
     )
+    # Chair (0.45x0.45) → 0.25m buffer → SE quadrant
     reset_furniture_chair = EventTerm(
         func=mdp.reset_root_state_uniform,
         mode="reset",
         params={
             "asset_cfg": SceneEntityCfg("furniture_chair"),
-            "pose_range": {"x": (1.5, 3.5), "y": (-3.5, -1.5), "yaw": (-math.pi, math.pi)},
+            "pose_range": {"x": (1.5, 4.5), "y": (-4.5, -1.5), "yaw": (-math.pi, math.pi)},
             "velocity_range": {},
         },
     )
+    # Desk (1.5x0.7) → 0.75m buffer → SW quadrant
     reset_furniture_desk = EventTerm(
         func=mdp.reset_root_state_uniform,
         mode="reset",
         params={
             "asset_cfg": SceneEntityCfg("furniture_desk"),
-            "pose_range": {"x": (-3.5, -1.5), "y": (-3.5, -1.5), "yaw": (-math.pi, math.pi)},
+            "pose_range": {"x": (-4.0, -1.5), "y": (-4.0, -1.5), "yaw": (-math.pi, math.pi)},
             "velocity_range": {},
         },
     )
+    # Cabinet (0.5x0.4) → 0.25m buffer → E edge
     reset_furniture_cabinet = EventTerm(
         func=mdp.reset_root_state_uniform,
         mode="reset",
         params={
             "asset_cfg": SceneEntityCfg("furniture_cabinet"),
-            "pose_range": {"x": (2.0, 4.0), "y": (-1.5, 1.5), "yaw": (-math.pi, math.pi)},
+            "pose_range": {"x": (1.5, 4.5), "y": (-1.5, 1.5), "yaw": (-math.pi, math.pi)},
             "velocity_range": {},
         },
     )
+    # Couch (1.8x0.7) → 0.9m buffer → W edge
     reset_furniture_couch = EventTerm(
         func=mdp.reset_root_state_uniform,
         mode="reset",
         params={
             "asset_cfg": SceneEntityCfg("furniture_couch"),
-            "pose_range": {"x": (-4.0, -2.0), "y": (-1.5, 1.5), "yaw": (-math.pi, math.pi)},
+            "pose_range": {"x": (-4.0, -1.5), "y": (-1.5, 1.5), "yaw": (-math.pi, math.pi)},
             "velocity_range": {},
         },
     )
+    # Bin (0.3x0.3) → 0.15m buffer → N edge
     reset_furniture_bin = EventTerm(
         func=mdp.reset_root_state_uniform,
         mode="reset",
         params={
             "asset_cfg": SceneEntityCfg("furniture_bin"),
-            "pose_range": {"x": (-1.5, 1.5), "y": (2.0, 4.0), "yaw": (-math.pi, math.pi)},
+            "pose_range": {"x": (-1.5, 1.5), "y": (1.5, 4.5), "yaw": (-math.pi, math.pi)},
             "velocity_range": {},
         },
     )

@@ -123,9 +123,44 @@ Then calls `asset.set_joint_velocity_target()`. The policy's action space and ob
 
 ---
 
-## Phase 2C: Full Building Environment (When Ready)
+## Phase 2C: Switch to Nova Carter with Real Wheel Physics
 
-Swap in the real building and navigation waypoints. Everything else (obs, actions, rewards, terminations, training scripts) carries over from Phase 2A/2B.
+Phase 2A (Ridgeback with dummy joints) and Phase 2B failed due to the Ridgeback USD having a floating articulation root (Xform without RigidBodyAPI) that causes the robot to tip over immediately. `fix_root_link=True` crashes with `NotImplementedError`. Instead of patching around the broken USD, we switch to **Nova Carter** — NVIDIA's flagship AMR with real differential-drive wheels.
+
+**Robot: Nova Carter**
+- **USD**: `{ISAAC_NUCLEUS_DIR}/Robots/NVIDIA/NovaCarter/nova_carter.usd`
+- **Drive**: Differential drive with real wheel joints (`joint_wheel_left`, `joint_wheel_right`)
+- **Params**: `wheel_radius=0.14`, `wheel_base=0.4`
+- **No tipping issue**: real wheels on ground, no floating root / dummy joints
+
+**What changes from Phase 2A/2B**:
+
+| Component | Phase 2A/2B (failed) | Phase 2C (Nova Carter) |
+|-----------|---------------------|----------------------|
+| Robot USD | Ridgeback Franka (dummy joints, tipping) | Nova Carter (real wheels, stable) |
+| Action term | `NonHolonomicActionCfg` (dummy joints) | Custom `DifferentialDriveActionCfg` (~50 lines) |
+| Wheel control | Invisible sliding rails | `set_joint_velocity_target()` on real wheel joints |
+| Scene | 10m x 10m walled room + furniture | Same (flat-world first, building later) |
+| Everything else | Same | Same |
+
+**Custom `DifferentialDriveAction`**: A Manager-Based `ActionTerm` that takes `[linear_vel, angular_vel]` and converts to left/right wheel velocity targets:
+```
+v_left  = (v - omega * wheel_base/2) / wheel_radius
+v_right = (v + omega * wheel_base/2) / wheel_radius
+```
+Then calls `asset.set_joint_velocity_target()`. The policy's action space and obs space stay identical — only the physics layer changes.
+
+**Prior art**:
+- [Isaac Lab JetBot Walkthrough](https://isaac-sim.github.io/IsaacLab/main/source/setup/walkthrough/training_jetbot_gt.html) — NVIDIA's official tutorial uses `set_joint_velocity_target()` on real wheel joints with PPO
+- [RL-Navigation (sahars93)](https://github.com/sahars93/RL-Navigation) — trained in Isaac Sim, zero-shot transferred to real TurtleBot4 Lite. Paper: arXiv:2501.02902 (Jan 2025)
+- [WheeledLab (UW)](https://github.com/UWRobotLearning/WheeledLab) — real wheel physics in Isaac Lab, zero-shot sim-to-real. Paper: arXiv:2502.07380 (Feb 2025)
+- [Isaac Lab Discussion #2473](https://github.com/isaac-sim/IsaacLab/discussions/2473) — Carter V1 differential drive: clamp wheel velocities to avoid backward-motion bug at high angular velocity
+
+---
+
+## Phase 2D: Full Building Environment (When Ready)
+
+Swap in the real building and navigation waypoints. Everything else (obs, actions, rewards, terminations, training scripts) carries over from Phase 2C.
 
 **Blocked on**:
 - TestBuilding USD with collision physics (`assets/environments/msoe_building/TestBuilding_physics.usd`)
@@ -355,47 +390,45 @@ Nav team: issues W_{i+1}
 1. ~~**Install Isaac Lab** on Rosie~~ — IsaacLab v0.54.2 verified
 2. **Verify** with a built-in Isaac Lab example (e.g., Ant locomotion)
 
-### Phase 2A: Flat-World Prototype (No external dependencies)
-3. **Create the environment config** (`carter_patrol_env_cfg.py`) — flat ground + random box obstacles, obs, actions
-4. **Create MDP components** (`mdp/`) — reward functions, termination conditions, custom observations
-5. **Register the environment** (`Isaac-Carter-Patrol-Flat-v0`) and test with random actions
-6. **Run PPO training** with 256 envs, 1M steps on flat world
-7. **Evaluate** trained policy — can the robot reach random goals while avoiding boxes?
-8. **Iterate** on reward shaping based on results
+### Phase 2A/2B: Ridgeback Prototype (FAILED)
+3. ~~**Create the environment config** with Ridgeback + NonHolonomicAction~~ — DONE but robot tips over
+4. ~~**Create MDP components** (`mdp/`) — reward functions, termination conditions, custom observations~~ — DONE, reusable
+5. ~~**Fix tipping issue**~~ — FAILED. Ridgeback USD has floating Xform root, `fix_root_link=True` crashes with NotImplementedError
 
-### Phase 2B: Real Wheel Physics (After Phase 2A works)
-9. **Write `DifferentialDriveActionCfg`** — custom action term in `carter_patrol/mdp/actions.py`
-10. **Choose robot** — pick a diff-drive robot USD, configure `ArticulationCfg` with `ImplicitActuatorCfg` on wheel joints
-11. **Update env config** — swap robot + action term, adjust LiDAR mount point
-12. **Retrain** — compare reward curves and success rates vs Phase 2A dummy-joint baseline
-13. **Domain randomization** — add friction, mass, and actuator gain randomization for sim-to-real (WheeledLab's key finding)
+### Phase 2C: Nova Carter with Real Wheels (CURRENT)
+6. **Write `DifferentialDriveActionCfg`** — custom action term in `nova_carter_patrol/mdp/actions.py`
+7. **Create Nova Carter env config** — `ArticulationCfg` with `ImplicitActuatorCfg` on real wheel joints
+8. **Copy MDP components** from ridgeback_patrol (observations, rewards, terminations are robot-agnostic)
+9. **Run PPO training** with 256 envs on flat world — verify robot stays upright and learns
+10. **Evaluate** trained policy — can the robot reach goals while avoiding obstacles?
+11. **Domain randomization** — add friction, mass, and actuator gain randomization for sim-to-real
 
-### Phase 2C: Building Environment (When building USD + waypoints are ready)
-14. **Swap scene** — replace ground plane with TestBuilding USD
-15. **Define building waypoints** (`training/waypoints.py`) with nav team
-16. **Retrain or fine-tune** in building environment
-17. **Evaluate** on building-specific waypoint pairs
+### Phase 2D: Building Environment (When building USD + waypoints are ready)
+12. **Swap scene** — replace walled room with TestBuilding USD
+13. **Define building waypoints** (`training/waypoints.py`) with nav team
+14. **Retrain or fine-tune** in building environment
+15. **Evaluate** on building-specific waypoint pairs
 
 ### Phase 3-5: Training at scale, evaluation, integration (unchanged)
 
 ## Verification
 
-### Phase 2A Checkpoints
+### Phase 2A/2B Checkpoints (DONE — Ridgeback failed)
 1. ~~Isaac Lab installs cleanly on Rosie GPU node~~ — DONE
-2. Built-in Isaac Lab example (Ant) trains successfully
-3. `Isaac-Carter-Patrol-Flat-v0` env runs with random actions, correct obs shape (26,)
-4. Training on flat world shows reward curve trending upward in TensorBoard
-5. Trained policy navigates to random goals while avoiding box obstacles (>50% success rate)
+2. ~~Ridgeback env config created with observations, rewards, terminations~~ — DONE (reusable)
+3. ~~Robot stays upright~~ — FAILED (floating root, dummy joints, tipping)
 
-### Phase 2B Checkpoints
-6. Custom `DifferentialDriveAction` passes smoke test (env steps with correct action shape)
-7. Real-wheel robot trains to comparable reward curve as Phase 2A dummy-joint baseline
+### Phase 2C Checkpoints (Nova Carter — CURRENT)
+4. Custom `DifferentialDriveAction` passes smoke test (env steps with correct action shape)
+5. Nova Carter stays upright throughout training (no `bad_orientation` terminations)
+6. `Isaac-NovaCarter-Patrol-Flat-v0` env runs with random actions, correct obs shape (26,)
+7. Training on flat world shows reward curve trending upward
 8. No backward-motion bug (wheel velocities clamped correctly at high turn rates)
-9. Domain randomization (friction, mass) doesn't crash training, improves eval robustness
+9. Trained policy navigates to random goals while avoiding obstacles (>50% success rate)
 
-### Phase 2C Checkpoints
+### Phase 2D Checkpoints
 10. Building USD loads in Isaac Lab scene with working collisions
-11. `Isaac-Carter-Patrol-v0` env runs with building + waypoints
+11. `Isaac-NovaCarter-Patrol-v0` env runs with building + waypoints
 12. Trained policy achieves >50% success rate on building waypoint pairs
 13. Evaluation script produces metrics table + optional video
 
