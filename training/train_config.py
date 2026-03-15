@@ -3,10 +3,10 @@
 # ─────────────────────────────────────────────
 
 # ── Training ──
-NUM_ENVS = 128              # reduced from 256 — Nova Carter USD is heavier than Ridgeback
+NUM_ENVS = 256              # reduced from 256 — Nova Carter USD is heavier than Ridgeback
 SEED = 42
-MAX_ITERATIONS = 5000         # longer run to let policy converge
-CHECKPOINT = "training/logs/sb3/NovaCarter-Patrol/2026-03-14_23-10-04/model.zip"
+MAX_ITERATIONS = 1000         # longer run to let policy converge
+CHECKPOINT = None
 
 # ── Video Recording ──
 VIDEO = False               # disabled during training to save RAM; eval records video automatically

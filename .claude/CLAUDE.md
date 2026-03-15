@@ -242,3 +242,10 @@ if __name__ == "__main__":
 - `Failed to create secure directory (/run/user/.../pulse)` -- no audio device on compute nodes
 - `omni.isaac.core.objects.* has been deprecated in favor of isaacsim.core.api.objects.*` -- still functional
 - `carb.audio.device` / `carb.audio.output` warnings -- headless mode, no audio needed
+
+## Documentation Policy
+
+When making major changes (reward weights, env config, new reward terms, termination changes, hyperparameter tuning, architecture changes, etc.), always update the relevant documentation:
+- **CLAUDE.md**: Update if the change affects workflow, file organization, or project-level context
+- **README.md**: Update if the change affects how others use or understand the project
+- **Code docstrings/comments**: Update inline docs in the files being changed to reflect new values or behavior

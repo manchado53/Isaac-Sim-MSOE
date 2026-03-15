@@ -95,6 +95,9 @@ class ETACallback(BaseCallback):
         self._start_time = time.time()
         self._total_iters = self.locals.get("total_timesteps", 0) // (self.num_envs * self.steps_per_rollout)
 
+    def _on_step(self) -> bool:
+        return True
+
     def _on_rollout_end(self) -> None:
         if self._start_time is None or self._total_iters is None or self._total_iters == 0:
             return
@@ -124,6 +127,9 @@ class BestModelCallback(BaseCallback):
         super().__init__(verbose)
         self.save_path = save_path
         self.best_reward = -float("inf")
+
+    def _on_step(self) -> bool:
+        return True
 
     def _on_rollout_end(self) -> None:
         # SB3 stores latest episode stats in self.logger.name_to_value
@@ -232,7 +238,10 @@ def main():
     # Create PPO agent
     agent = PPO(policy_arch, env, verbose=1, tensorboard_log=log_dir, **agent_cfg)
     if args_cli.checkpoint is not None:
-        agent = agent.load(args_cli.checkpoint, env, print_system_info=True)
+        agent = PPO.load(args_cli.checkpoint, env, print_system_info=True, tensorboard_log=log_dir, **agent_cfg)
+        # Reset timestep counter so learn() trains for the full requested amount
+        # (otherwise SB3 sees num_timesteps >= total_timesteps from the checkpoint and exits)
+        agent.num_timesteps = 0
 
     # Callbacks
     callbacks = [

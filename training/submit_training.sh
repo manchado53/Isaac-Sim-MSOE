@@ -1,11 +1,12 @@
 #!/bin/bash
 #SBATCH --job-name=rl-nova-carter
 #SBATCH --partition=teaching
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:t4:1
 #SBATCH --time=08:00:00
 #SBATCH --mem=64G
 #SBATCH --output=/home/ad.msoe.edu/manchadoa/isaac-sim-msoe/training/logs/train_%j.out
 #SBATCH --error=/home/ad.msoe.edu/manchadoa/isaac-sim-msoe/training/logs/train_%j.err
+#SBATCH --account=undergrad_research
 
 # Nova Carter Patrol RL Training
 # Submit with: cd ~/isaac-sim-msoe && sbatch training/submit_training.sh
