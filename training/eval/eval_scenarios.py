@@ -73,6 +73,14 @@ class ScenarioResult:
     total_reward: float = 0.0
     passed: bool = False
     max_collisions: int = 0
+    # Debug: closest approach tracking
+    closest_distance: float = float("inf")
+    closest_step: int = 0
+    closest_time_s: float = 0.0
+    closest_robot_xy: tuple = (0.0, 0.0)
+    closest_goal_xy: tuple = (0.0, 0.0)
+    max_contact_force: float = 0.0
+    max_contact_force_step: int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -118,9 +126,14 @@ def setup_scenario(base_env: ManagerBasedRLEnv, scenario: ScenarioDefinition):
         base_env.sim.step(render=True)
     base_env.scene.update(dt=base_env.physics_dt)
 
-    # 5. Zero robot velocity again after settling (in case it bounced)
+    # 5. Re-place robot flat and zero velocity (in case settle steps knocked it)
+    robot_pose = _make_pose(rx, ry, 0.1, ryaw, env_origin, device)
+    robot.write_root_pose_to_sim(robot_pose, env_ids=env_ids)
     robot.write_root_velocity_to_sim(torch.zeros(1, 6, device=device), env_ids=env_ids)
-    base_env.sim.step(render=True)
+
+    # 6. A few more settle steps to let the re-placed robot land
+    for _ in range(5):
+        base_env.sim.step(render=True)
     base_env.scene.update(dt=base_env.physics_dt)
 
 
@@ -140,14 +153,15 @@ def set_goal(base_env: ManagerBasedRLEnv, goal_xy: tuple, robot_start: tuple, en
     cmd_term.command_counter[0] = 0
 
 
-def get_lidar_min_dist(base_env: ManagerBasedRLEnv) -> float:
-    """Get minimum LiDAR distance for collision detection."""
-    sensor = base_env.scene.sensors["lidar"]
-    diff = sensor.data.ray_hits_w - sensor.data.pos_w.unsqueeze(1)
-    distances = torch.norm(diff, dim=-1)
-    max_dist = sensor.cfg.max_distance
-    distances = torch.where(torch.isfinite(distances), distances, torch.full_like(distances, max_dist))
-    return distances.min(dim=-1).values[0].item()
+def is_colliding(base_env: ManagerBasedRLEnv, force_threshold: float = 1.0) -> bool:
+    """Check if the robot is physically contacting any obstacle using contact sensor."""
+    contact_sensor = base_env.scene.sensors["contact_sensor"]
+    net_forces = contact_sensor.data.net_forces_w  # (num_envs, num_bodies, 3)
+    force_magnitude = torch.norm(net_forces, dim=-1)  # (num_envs, num_bodies)
+    # Ignore ground contact (small vertical forces from gravity) by checking if any
+    # body has a force above threshold
+    max_force = force_magnitude[0].max().item()
+    return max_force > force_threshold, max_force
 
 
 def get_goal_distance(base_env: ManagerBasedRLEnv) -> float:
@@ -226,7 +240,6 @@ def main():
     results = []
     env_origin = base_env.scene.env_origins[0]
     goal_threshold = 0.5
-    collision_threshold = 0.15
     dt = base_env.step_dt
 
     # Initial reset
@@ -248,9 +261,38 @@ def main():
         # Set up this scenario (override positions in existing env)
         setup_scenario(base_env, scenario)
 
+        # Diagnostic: check goal position before and after first step
+        cmd_term = base_env.command_manager.get_term("pose_command")
+        goal_before = cmd_term.pos_command_w[0].cpu().clone()
+        robot_before = base_env.scene["robot"].data.root_pos_w[0].cpu().clone()
+        err = cmd_term.metrics.get("error_pos_2d", None)
+        err_str = f"{err[0]:.3f}" if err is not None else "N/A"
+        print(f"  [DIAG] After setup — robot: ({robot_before[0]-env_origin[0].cpu():.2f}, {robot_before[1]-env_origin[1].cpu():.2f})"
+              f"  goal: ({goal_before[0]-env_origin[0].cpu():.2f}, {goal_before[1]-env_origin[1].cpu():.2f})"
+              f"  error_pos_2d: {err_str}"
+              f"  cmd_counter: {cmd_term.command_counter[0]}"
+              f"  ep_len: {base_env.episode_length_buf[0]}"
+              f"  reset_buf: {getattr(base_env, 'reset_buf', 'N/A')}"
+              f"  time_left: {cmd_term.time_left[0]:.1f}")
+
         # Step once with zero action to get fresh observations
         action = np.zeros((1, 2), dtype=np.float32)
-        obs, _, _, _ = env.step(action)
+        obs, _, done_init, _ = env.step(action)
+
+        goal_after = cmd_term.pos_command_w[0].cpu().clone()
+        robot_after = base_env.scene["robot"].data.root_pos_w[0].cpu().clone()
+        err2 = cmd_term.metrics.get("error_pos_2d", None)
+        err2_str = f"{err2[0]:.3f}" if err2 is not None else "N/A"
+        # Show which termination(s) fired
+        tmgr = base_env.termination_manager
+        term_fired = {name: bool(tmgr._term_dones[0, i].item())
+                      for i, name in enumerate(tmgr._term_names)}
+        print(f"  [DIAG] After step  — robot: ({robot_after[0]-env_origin[0].cpu():.2f}, {robot_after[1]-env_origin[1].cpu():.2f})"
+              f"  goal: ({goal_after[0]-env_origin[0].cpu():.2f}, {goal_after[1]-env_origin[1].cpu():.2f})"
+              f"  error_pos_2d: {err2_str}"
+              f"  cmd_counter: {cmd_term.command_counter[0]}"
+              f"  done: {done_init[0]}"
+              f"  terms: {term_fired}")
 
         goal_idx = 0
         total_steps = 0
@@ -265,13 +307,31 @@ def main():
             goal_step_count += 1
             result.total_reward += float(reward[0])
 
-            # Check collision
-            min_dist = get_lidar_min_dist(base_env)
-            if min_dist < collision_threshold:
+            # Check collision via contact sensor (actual physical contact)
+            colliding, contact_force = is_colliding(base_env)
+            if colliding:
                 result.num_collisions += 1
+            if contact_force > result.max_contact_force:
+                result.max_contact_force = contact_force
+                result.max_contact_force_step = total_steps
 
-            # Check goal reached
+            # Check goal reached + track closest approach
             dist = get_goal_distance(base_env)
+            if dist < result.closest_distance:
+                robot_pos_w = base_env.scene["robot"].data.root_pos_w[0].cpu()
+                cmd_term = base_env.command_manager.get_term("pose_command")
+                goal_pos_w = cmd_term.pos_command_w[0].cpu()
+                result.closest_distance = dist
+                result.closest_step = total_steps
+                result.closest_time_s = total_steps * dt
+                result.closest_robot_xy = (
+                    (robot_pos_w[0] - env_origin[0].cpu()).item(),
+                    (robot_pos_w[1] - env_origin[1].cpu()).item(),
+                )
+                result.closest_goal_xy = (
+                    (goal_pos_w[0] - env_origin[0].cpu()).item(),
+                    (goal_pos_w[1] - env_origin[1].cpu()).item(),
+                )
             if dist < goal_threshold:
                 result.goals_completed += 1
                 time_s = goal_step_count * dt
@@ -333,6 +393,11 @@ def main():
               f"(goals: {result.goals_completed}/{result.goals_total}, "
               f"collisions: {result.num_collisions}/{result.max_collisions}, "
               f"dist: {result.final_distance:.2f}m)")
+        print(f"  [DEBUG] Closest approach: {result.closest_distance:.3f}m "
+              f"at step {result.closest_step} (t={result.closest_time_s:.1f}s)")
+        print(f"  [DEBUG]   Robot was at: ({result.closest_robot_xy[0]:.2f}, {result.closest_robot_xy[1]:.2f})")
+        print(f"  [DEBUG]   Goal was at:  ({result.closest_goal_xy[0]:.2f}, {result.closest_goal_xy[1]:.2f})")
+        print(f"  [DEBUG] Max contact force: {result.max_contact_force:.1f}N at step {result.max_contact_force_step}")
 
     # ── Print scorecard ──
     print(f"\n{'='*90}")

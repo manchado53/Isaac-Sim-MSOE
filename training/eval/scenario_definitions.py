@@ -37,7 +37,7 @@ SCENARIOS = [
     ScenarioDefinition(
         name="Open Run",
         difficulty="easy",
-        robot_start=(-3.0, 0.0, 0.0),
+        robot_start=(-2.0, 0.0, 0.0),
         furniture_positions=_CORNER_FURNITURE,
         goals=[(3.0, 0.0)],
         max_steps_per_goal=180,  # 15s at 12Hz
@@ -50,7 +50,7 @@ SCENARIOS = [
     ScenarioDefinition(
         name="Obstacle Between",
         difficulty="medium",
-        robot_start=(-3.0, 0.0, 0.0),
+        robot_start=(-2.0, 0.0, 0.0),
         furniture_positions={
             **_CORNER_FURNITURE,
             "furniture_desk": (0.0, 0.0, 0.375, 0.0),  # desk in the middle

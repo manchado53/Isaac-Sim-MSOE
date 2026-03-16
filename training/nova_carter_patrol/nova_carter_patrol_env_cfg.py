@@ -21,6 +21,7 @@ from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.scene import InteractiveSceneCfg
+from isaaclab.sensors import ContactSensorCfg
 from isaaclab.sensors.ray_caster import MultiMeshRayCasterCfg
 from isaaclab.sensors.ray_caster.patterns import LidarPatternCfg
 from isaaclab.terrains import TerrainImporterCfg
@@ -46,7 +47,7 @@ _STATIC_COLLISION_PROPS = sim_utils.CollisionPropertiesCfg(collision_enabled=Tru
 NOVA_CARTER_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
         usd_path=f"{ISAAC_NUCLEUS_DIR}/Robots/NVIDIA/NovaCarter/nova_carter.usd",
-        activate_contact_sensors=False,
+        activate_contact_sensors=True,
     ),
     init_state=ArticulationCfg.InitialStateCfg(
         pos=(0.0, 0.0, 0.1),  # slight Z offset to settle onto ground
@@ -267,6 +268,14 @@ class NovaCarterPatrolSceneCfg(InteractiveSceneCfg):
         debug_vis=False,
     )
 
+    # Contact sensor — detects collisions on the chassis only (excludes wheel/ground contact)
+    contact_sensor = ContactSensorCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/chassis_link",
+        update_period=0,
+        history_length=2,
+        track_air_time=False,
+    )
+
     # Lights
     light = AssetBaseCfg(
         prim_path="/World/light",
@@ -387,14 +396,14 @@ class RewardsCfg:
         params={"command_name": "pose_command", "threshold": 0.5},
     )
     collision = RewTerm(
-        func=rew_mdp.collision_penalty,
+        func=mdp.undesired_contacts,
         weight=-2.0,
-        params={"sensor_cfg": SceneEntityCfg("lidar"), "threshold": 0.15},
+        params={"sensor_cfg": SceneEntityCfg("contact_sensor", body_names="chassis_link"), "threshold": 1.0},
     )
     obstacle_proximity = RewTerm(
         func=rew_mdp.obstacle_proximity,
-        weight=-1.0,
-        params={"sensor_cfg": SceneEntityCfg("lidar"), "safe_dist": 0.5},
+        weight=-0.5,
+        params={"sensor_cfg": SceneEntityCfg("lidar"), "safe_dist": 0.8},
     )
     # Bonus reward for reaching the goal — explicit success signal
     goal_reached = RewTerm(

@@ -12,16 +12,7 @@ Training runs on MSOE's Rosie supercomputer using NVIDIA Isaac Lab (GPU-parallel
 
 ### Robot: Nova Carter
 
-NVIDIA's flagship autonomous mobile robot (AMR) with real differential-drive wheel physics.
-
-| Parameter | Value |
-|-----------|-------|
-| USD | `Isaac/Robots/NVIDIA/NovaCarter/nova_carter.usd` |
-| Drive type | Differential drive (2 powered wheels + passive casters) |
-| Wheel radius | 0.14 m |
-| Wheel base | 0.4 m |
-| Max linear velocity | 0.5 m/s |
-| Max angular velocity | 1.0 rad/s |
+See [NOVA_CARTER_SPECS.md](NOVA_CARTER_SPECS.md) for full robot specifications, rigid body structure, collision geometry, and sensor details.
 
 ### Environment: 10m x 10m Walled Room
 
@@ -65,10 +56,10 @@ The reward design uses dual-scale tanh position tracking with heading alignment,
 | `position_tracking` | `position_tracking_tanh` | +0.5 | std=2.0 | Coarse gradient from far away |
 | `position_tracking_fine` | `position_tracking_tanh` | +0.5 | std=0.2 | Sharp signal for precise arrival |
 | `heading_alignment` | `heading_alignment` | -0.2 | — | Penalize not facing the goal |
-| `velocity_near_goal` | `velocity_near_goal` | -2.0 | threshold=1.0m | Teach deceleration on approach |
-| `goal_reached` | `goal_reached` | +2.0 | threshold=0.5m | Bonus when within 0.5m of goal |
-| `collision` | `collision_penalty` | -2.0 | threshold=0.15m | Binary penalty on LiDAR contact |
-| `obstacle_proximity` | `obstacle_proximity` | -1.0 | safe_dist=0.5m | Smooth penalty near obstacles |
+| `velocity_near_goal` | `velocity_near_goal` | -0.3 | threshold=0.5m | Gentle deceleration in final approach |
+| `goal_reached` | `goal_reached` | +10.0 | threshold=0.5m | Large bonus for arrival |
+| `collision` | `mdp.undesired_contacts` | -4.0 | contact_sensor, threshold=1.0N | Physics-based collision penalty via contact sensor |
+| `obstacle_proximity` | `obstacle_proximity` | -1.0 | safe_dist=0.8m | Smooth LiDAR-based avoidance before contact |
 | `action_smoothness` | `action_rate_l2` | -0.1 | — | Penalize jerky actions |
 | `survival` | `is_alive` | +0.1 | — | Positive baseline to stabilize training |
 
@@ -80,7 +71,9 @@ The reward design uses dual-scale tanh position tracking with heading alignment,
 
 **`heading_alignment`**: Returns `|heading_error|`, penalized so the robot learns to face the goal direction.
 
-**`goal_reached(threshold)`**: Returns 1.0 when distance < threshold, 0.0 otherwise. Gives an explicit success signal on top of the continuous tanh rewards. Weight is +2.0 — enough to incentivize clean arrival but not so large it dominates the shaping.
+**`goal_reached(threshold)`**: Returns 1.0 when distance < threshold, 0.0 otherwise. Gives an explicit success signal on top of the continuous tanh rewards. Weight is +10.0 — large enough to strongly incentivize closing the final distance rather than hovering nearby.
+
+**`mdp.undesired_contacts`** (Isaac Lab built-in): Uses the contact sensor on `chassis_link` to detect actual physics collisions. Threshold is 1.0N (force-based). Replaces the old LiDAR-based collision penalty which had a blind spot due to LiDAR-to-bumper offset (see NOVA_CARTER_SPECS.md).
 
 ### Goal-Reached Command Resampling
 
@@ -117,6 +110,22 @@ The tanh approach (introduced second) provided continuous gradients but used a f
 The `command_resample` termination uses Isaac Lab's built-in `mdp.command_resample` function. It terminates when `command_counter == num_resamples` (6) and the command timer expires. With `GoalReachPose2dCommand`, each goal reach increments `command_counter`, so after 6 successful reaches the episode ends. At ~5-10s per goal, episodes last 30-60s naturally, or the full 83s if goals take longer.
 
 No `collision` termination — handled as reward penalty only. Terminating on collision causes a death spiral when the robot spawns near furniture (instant death -> no useful signal -> NaN gradients).
+
+### Collision Detection
+
+**Important**: The `ContactSensorCfg` must target `chassis_link` only, NOT `Robot/.*` (all bodies). The wheels and casters are always in contact with the ground, producing ~200N+ of force from gravity every step. Using `Robot/.*` makes every step look like a collision.
+
+```python
+# WRONG — detects ground contact through wheels (always ~200N)
+contact_sensor = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*")
+
+# CORRECT — chassis doesn't touch ground normally, so any force = real collision
+contact_sensor = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/chassis_link")
+```
+
+The contact sensor uses `net_forces_w` (shape: `(num_envs, num_bodies, 3)`) which reports total contact force on each tracked body. For filtered contacts (e.g., only detecting contact with specific obstacles), use `filter_prim_paths_expr` and read `force_matrix_w` instead — see [Isaac Lab Contact Sensor docs](https://isaac-sim.github.io/IsaacLab/main/source/overview/core-concepts/sensors/contact_sensor.html).
+
+Both training and evaluation now use the contact sensor for collision detection. The old LiDAR-based collision penalty was removed because the LiDAR-to-bumper offset (0.36m) made the threshold unreliable. LiDAR is still used for `obstacle_proximity` (proactive avoidance before contact). See NOVA_CARTER_SPECS.md for robot dimensions.
 
 ---
 
