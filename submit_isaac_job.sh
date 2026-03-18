@@ -37,7 +37,7 @@ nvidia-smi
 echo ""
 
 # Change to project directory
-cd "$HOME/isaacsim/isaac-sim-msoe" || exit 1
+cd "$HOME/isaac-sim-msoe" || exit 1
 
 echo "Running Isaac Sim..."
 echo ""

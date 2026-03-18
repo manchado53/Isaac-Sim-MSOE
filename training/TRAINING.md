@@ -53,15 +53,17 @@ The reward design uses dual-scale tanh position tracking with heading alignment,
 
 | Term | Function | Weight | Parameters | Purpose |
 |------|----------|--------|------------|---------|
-| `position_tracking` | `position_tracking_tanh` | +0.5 | std=2.0 | Coarse gradient from far away |
-| `position_tracking_fine` | `position_tracking_tanh` | +0.5 | std=0.2 | Sharp signal for precise arrival |
-| `heading_alignment` | `heading_alignment` | -0.2 | — | Penalize not facing the goal |
+| `position_tracking` | `position_tracking_tanh` | +0.5 | std=2.0 | Dense gradient toward goal |
 | `velocity_near_goal` | `velocity_near_goal` | -0.3 | threshold=0.5m | Gentle deceleration in final approach |
-| `goal_reached` | `goal_reached` | +10.0 | threshold=0.5m | Large bonus for arrival |
-| `collision` | `mdp.undesired_contacts` | -4.0 | contact_sensor, threshold=1.0N | Physics-based collision penalty via contact sensor |
-| `obstacle_proximity` | `obstacle_proximity` | -1.0 | safe_dist=0.8m | Smooth LiDAR-based avoidance before contact |
+| `goal_reached` | `goal_reached` | +10.0 | threshold=0.5m | Large sparse bonus for arrival |
+| `collision` | `mdp.undesired_contacts` | -2.0 | contact_sensor, threshold=1.0N | Physics-based collision penalty via contact sensor |
+| `obstacle_proximity` | `obstacle_proximity` | -0.5 | safe_dist=0.8m | Smooth LiDAR-based avoidance before contact |
 | `action_smoothness` | `action_rate_l2` | -0.1 | — | Penalize jerky actions |
 | `survival` | `is_alive` | +0.1 | — | Positive baseline to stabilize training |
+
+**Removed terms** (see Reward Design Principles below):
+- `position_tracking_fine` (std=0.2) — redundant with `goal_reached` at the same 0.5m zone
+- `heading_alignment` (-0.2) — accumulated ~-190/episode and penalized turning away from goal to avoid obstacles
 
 ### Key Reward Functions
 
@@ -96,6 +98,64 @@ The original reward used `GoalProgressReward` (delta-distance per step) + `goal_
 - **Goal-reached termination** created sparse signal — episodes ended abruptly, PPO had fewer samples
 
 The tanh approach (introduced second) provided continuous gradients but used a fixed 10-15s resampling timer. The current design (Pattern B) keeps the tanh shaping and adds goal-reached resampling so the robot doesn't waste simulation time sitting at reached goals.
+
+### Reward Design Principles (from literature)
+
+A survey of 11 published navigation RL systems reveals consistent patterns for what works and what fails in reward design.
+
+#### Core reward terms (present in nearly every paper)
+
+Every successful system uses these three signals:
+1. **Dense distance progress** — continuous reward for moving toward the goal (weights range +0.5 to +500)
+2. **Sparse goal bonus** — large one-time reward for arrival (weights range +3 to +120)
+3. **Sparse collision penalty** — largest negative signal in the system (weights range -5 to -100)
+
+Sources: Tai et al. 2017, Sahar et al. 2025, Cimurs TD3, NavBot PPO, HMP-DRL 2024.
+
+#### Heading alignment: additive vs multiplicative
+
+The literature is split on heading alignment (6/11 use it, 5/11 do not). Key findings:
+- **Additive heading** (our original approach) lets the robot ignore heading while maximizing other terms. The Isaac Lab JetBot tutorial specifically warns against this.
+- **Multiplicative heading** (e.g., `forward_vel * exp(alignment)`) works better because the robot must satisfy both terms simultaneously.
+- **No heading** works fine in many systems — the robot learns heading implicitly from the distance gradient. Tai et al. 2017 explicitly noted "orientation NOT considered" and achieved successful sim-to-real transfer.
+- **Heading fights obstacle avoidance** — when the robot needs to turn away from the goal to go around furniture, an additive heading penalty punishes the correct behavior.
+
+Sources: [Isaac Lab JetBot Tutorial](https://isaac-sim.github.io/IsaacLab/main/source/setup/walkthrough/training_jetbot_reward_exploration.html), [Tai et al. 2017 (arXiv:1703.00420)](https://arxiv.org/abs/1703.00420), [RND3QN (PMC)](https://pmc.ncbi.nlm.nih.gov/articles/PMC9958619/).
+
+#### Known degenerate policies from reward design
+
+| Problem | Cause | Source |
+|---------|-------|--------|
+| Robot stands still | Positive survival reward + harsh collision penalty | Survival Penalty paper (PMC, 2023) |
+| Robot drives backward | Multiplicative heading × velocity without exp() | Isaac Lab JetBot Tutorial |
+| Robot spins in place | Heading reward without distance coupling | Enhanced PPO (arXiv:2405.16266) |
+| Exploration death | Too many negative penalties or terminal conditions | WheeledLab (arXiv:2502.07380) |
+| Slow-motion policy | Positive distance reward accumulated by moving slowly | Survival Penalty paper (PMC, 2023) |
+| Numerical instability | Large sudden collision penalties | Survival Penalty paper (PMC, 2023) |
+
+#### Fewer terms is better
+
+Most successful published systems use 3-6 reward terms. The Isaac Lab tutorial and WheeledLab both emphasize that simpler reward functions with careful term combination outperform many loosely-weighted terms. Each additional term adds a hyperparameter (weight) that interacts with all other terms.
+
+Sources: [WheeledLab (arXiv:2502.07380)](https://arxiv.org/abs/2502.07380), [Isaac Lab JetBot Tutorial](https://isaac-sim.github.io/IsaacLab/main/source/setup/walkthrough/training_jetbot_reward_exploration.html).
+
+#### Reference reward structures from published work
+
+**Sahar et al. 2025 (RL-Navigation, Isaac Sim JetBot → TurtleBot4 sim-to-real)**:
+9 terms: progress_dis×10, potential×0.1, +30 goal, -30 collision, -1/-2/-2 proximity zones, speed bonus. No heading in reward (heading in obs only). Achieved zero-shot sim-to-real transfer.
+[arXiv:2501.02902](https://arxiv.org/abs/2501.02902)
+
+**NavBot PPO (TurtleBot)**:
+3 terms: 500×delta_distance, +120 goal, -100 collision. No heading. Very high distance scaling works well with PPO.
+[github.com/hamidthri/navbot_ppo](https://github.com/hamidthri/navbot_ppo)
+
+**Cimurs TD3 Navigation**:
+5 terms: action[0]/2 forward motion, +100 goal, -100 collision, rotation penalty, proximity penalty. No heading. Elegant simplicity.
+[github.com/reiniscimurs/DRL-robot-navigation](https://github.com/reiniscimurs/DRL-robot-navigation)
+
+**HMP-DRL 2024 (Hybrid Motion Planning)**:
+3 primary (7 sub): 1-d_g/d_max proximity, +3.0 success, -1.0 to -2.5 entity-aware collision. Checkpoint rewards (+0.3) improved success rate by 35.7%.
+[arXiv:2512.24651](https://arxiv.org/html/2512.24651v1)
 
 ---
 
@@ -136,7 +196,7 @@ Configured in `nova_carter_patrol/agents/sb3_ppo_cfg.yaml`:
 | Parameter | Value | Notes |
 |-----------|-------|-------|
 | Algorithm | PPO (SB3) | |
-| Policy | MlpPolicy | 2x128 hidden layers, ReLU |
+| Policy | MlpPolicy | 2x256 hidden layers, ReLU |
 | Learning rate | 3e-4 | |
 | Num envs | 128 | Reduced from 256 — Nova Carter USD is heavier |
 | Steps per rollout | 512 | |
@@ -146,7 +206,7 @@ Configured in `nova_carter_patrol/agents/sb3_ppo_cfg.yaml`:
 | GAE lambda | 0.95 | |
 | Clip range | 0.2 | |
 | Entropy coef | 0.01 | |
-| Target KL | 0.02 | Early-stops policy update if KL diverges (prevents NaN) |
+| Target KL | 0.03 | Early-stops policy update if KL diverges (prevents NaN) |
 | Max grad norm | 0.5 | |
 | VecNormalize | obs only | Reward normalization disabled — causes NaN with short episodes |
 

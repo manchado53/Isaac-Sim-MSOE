@@ -366,28 +366,16 @@ class ObservationsCfg:
 class RewardsCfg:
     """Reward terms for navigation with obstacle avoidance.
 
-    Uses dual-scale tanh position tracking (coarse + fine) following
-    Isaac Lab's ANYmal navigation pattern, plus heading alignment and
-    velocity-near-goal penalty to teach smooth goal arrival.
+    Simplified 6-term structure based on literature review (see TRAINING.md).
+    Removed heading_alignment (fights obstacle avoidance, ~-190/episode) and
+    position_tracking_fine (redundant with goal_reached at same 0.5m zone).
     """
 
-    # Coarse position tracking — gradient from far away
+    # Position tracking — gradient from far away
     position_tracking = RewTerm(
         func=rew_mdp.position_tracking_tanh,
-        weight=0.5,
+        weight=5.0,
         params={"command_name": "pose_command", "std": 2.0},
-    )
-    # Fine position tracking — sharp signal near the goal
-    position_tracking_fine = RewTerm(
-        func=rew_mdp.position_tracking_tanh,
-        weight=0.5,
-        params={"command_name": "pose_command", "std": 0.2},
-    )
-    # Heading alignment — penalize not facing the goal
-    heading_alignment = RewTerm(
-        func=rew_mdp.heading_alignment,
-        weight=-0.2,
-        params={"command_name": "pose_command"},
     )
     # Velocity near goal — teach the robot to decelerate on approach
     velocity_near_goal = RewTerm(
@@ -412,7 +400,6 @@ class RewardsCfg:
         params={"command_name": "pose_command", "threshold": 0.5},
     )
     action_smoothness = RewTerm(func=mdp.action_rate_l2, weight=-0.1)
-    survival = RewTerm(func=mdp.is_alive, weight=0.1)
 
 
 ##

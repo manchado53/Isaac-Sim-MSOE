@@ -202,7 +202,11 @@ def main():
         target=(float(env_origins[0, 0]), float(env_origins[0, 1]), 0.0),
     )
 
-    # Video — record all steps, we'll get one long video per scenario based on step ranges
+    # Unique timestamp for this eval run
+    from datetime import datetime
+    eval_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+    # Video — record all steps as one continuous video
     video_dir = os.path.join(checkpoint_dir, "videos", "scenarios")
     os.makedirs(video_dir, exist_ok=True)
 
@@ -212,13 +216,13 @@ def main():
         scenario_steps.append(s.max_steps_per_goal * len(s.goals))
     total_all_steps = sum(scenario_steps)
 
-    # Record everything as one continuous video, we'll note timestamps per scenario
+    # Record everything as one continuous video with unique name
     env = gym.wrappers.RecordVideo(
         env,
         video_folder=video_dir,
-        name_prefix="scenario_eval",
-        step_trigger=lambda step: step == 0,  # start recording on first step
-        video_length=total_all_steps + 200,  # buffer for settle steps
+        name_prefix=f"scenario_eval_{eval_timestamp}",
+        step_trigger=lambda step: step == 0,
+        video_length=total_all_steps + 200,
         disable_logger=True,
     )
 
@@ -425,7 +429,7 @@ def main():
     print(f"{'='*90}")
 
     # Save results to JSON
-    results_path = os.path.join(checkpoint_dir, "scenario_results.json")
+    results_path = os.path.join(checkpoint_dir, f"scenario_results_{eval_timestamp}.json")
     results_json = []
     for r in results:
         results_json.append({
