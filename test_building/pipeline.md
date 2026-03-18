@@ -1,3 +1,4 @@
+
 # Navigation Pipeline
 
 ## Overview
@@ -235,6 +236,67 @@ MSOEBuildingTake2.usd (Revit 3D model)
         ▼  {floor}_nav_graph.json
            {floor}_nav_graph.png
 ```
+
+---
+
+## Stage 3: Navigation Task Solving
+
+**Script:** `generate_routes.py`
+**Runs on:** Any machine with Python 3 + numpy (no Isaac Sim needed)
+**Input:** `navigation/tasks.json` + `floor_plans_resized/floor1/floor1_nodes.json`
+**Output:** `navigation/routes.json`
+
+### What it does
+
+1. Loads the floor 1 navigation graph from `floor_plans_resized/floor1/floor1_nodes.json` (nodes + edges)
+2. Reads all 18 tasks from `navigation/tasks.json`, each specifying a `start` and `goal` node ID
+3. For each task, runs Dijkstra's algorithm on the graph to find the shortest-weighted path
+4. Fills in the `waypoints` list (ordered node IDs from start to goal) and `total_distance` (px) for each solved task
+5. Writes the completed task data to `navigation/routes.json`
+
+### Task Difficulty Levels
+
+| Difficulty | Count | Criteria |
+|------------|-------|----------|
+| Easy       | 6     | Same wing or corridor, 2–4 intermediate nodes, straight-line distance < 200 px |
+| Medium     | 6     | Cross-wing traversal, 5–9 intermediate nodes, distance 200–500 px |
+| Hard       | 6     | Full building diagonal or end-to-end, 10+ intermediate nodes, distance > 500 px |
+
+### Usage
+
+```bash
+# Solve all tasks (reads tasks.json, writes routes.json)
+python3 generate_routes.py
+```
+
+### Output Format
+
+`navigation/routes.json` mirrors `tasks.json` with two fields populated per solved task:
+
+| Field | Description |
+|-------|-------------|
+| `waypoints` | Ordered list of node IDs from start to goal (e.g., `["f1_office_07", "f1_corr_top_06", "f1_office_10"]`) |
+| `total_distance` | Total Dijkstra path cost in pixels (Euclidean edge weights summed) |
+
+Tasks where the start or goal node is missing from the graph, or no connected path exists, will have `waypoints: null` and `total_distance: null`.
+
+### Current Results (Floor 1)
+
+| Task ID    | Difficulty | Start → Goal                              | Waypoints | Distance (px) |
+|------------|------------|-------------------------------------------|-----------|---------------|
+| easy_01    | easy       | Office 7 → Office 10                      | 4         | 254.9         |
+| easy_02    | easy       | Office 11 → Office 13                     | 4         | 233.1         |
+| easy_06    | easy       | Left Wing Corr 1 → Left Wing Corr 3       | 3         | 140.0         |
+| easy_03–05 | easy       | (nodes not yet in graph)                  | —         | null          |
+| medium_01–06 | medium   | Various cross-wing routes                 | —         | null          |
+| hard_01–06 | hard       | Full diagonal/end-to-end traversals       | —         | null          |
+
+*Unsolved tasks reflect nodes that haven't been added to `floor1_nodes.json` yet.*
+
+### Dependencies
+
+- Python 3.8+
+- numpy
 
 ---
 
