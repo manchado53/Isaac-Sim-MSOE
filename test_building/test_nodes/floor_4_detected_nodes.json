@@ -1,0 +1,650 @@
+{
+  "floor": "floor_4",
+  "cell_size_cm": 3.0,
+  "xy_min": [
+    -8640.602063726465,
+    -1050.9439888000488
+  ],
+  "source_image_size": [
+    960,
+    601
+  ],
+  "grid_size": [
+    4314,
+    4750
+  ],
+  "nodes": [
+    {
+      "label": "node_1",
+      "grid_col": 3664,
+      "grid_row": 1200,
+      "world_x": 2351.3979362735354,
+      "world_y": 2549.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_2",
+      "grid_col": 3736,
+      "grid_row": 1200,
+      "world_x": 2567.3979362735354,
+      "world_y": 2549.056011199951,
+      "cluster_size": 15
+    },
+    {
+      "label": "node_3",
+      "grid_col": 2391,
+      "grid_row": 1458,
+      "world_x": -1467.6020637264646,
+      "world_y": 3323.056011199951,
+      "cluster_size": 16
+    },
+    {
+      "label": "node_4",
+      "grid_col": 3306,
+      "grid_row": 1545,
+      "world_x": 1277.3979362735354,
+      "world_y": 3584.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_5",
+      "grid_col": 3447,
+      "grid_row": 1545,
+      "world_x": 1700.3979362735354,
+      "world_y": 3584.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_6",
+      "grid_col": 3564,
+      "grid_row": 1545,
+      "world_x": 2051.3979362735354,
+      "world_y": 3584.056011199951,
+      "cluster_size": 16
+    },
+    {
+      "label": "node_7",
+      "grid_col": 3094,
+      "grid_row": 1549,
+      "world_x": 641.3979362735354,
+      "world_y": 3596.056011199951,
+      "cluster_size": 16
+    },
+    {
+      "label": "node_8",
+      "grid_col": 2927,
+      "grid_row": 1552,
+      "world_x": 140.39793627353538,
+      "world_y": 3605.056011199951,
+      "cluster_size": 15
+    },
+    {
+      "label": "node_9",
+      "grid_col": 2761,
+      "grid_row": 1559,
+      "world_x": -357.6020637264646,
+      "world_y": 3626.056011199951,
+      "cluster_size": 16
+    },
+    {
+      "label": "node_10",
+      "grid_col": 2094,
+      "grid_row": 1561,
+      "world_x": -2358.6020637264646,
+      "world_y": 3632.056011199951,
+      "cluster_size": 16
+    },
+    {
+      "label": "node_11",
+      "grid_col": 2374,
+      "grid_row": 1561,
+      "world_x": -1518.6020637264646,
+      "world_y": 3632.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_12",
+      "grid_col": 2577,
+      "grid_row": 1565,
+      "world_x": -909.6020637264646,
+      "world_y": 3644.056011199951,
+      "cluster_size": 16
+    },
+    {
+      "label": "node_13",
+      "grid_col": 1898,
+      "grid_row": 1573,
+      "world_x": -2946.6020637264646,
+      "world_y": 3668.056011199951,
+      "cluster_size": 30
+    },
+    {
+      "label": "node_14",
+      "grid_col": 1808,
+      "grid_row": 1574,
+      "world_x": -3216.6020637264646,
+      "world_y": 3671.056011199951,
+      "cluster_size": 17
+    },
+    {
+      "label": "node_15",
+      "grid_col": 1588,
+      "grid_row": 1576,
+      "world_x": -3876.6020637264646,
+      "world_y": 3677.056011199951,
+      "cluster_size": 15
+    },
+    {
+      "label": "node_16",
+      "grid_col": 2105,
+      "grid_row": 1946,
+      "world_x": -2325.6020637264646,
+      "world_y": 4787.056011199951,
+      "cluster_size": 15
+    },
+    {
+      "label": "node_17",
+      "grid_col": 1918,
+      "grid_row": 1956,
+      "world_x": -2886.6020637264646,
+      "world_y": 4817.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_18",
+      "grid_col": 1588,
+      "grid_row": 1973,
+      "world_x": -3876.6020637264646,
+      "world_y": 4868.056011199951,
+      "cluster_size": 15
+    },
+    {
+      "label": "node_19",
+      "grid_col": 3740,
+      "grid_row": 2043,
+      "world_x": 2579.3979362735354,
+      "world_y": 5078.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_20",
+      "grid_col": 3570,
+      "grid_row": 2061,
+      "world_x": 2069.3979362735354,
+      "world_y": 5132.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_21",
+      "grid_col": 1584,
+      "grid_row": 2263,
+      "world_x": -3888.6020637264646,
+      "world_y": 5738.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_22",
+      "grid_col": 2019,
+      "grid_row": 2272,
+      "world_x": -2583.6020637264646,
+      "world_y": 5765.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_23",
+      "grid_col": 2370,
+      "grid_row": 2279,
+      "world_x": -1530.6020637264646,
+      "world_y": 5786.056011199951,
+      "cluster_size": 15
+    },
+    {
+      "label": "node_24",
+      "grid_col": 1774,
+      "grid_row": 2285,
+      "world_x": -3318.6020637264646,
+      "world_y": 5804.056011199951,
+      "cluster_size": 16
+    },
+    {
+      "label": "node_25",
+      "grid_col": 3576,
+      "grid_row": 2353,
+      "world_x": 2087.3979362735354,
+      "world_y": 6008.056011199951,
+      "cluster_size": 15
+    },
+    {
+      "label": "node_26",
+      "grid_col": 3576,
+      "grid_row": 2494,
+      "world_x": 2087.3979362735354,
+      "world_y": 6431.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_27",
+      "grid_col": 4207,
+      "grid_row": 2508,
+      "world_x": 3980.3979362735354,
+      "world_y": 6473.056011199951,
+      "cluster_size": 16
+    },
+    {
+      "label": "node_28",
+      "grid_col": 2020,
+      "grid_row": 2531,
+      "world_x": -2580.6020637264646,
+      "world_y": 6542.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_29",
+      "grid_col": 2573,
+      "grid_row": 2558,
+      "world_x": -921.6020637264646,
+      "world_y": 6623.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_30",
+      "grid_col": 1772,
+      "grid_row": 2600,
+      "world_x": -3324.6020637264646,
+      "world_y": 6749.056011199951,
+      "cluster_size": 15
+    },
+    {
+      "label": "node_31",
+      "grid_col": 2378,
+      "grid_row": 2716,
+      "world_x": -1506.6020637264646,
+      "world_y": 7097.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_32",
+      "grid_col": 2569,
+      "grid_row": 2717,
+      "world_x": -933.6020637264646,
+      "world_y": 7100.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_33",
+      "grid_col": 3157,
+      "grid_row": 2717,
+      "world_x": 830.3979362735354,
+      "world_y": 7100.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_34",
+      "grid_col": 2780,
+      "grid_row": 2718,
+      "world_x": -300.6020637264646,
+      "world_y": 7103.056011199951,
+      "cluster_size": 15
+    },
+    {
+      "label": "node_35",
+      "grid_col": 3577,
+      "grid_row": 2723,
+      "world_x": 2090.3979362735354,
+      "world_y": 7118.056011199951,
+      "cluster_size": 16
+    },
+    {
+      "label": "node_36",
+      "grid_col": 2254,
+      "grid_row": 3027,
+      "world_x": -1878.6020637264646,
+      "world_y": 8030.056011199951,
+      "cluster_size": 16
+    },
+    {
+      "label": "node_37",
+      "grid_col": 1575,
+      "grid_row": 3029,
+      "world_x": -3915.6020637264646,
+      "world_y": 8036.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_38",
+      "grid_col": 2366,
+      "grid_row": 3029,
+      "world_x": -1542.6020637264646,
+      "world_y": 8036.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_39",
+      "grid_col": 2070,
+      "grid_row": 3033,
+      "world_x": -2430.6020637264646,
+      "world_y": 8048.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_40",
+      "grid_col": 1871,
+      "grid_row": 3039,
+      "world_x": -3027.6020637264646,
+      "world_y": 8066.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_41",
+      "grid_col": 2370,
+      "grid_row": 3286,
+      "world_x": -1530.6020637264646,
+      "world_y": 8807.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_42",
+      "grid_col": 1737,
+      "grid_row": 3332,
+      "world_x": -3429.6020637264646,
+      "world_y": 8945.056011199951,
+      "cluster_size": 15
+    },
+    {
+      "label": "node_43",
+      "grid_col": 1578,
+      "grid_row": 3346,
+      "world_x": -3906.6020637264646,
+      "world_y": 8987.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_44",
+      "grid_col": 3587,
+      "grid_row": 3419,
+      "world_x": 2120.3979362735354,
+      "world_y": 9206.056011199951,
+      "cluster_size": 16
+    },
+    {
+      "label": "node_45",
+      "grid_col": 2055,
+      "grid_row": 3508,
+      "world_x": -2475.6020637264646,
+      "world_y": 9473.056011199951,
+      "cluster_size": 16
+    },
+    {
+      "label": "node_46",
+      "grid_col": 1730,
+      "grid_row": 3521,
+      "world_x": -3450.6020637264646,
+      "world_y": 9512.056011199951,
+      "cluster_size": 16
+    },
+    {
+      "label": "node_47",
+      "grid_col": 2159,
+      "grid_row": 3521,
+      "world_x": -2163.6020637264646,
+      "world_y": 9512.056011199951,
+      "cluster_size": 29
+    },
+    {
+      "label": "node_48",
+      "grid_col": 3937,
+      "grid_row": 3618,
+      "world_x": 3170.3979362735354,
+      "world_y": 9803.056011199951,
+      "cluster_size": 15
+    },
+    {
+      "label": "node_49",
+      "grid_col": 2370,
+      "grid_row": 3619,
+      "world_x": -1530.6020637264646,
+      "world_y": 9806.056011199951,
+      "cluster_size": 13
+    },
+    {
+      "label": "node_50",
+      "grid_col": 3782,
+      "grid_row": 3625,
+      "world_x": 2705.3979362735354,
+      "world_y": 9824.056011199951,
+      "cluster_size": 15
+    },
+    {
+      "label": "node_51",
+      "grid_col": 3783,
+      "grid_row": 3807,
+      "world_x": 2708.3979362735354,
+      "world_y": 10370.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_52",
+      "grid_col": 3591,
+      "grid_row": 3864,
+      "world_x": 2132.3979362735354,
+      "world_y": 10541.056011199951,
+      "cluster_size": 29
+    },
+    {
+      "label": "node_53",
+      "grid_col": 1001,
+      "grid_row": 3892,
+      "world_x": -5637.602063726465,
+      "world_y": 10625.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_54",
+      "grid_col": 532,
+      "grid_row": 3893,
+      "world_x": -7044.602063726465,
+      "world_y": 10628.056011199951,
+      "cluster_size": 13
+    },
+    {
+      "label": "node_55",
+      "grid_col": 81,
+      "grid_row": 3894,
+      "world_x": -8397.602063726465,
+      "world_y": 10631.056011199951,
+      "cluster_size": 16
+    },
+    {
+      "label": "node_56",
+      "grid_col": 165,
+      "grid_row": 3894,
+      "world_x": -8145.602063726465,
+      "world_y": 10631.056011199951,
+      "cluster_size": 15
+    },
+    {
+      "label": "node_57",
+      "grid_col": 326,
+      "grid_row": 3895,
+      "world_x": -7662.602063726465,
+      "world_y": 10634.056011199951,
+      "cluster_size": 15
+    },
+    {
+      "label": "node_58",
+      "grid_col": 450,
+      "grid_row": 3900,
+      "world_x": -7290.602063726465,
+      "world_y": 10649.056011199951,
+      "cluster_size": 17
+    },
+    {
+      "label": "node_59",
+      "grid_col": 614,
+      "grid_row": 3900,
+      "world_x": -6798.602063726465,
+      "world_y": 10649.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_60",
+      "grid_col": 775,
+      "grid_row": 3900,
+      "world_x": -6315.602063726465,
+      "world_y": 10649.056011199951,
+      "cluster_size": 15
+    },
+    {
+      "label": "node_61",
+      "grid_col": 915,
+      "grid_row": 3900,
+      "world_x": -5895.602063726465,
+      "world_y": 10649.056011199951,
+      "cluster_size": 15
+    },
+    {
+      "label": "node_62",
+      "grid_col": 1085,
+      "grid_row": 3900,
+      "world_x": -5385.602063726465,
+      "world_y": 10649.056011199951,
+      "cluster_size": 15
+    },
+    {
+      "label": "node_63",
+      "grid_col": 1155,
+      "grid_row": 3900,
+      "world_x": -5175.602063726465,
+      "world_y": 10649.056011199951,
+      "cluster_size": 16
+    },
+    {
+      "label": "node_64",
+      "grid_col": 3270,
+      "grid_row": 3900,
+      "world_x": 1169.3979362735354,
+      "world_y": 10649.056011199951,
+      "cluster_size": 15
+    },
+    {
+      "label": "node_65",
+      "grid_col": 1314,
+      "grid_row": 3907,
+      "world_x": -4698.602063726465,
+      "world_y": 10670.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_66",
+      "grid_col": 689,
+      "grid_row": 3908,
+      "world_x": -6573.602063726465,
+      "world_y": 10673.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_67",
+      "grid_col": 1384,
+      "grid_row": 3908,
+      "world_x": -4488.602063726465,
+      "world_y": 10673.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_68",
+      "grid_col": 1464,
+      "grid_row": 3908,
+      "world_x": -4248.602063726465,
+      "world_y": 10673.056011199951,
+      "cluster_size": 15
+    },
+    {
+      "label": "node_69",
+      "grid_col": 1578,
+      "grid_row": 3908,
+      "world_x": -3906.6020637264646,
+      "world_y": 10673.056011199951,
+      "cluster_size": 15
+    },
+    {
+      "label": "node_70",
+      "grid_col": 1234,
+      "grid_row": 3912,
+      "world_x": -4938.602063726465,
+      "world_y": 10685.056011199951,
+      "cluster_size": 16
+    },
+    {
+      "label": "node_71",
+      "grid_col": 2364,
+      "grid_row": 3912,
+      "world_x": -1548.6020637264646,
+      "world_y": 10685.056011199951,
+      "cluster_size": 13
+    },
+    {
+      "label": "node_72",
+      "grid_col": 845,
+      "grid_row": 3913,
+      "world_x": -6105.602063726465,
+      "world_y": 10688.056011199951,
+      "cluster_size": 18
+    },
+    {
+      "label": "node_73",
+      "grid_col": 2635,
+      "grid_row": 3916,
+      "world_x": -735.6020637264646,
+      "world_y": 10697.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_74",
+      "grid_col": 2154,
+      "grid_row": 3931,
+      "world_x": -2178.6020637264646,
+      "world_y": 10742.056011199951,
+      "cluster_size": 15
+    },
+    {
+      "label": "node_75",
+      "grid_col": 2017,
+      "grid_row": 3940,
+      "world_x": -2589.6020637264646,
+      "world_y": 10769.056011199951,
+      "cluster_size": 13
+    },
+    {
+      "label": "node_76",
+      "grid_col": 1854,
+      "grid_row": 3949,
+      "world_x": -3078.6020637264646,
+      "world_y": 10796.056011199951,
+      "cluster_size": 15
+    },
+    {
+      "label": "node_77",
+      "grid_col": 1944,
+      "grid_row": 3949,
+      "world_x": -2808.6020637264646,
+      "world_y": 10796.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_78",
+      "grid_col": 2361,
+      "grid_row": 4264,
+      "world_x": -1557.6020637264646,
+      "world_y": 11741.056011199951,
+      "cluster_size": 14
+    },
+    {
+      "label": "node_79",
+      "grid_col": 3278,
+      "grid_row": 4435,
+      "world_x": 1193.3979362735354,
+      "world_y": 12254.056011199951,
+      "cluster_size": 15
+    }
+  ]
+}
