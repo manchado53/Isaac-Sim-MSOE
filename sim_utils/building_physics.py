@@ -402,39 +402,263 @@ def create_revolute_joint(stage, joint_path, body0_path, body1_path,
     return joint
 
 
+# ---------------------------------------------------------------------------
+# Door Mechanism Classification & Drive
+# ---------------------------------------------------------------------------
+
+class DoorMechanism(Enum):
+    """Mechanical type of a door, determines drive parameters."""
+    HINGED_SINGLE = auto()
+    HINGED_DOUBLE = auto()
+    OVERHEAD = auto()
+    SLIDING = auto()
+    UNKNOWN = auto()
+
+
+# Prim-path substrings -> mechanism mapping (checked in order, first match wins)
+_MECHANISM_RULES = [
+    # Overhead / garage
+    ("AV300_RAYNOR", DoorMechanism.OVERHEAD),
+    ("Overhead_Rolling", DoorMechanism.OVERHEAD),
+    ("Overhead_Sectional", DoorMechanism.OVERHEAD),
+    # Sliding
+    ("Sliding_Glass", DoorMechanism.SLIDING),
+    ("Dormakaba", DoorMechanism.SLIDING),
+    # Double-leaf hinged (must check before single)
+    ("Type_2F", DoorMechanism.HINGED_DOUBLE),
+    ("Type_2G", DoorMechanism.HINGED_DOUBLE),
+    ("2FG", DoorMechanism.HINGED_DOUBLE),
+    ("2FU", DoorMechanism.HINGED_DOUBLE),
+    ("2F_", DoorMechanism.HINGED_DOUBLE),
+    # Single-leaf hinged
+    ("Type_F", DoorMechanism.HINGED_SINGLE),
+    ("Type_G", DoorMechanism.HINGED_SINGLE),
+    ("Type_N", DoorMechanism.HINGED_SINGLE),
+    ("Type_FG", DoorMechanism.HINGED_SINGLE),
+    ("Curtain_Wall", DoorMechanism.HINGED_SINGLE),
+]
+
+
+def classify_door_mechanism(door_prim) -> DoorMechanism:
+    """Classify a door prim's mechanical type by inspecting its path.
+
+    Looks for known substrings in the prim path (which includes the
+    type-group folder name from the Revit export).
+    """
+    path_str = str(door_prim.GetPath())
+    for substring, mechanism in _MECHANISM_RULES:
+        if substring in path_str:
+            return mechanism
+    return DoorMechanism.UNKNOWN
+
+
+# Default drive parameters per mechanism: (stiffness, damping, max_force)
+DOOR_DRIVE_PARAMS = {
+    DoorMechanism.HINGED_SINGLE: (300.0, 150.0, 3000.0),
+    DoorMechanism.HINGED_DOUBLE: (300.0, 150.0, 3000.0),
+}
+
+
+def setup_door_drive(joint, stiffness=300.0, damping=150.0,
+                     max_force=3000.0, target_position=0.0):
+    """Apply UsdPhysics.DriveAPI (angular position drive) to a revolute joint.
+
+    Args:
+        joint: UsdPhysics.RevoluteJoint or its prim
+        stiffness: Spring constant toward target angle
+        damping: Damping coefficient to prevent oscillation
+        max_force: Maximum torque the drive can apply
+        target_position: Initial target angle in degrees (0 = closed)
+
+    Returns:
+        The UsdPhysics.DriveAPI instance
+    """
+    joint_prim = joint.GetPrim() if hasattr(joint, "GetPrim") else joint
+    drive = UsdPhysics.DriveAPI.Apply(joint_prim, "angular")
+    drive.CreateStiffnessAttr(stiffness)
+    drive.CreateDampingAttr(damping)
+    drive.CreateMaxForceAttr(max_force)
+    drive.CreateTargetPositionAttr(target_position)
+    return drive
+
+
+def set_drive_target(drive, angle_deg):
+    """Update the drive's target angle (degrees) at runtime."""
+    drive.GetTargetPositionAttr().Set(angle_deg)
+
+
 def estimate_door_hinge_offset(stage, door_prim):
     """
     Estimate a hinge position at one vertical edge of a door's bounding box.
+
+    Uses **world-space** bounding box to avoid unit-scale mismatches that
+    occur with Revit-exported geometry (local coords may be in centimeters
+    or other non-stage units).  The world-space hinge position is then
+    inverse-transformed back into body1's local frame for ``local_pos1``.
+
+    The hinge edge is chosen along the door's **narrow horizontal axis**
+    (the door width), picking the min edge.  Doors oriented along X get
+    a min-X hinge; doors oriented along Y get a min-Y hinge.
 
     Returns (local_pos0, local_pos1) as Gf.Vec3f tuples suitable for
     create_revolute_joint, or (None, None) if bounding box can't be computed.
     """
     bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
-    bbox = bbox_cache.ComputeLocalBound(door_prim)
-    box_range = bbox.ComputeAlignedRange()
-    bb_min = box_range.GetMin()
-    bb_max = box_range.GetMax()
 
-    if bb_min == bb_max:
+    # --- World-space bounding box (in stage units = meters) ---
+    world_bbox = bbox_cache.ComputeWorldBound(door_prim)
+    world_range = world_bbox.ComputeAlignedRange()
+    w_min = world_range.GetMin()
+    w_max = world_range.GetMax()
+
+    if w_min == w_max:
         return None, None
 
-    # Hinge at the min-X edge of the door (left side when facing it)
-    # The joint pivot is at the hinge line — vertical axis through one edge
-    hinge_x = bb_min[0]
-    hinge_y = (bb_min[1] + bb_max[1]) / 2.0
-    hinge_z = (bb_min[2] + bb_max[2]) / 2.0
+    dx = w_max[0] - w_min[0]
+    dy = w_max[1] - w_min[1]
 
-    # local_pos1 is the offset from the door's origin to the hinge point
-    local_pos1 = Gf.Vec3f(float(hinge_x), float(hinge_y), float(hinge_z))
+    # Determine door orientation: the wider horizontal axis is the door
+    # width, the thinner one is the door depth (thickness).
+    # Hinge goes on the min edge of the wider axis.
+    if dx >= dy:
+        # Door extends along X — hinge at min-X edge
+        hinge_x = w_min[0]
+        hinge_y = (w_min[1] + w_max[1]) / 2.0
+    else:
+        # Door extends along Y — hinge at min-Y edge
+        hinge_x = (w_min[0] + w_max[0]) / 2.0
+        hinge_y = w_min[1]
 
-    # local_pos0 is the world-space position of the hinge
-    # For a door attached to the world frame, we need the door's world transform
+    hinge_z = (w_min[2] + w_max[2]) / 2.0
+
+    # local_pos0: hinge in body0's frame (body0 = world, so world coords)
+    hinge_world = Gf.Vec3d(hinge_x, hinge_y, hinge_z)
+    local_pos0 = Gf.Vec3f(float(hinge_world[0]),
+                           float(hinge_world[1]),
+                           float(hinge_world[2]))
+
+    # local_pos1: hinge in body1's (door's) local frame.
+    # Inverse-transform the world hinge position into the door's local space
+    # so that units match regardless of internal scale factors.
     xformable = UsdGeom.Xformable(door_prim)
     world_xform = xformable.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
-    hinge_world = world_xform.Transform(Gf.Vec3d(float(hinge_x), float(hinge_y), float(hinge_z)))
-    local_pos0 = Gf.Vec3f(float(hinge_world[0]), float(hinge_world[1]), float(hinge_world[2]))
+    inv_xform = world_xform.GetInverse()
+    hinge_local = inv_xform.Transform(hinge_world)
+    local_pos1 = Gf.Vec3f(float(hinge_local[0]),
+                           float(hinge_local[1]),
+                           float(hinge_local[2]))
 
     return local_pos0, local_pos1
+
+
+# ---------------------------------------------------------------------------
+# Collision Filtering for Doors
+# ---------------------------------------------------------------------------
+
+def _build_collision_index(stage, exclude_prefix=None):
+    """Build a spatial index of all static collision prims.
+
+    Returns list of (prim, bbox_min, bbox_max) tuples.
+    Only includes prims that have CollisionAPI but NOT RigidBodyAPI
+    (i.e., static colliders only).
+    """
+    bbox_cache = UsdGeom.BBoxCache(
+        Usd.TimeCode.Default(), [UsdGeom.Tokens.default_]
+    )
+    index = []
+    for prim in stage.Traverse():
+        if not prim.HasAPI(UsdPhysics.CollisionAPI):
+            continue
+        if prim.HasAPI(UsdPhysics.RigidBodyAPI):
+            continue
+        if exclude_prefix and str(prim.GetPath()).startswith(exclude_prefix):
+            continue
+        bbox = bbox_cache.ComputeWorldBound(prim)
+        rng = bbox.ComputeAlignedRange()
+        if rng.IsEmpty():
+            continue
+        index.append((prim, rng.GetMin(), rng.GetMax()))
+    return index
+
+
+def _boxes_overlap(a_min, a_max, b_min, b_max):
+    """Check if two 3D AABBs overlap."""
+    for i in range(3):
+        if a_min[i] >= b_max[i] or b_min[i] >= a_max[i]:
+            return False
+    return True
+
+
+def add_door_collision_filters(stage, door_prims, collision_index=None):
+    """Disable collision between each door and overlapping static geometry.
+
+    Curtain wall doors from Revit sit flush inside wall/mullion assemblies.
+    Without filtering, the door's convex hull collision immediately jams
+    against the surrounding static colliders, preventing any rotation.
+
+    This function finds all static colliders whose bounding box overlaps
+    each door's initial position and applies ``PhysxFilteredPairsAPI``
+    to prevent collision between them.
+
+    Args:
+        stage: USD stage.
+        door_prims: List of door UsdPrim objects (must have RigidBodyAPI).
+        collision_index: Pre-built index from ``_build_collision_index()``.
+            If None, one is built automatically.
+
+    Returns:
+        Total number of filtered pairs added.
+    """
+    if collision_index is None:
+        collision_index = _build_collision_index(stage)
+
+    bbox_cache = UsdGeom.BBoxCache(
+        Usd.TimeCode.Default(), [UsdGeom.Tokens.default_]
+    )
+
+    total_filtered = 0
+
+    for door_prim in door_prims:
+        door_path = str(door_prim.GetPath())
+
+        # Get door's world bounding box
+        door_bbox = bbox_cache.ComputeWorldBound(door_prim)
+        door_range = door_bbox.ComputeAlignedRange()
+        if door_range.IsEmpty():
+            continue
+        d_min = door_range.GetMin()
+        d_max = door_range.GetMax()
+
+        # Find overlapping static colliders
+        overlapping = []
+        for col_prim, c_min, c_max in collision_index:
+            if str(col_prim.GetPath()).startswith(door_path):
+                continue  # skip self/children
+            if _boxes_overlap(d_min, d_max, c_min, c_max):
+                overlapping.append(col_prim)
+
+        if not overlapping:
+            continue
+
+        # Apply FilteredPairsAPI on each collision child of the door.
+        # The filter must be on the prim with CollisionAPI, and targets
+        # must also be collision prims, for PhysX to respect it.
+        door_col_prims = []
+        for child in door_prim.GetChildren():
+            if child.HasAPI(UsdPhysics.CollisionAPI):
+                door_col_prims.append(child)
+
+        # Also apply on the door prim itself (covers both levels)
+        filter_prims = door_col_prims + [door_prim]
+
+        targets = [col.GetPath() for col in overlapping]
+        for fp in filter_prims:
+            api = UsdPhysics.FilteredPairsAPI.Apply(fp)
+            rel = api.GetFilteredPairsRel()
+            rel.SetTargets(targets)
+        total_filtered += len(targets)
+
+    return total_filtered
 
 
 # ---------------------------------------------------------------------------

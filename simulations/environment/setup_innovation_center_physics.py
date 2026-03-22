@@ -49,15 +49,19 @@ sys.path.insert(0, _project_dir)
 
 from sim_utils.building_physics import (
     PrimCategory,
+    DoorMechanism,
     categorize_prim,
+    classify_door_mechanism,
     apply_static_collider,
     apply_dynamic_rigid_body,
     create_physics_materials,
     bind_physics_material,
     create_revolute_joint,
     estimate_door_hinge_offset,
+    setup_door_drive,
     setup_physics_scene,
     CATEGORY_MATERIALS,
+    DOOR_DRIVE_PARAMS,
     iter_building_elements,
 )
 
@@ -171,13 +175,17 @@ def main():
         _log_level_summary(current_level, level_counts.get(current_level, {}),
                            level_colliders.get(current_level, 0))
 
-    # --- Create revolute joints for doors ---
+    # --- Create revolute joints and drives for doors ---
     log(f"\nCreating revolute joints for {len(door_prims)} doors...")
     joints_created = 0
     joints_skipped = 0
+    drives_created = 0
+    drives_skipped = 0
     for level_name, door in door_prims:
         door_path = str(door.GetPath())
         joint_path = door_path + "/HingeJoint"
+
+        mechanism = classify_door_mechanism(door)
 
         local_pos0, local_pos1 = estimate_door_hinge_offset(stage, door)
         if local_pos0 is None:
@@ -185,7 +193,7 @@ def main():
             joints_skipped += 1
             continue
 
-        create_revolute_joint(
+        joint = create_revolute_joint(
             stage,
             joint_path=joint_path,
             body0_path="",          # world frame (static building)
@@ -198,9 +206,22 @@ def main():
         )
         joints_created += 1
 
+        # Apply DriveAPI for hinged doors only
+        drive_params = DOOR_DRIVE_PARAMS.get(mechanism)
+        if drive_params is not None:
+            stiffness, damping, max_force = drive_params
+            setup_door_drive(joint, stiffness=stiffness, damping=damping,
+                             max_force=max_force, target_position=0.0)
+            drives_created += 1
+        else:
+            drives_skipped += 1
+            log(f"  Drive skipped ({mechanism.name}): {door_path}")
+
     log(f"  Revolute joints created: {joints_created}")
     if joints_skipped > 0:
         log(f"  Joints skipped (no bbox): {joints_skipped}")
+    log(f"  Drives created:           {drives_created}")
+    log(f"  Drives skipped:           {drives_skipped}")
 
     # --- Summary ---
     t_physics = time.time()
@@ -232,6 +253,8 @@ def main():
     log(f"  Static colliders applied:     {applied_collider}")
     log(f"  Dynamic rigid bodies applied:  {applied_rigid_body}")
     log(f"  Revolute joints created:       {joints_created}")
+    log(f"  Drives created (hinged):       {drives_created}")
+    log(f"  Drives skipped (non-hinged):   {drives_skipped}")
     log(f"  Skipped (no mesh found):       {skipped_no_mesh}")
 
     # --- Export physics USD ---
