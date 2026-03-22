@@ -1,4 +1,4 @@
-### 3.4 RL Navigation Training Infrastructure
+f ### 3.4 RL Navigation Training Infrastructure
 
 The reinforcement learning subsystem trains a local navigation policy that receives goal waypoints from the navigation graph (Section 3.3) and learns to reach them while avoiding obstacles. Training is conducted entirely in simulation using NVIDIA Isaac Lab on MSOE's Rosie supercomputer, with the trained policy targeting deployment on the physical NVIDIA Nova Carter platform.
 
@@ -84,3 +84,40 @@ The **velocity near goal** term penalizes the robot's speed when it is within 0.
 The **action smoothness** term penalizes the L2 norm of the change in actions between consecutive time steps. This discourages rapid oscillations in velocity commands that would be difficult to execute on physical hardware and would produce uncomfortable jerky motion.
 
 The reward structure deliberately omits a heading alignment term. While heading penalties appear in approximately half of published navigation RL systems, they conflict with obstacle avoidance behavior: when the robot must turn away from the goal to navigate around an obstacle, an additive heading penalty punishes the correct action. The agent learns heading implicitly from the position tracking gradient, consistent with several successful sim-to-real transfer results in the literature that explicitly exclude heading from the reward [1].
+
+### 4.3 RL Training Pipeline Validation
+
+All results reported in this section are preliminary and were obtained in the 10 m x 10 m test environment described in Section 3.4.2, not the full BIM-derived building. The test environment contains seven randomized furniture obstacles within a walled room, with goal positions sampled uniformly across the room interior. These results validate that the training pipeline runs end-to-end on Rosie and that the PPO agent exhibits learning; they are not representative of final policy performance in the target facility.
+
+#### Training Configuration
+
+The reported training run used 256 parallel environment instances on a single NVIDIA T4 GPU (16 GB VRAM) on Rosie's teaching partition. The PPO agent was trained for 1000 iterations over 131 million total environment steps, completing in approximately 10.5 hours of wall-clock time (38.2 seconds per iteration). The configuration matches the hyperparameters described in Section 3.4.2.
+
+#### Reward Progression
+
+Figure X shows the mean episode reward over the course of training. The agent's mean episode reward progressed from -8.4 at 0.1 million timesteps to approximately 160 by 131 million timesteps. The reward curve shows two distinct phases: a rapid learning phase over the first 13 million timesteps in which mean episode reward climbed from -8.4 to approximately 115, and a slower improvement phase over the remaining 118 million timesteps in which reward gradually increased from 115 to a range of 130–170 with significant variance between updates. Mean episode length increased correspondingly from 334 steps to 923 steps (out of a maximum of 1000), indicating that the agent learned to survive longer and accumulate more goal-reaching rewards per episode. The absence of reward collapse or numerical divergence over the full 131 million timesteps confirms that the training configuration is stable across extended runs.
+
+[ INSERT FIGURE: Training curve showing ep_rew_mean vs. training iterations for run 2026-03-17_04-35-51 ]
+
+#### Scenario Evaluation
+
+To assess the trained policy beyond aggregate training statistics, we evaluated the final model checkpoint on six structured scenarios of increasing difficulty within the test environment. Table X summarizes the results.
+
+**Table X: Scenario evaluation results (test environment, run 2026-03-17_04-35-51)**
+
+| Scenario | Difficulty | Goals | Final Distance (m) | Collisions | Total Reward | Passed |
+|---|---|---|---|---|---|---|
+| Open Run | Easy | 0/1 | 0.62 | 0 | 40.7 | No |
+| Obstacle Between | Medium | 0/1 | 4.70 | 0 | -0.4 | No |
+| Narrow Gap | Med-Hard | 0/1 | 3.83 | 193 | -40.2 | No |
+| Goal Behind Furniture | Hard | 0/1 | 0.97 | 269 | 14.1 | No |
+| Cluttered Room | Hard | 0/1 | 7.24 | 320 | -60.0 | No |
+| Full Patrol | Hard | 0/6 | 1.99 | 1032 | -149.7 | No |
+
+The scenario results reveal that the agent has learned directional navigation toward goals — in the Open Run scenario, the robot reached within 0.62 m of the goal with zero collisions — but has not yet achieved reliable goal arrival within the 0.5 m threshold. In open space, the agent approaches the goal and accumulates positive reward but fails to close the final distance with sufficient precision. In cluttered scenarios, the agent struggles with obstacle avoidance, accumulating significant collision counts when forced to navigate through narrow passages or around furniture.
+
+These results are consistent with the current stage of development: the training pipeline is validated and the agent exhibits learning, but additional training iterations, reward tuning, or curriculum-based progression from simple to complex environments may be needed to achieve robust goal-reaching and collision-free navigation. The transition from the test environment to the full BIM-derived building (Section 3.2) will introduce additional challenges including longer corridors, doorway navigation, and more complex spatial layouts.
+
+#### Pipeline Validation
+
+The full training pipeline has been confirmed to execute end-to-end on Rosie without manual intervention. A single SLURM job submission initiates Isaac Lab scene construction, PPO training with periodic checkpointing, and automatic post-training evaluation with video recording. TensorBoard logs, model checkpoints, and evaluation videos are saved to structured output directories for comparison across training runs. Over the course of development, 15 training runs were completed on Rosie to iterate on reward design, hyperparameter selection, and environment configuration.
