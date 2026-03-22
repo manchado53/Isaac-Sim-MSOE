@@ -4,7 +4,35 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a physics simulation project using NVIDIA Isaac Sim, designed to run on MSOE's Rosie supercomputer. The project leverages GPU resources for robotics and physics simulations. This is a **team repository** — all simulation development happens here.
+This is a **team repository** for a research project using NVIDIA Isaac Sim on MSOE's Rosie supercomputer.
+
+### Research Goal
+
+Deploy autonomous robots for indoor building operations (material delivery, facility monitoring, security patrol) by training them entirely in simulation before the physical building is complete. The framework converts architectural BIM (Revit) data into simulation-ready digital twins in NVIDIA Isaac Sim.
+
+### Target Environment
+
+A multi-story university engineering facility currently under construction at MSOE, featuring multi-building connections, mixed-use spaces, and varied floor plans.
+
+### Pipeline
+
+1. **BIM-to-Sim Conversion**: Revit architectural model → USD format → Isaac Sim import
+2. **Environment Augmentation**: Collision geometry, semantic annotations, sensor-realistic rendering
+3. **Navigation Graph Extraction**: Topological graph from building geometry with optimized operational routes via classical path planning
+4. **Robot Training (RL)**: Mobile robot with LiDAR + camera sensors trained via reinforcement learning for local navigation and obstacle avoidance
+5. **Synthetic Data Generation**: Onboard sensor data used to train visual anomaly detection models (open doors, obstructions, irregular room states)
+6. **HPC-Scale Training**: Parallelized on Rosie cluster with NVIDIA T4 GPUs
+
+### Key Metrics
+
+- Task completion rate
+- Path efficiency
+- Collision frequency
+- Performance across routes of varying complexity spanning the multi-building complex
+
+### Broader Impact
+
+Architectural BIM data (standard in modern building design) can serve as the foundation for scalable robot training without physical access to the target environment. The pipeline is repeatable for any building with available BIM data, with implications for sim-to-real transfer and robot-friendly architectural design.
 
 **Repository**: `~/isaac-sim-msoe/` (git-tracked)
 
@@ -58,7 +86,7 @@ export OMNI_KIT_ACCEPT_EULA=YES
 
 **Important Notes**:
 - Isaac Sim MUST run on GPU nodes (will crash on login nodes)
-- Use SLURM scripts in `~/isaacsim/isaac-sim-msoe/` for job submission
+- Use SLURM scripts in `~/isaac-sim-msoe/` for job submission
 - First run may be slower due to shader compilation
 - Print statements in scripts go to Isaac Sim's internal logs, not SLURM stdout
 - Exit code 0 indicates successful simulation
@@ -298,3 +326,10 @@ Doors use a three-stage pipeline defined in `sim_utils/building_physics.py`:
 - `Failed to create secure directory (/run/user/.../pulse)` -- no audio device on compute nodes
 - `omni.isaac.core.objects.* has been deprecated in favor of isaacsim.core.api.objects.*` -- still functional
 - `carb.audio.device` / `carb.audio.output` warnings -- headless mode, no audio needed
+
+## Documentation Policy
+
+When making major changes (reward weights, env config, new reward terms, termination changes, hyperparameter tuning, architecture changes, etc.), always update the relevant documentation:
+- **CLAUDE.md**: Update if the change affects workflow, file organization, or project-level context
+- **README.md**: Update if the change affects how others use or understand the project
+- **Code docstrings/comments**: Update inline docs in the files being changed to reflect new values or behavior

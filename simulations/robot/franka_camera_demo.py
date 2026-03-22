@@ -84,11 +84,18 @@ camera = Camera(
     frequency=20,
     resolution=(640, 480),
     orientation=rot_utils.euler_angles_to_quats(np.array([0, 23, 135]), degrees=True),
+    annotator_device="cpu",  # stable CPU-side readback per NVIDIA example
 )
 
 my_franka.gripper.set_default_state(my_franka.gripper.joint_opened_positions)
 my_world.reset()
+simulation_app.update()
 camera.initialize()
+
+# Warmup — renderer needs 10 steps before get_rgba() returns valid data
+print("Warming up renderer...")
+for _ in range(10):
+    my_world.step(render=True)
 
 my_controller = PickPlaceController(
     name="pick_place_controller", gripper=my_franka.gripper, robot_articulation=my_franka
@@ -117,7 +124,7 @@ with VideoRecorder("franka_pick_place", fps=15) as recorder:
                 task_completed = True
             articulation_controller.apply_action(actions)
 
-            if frame_count % 2 == 0 and frame_count > 0:
+            if frame_count % 2 == 0:
                 recorder.capture_rgba(camera.get_rgba())
 
         frame_count += 1
