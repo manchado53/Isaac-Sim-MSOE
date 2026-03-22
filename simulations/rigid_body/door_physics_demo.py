@@ -40,7 +40,12 @@ _project_dir = os.path.abspath(os.path.join(_script_dir, '..', '..'))
 sys.path.insert(0, _project_dir)
 
 from sim_utils.video_capture import VideoRecorder
-from sim_utils.building_physics import create_revolute_joint, setup_physics_scene
+from sim_utils.building_physics import (
+    create_revolute_joint,
+    setup_physics_scene,
+    setup_door_drive,
+    set_drive_target,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -204,33 +209,6 @@ def create_door(stage, info):
 
 
 # ---------------------------------------------------------------------------
-# Joint drive (angular position drive)
-# ---------------------------------------------------------------------------
-
-def setup_drive(joint):
-    """
-    Apply DriveAPI to command the joint to a target angle.
-
-    Position drive: stiffness pulls toward target, damping prevents oscillation.
-    Using high stiffness + high maxForce to ensure the door actually moves.
-    """
-    joint_prim = joint.GetPrim()
-    drive = UsdPhysics.DriveAPI.Apply(joint_prim, "angular")
-
-    drive.CreateStiffnessAttr(500.0)     # strong spring toward target
-    drive.CreateDampingAttr(200.0)       # heavy damping for smooth motion
-    drive.CreateMaxForceAttr(5000.0)     # generous torque limit
-    drive.CreateTargetPositionAttr(0.0)  # start closed
-
-    return drive
-
-
-def set_drive_target(drive, angle_deg):
-    """Update the drive's target angle (degrees)."""
-    drive.GetTargetPositionAttr().Set(angle_deg)
-
-
-# ---------------------------------------------------------------------------
 # Lighting & camera
 # ---------------------------------------------------------------------------
 
@@ -284,7 +262,7 @@ def main():
 
     doorway_info = build_room(stage)
     joint = create_door(stage, doorway_info)
-    drive = setup_drive(joint)
+    drive = setup_door_drive(joint, stiffness=500.0, damping=200.0, max_force=5000.0)
 
     add_lighting(stage)
     camera = create_camera()
