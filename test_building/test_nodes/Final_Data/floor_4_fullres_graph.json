@@ -1,0 +1,822 @@
+{
+  "floor": "floor_4",
+  "grid_size": [
+    4314,
+    4750
+  ],
+  "display_size": [
+    1400,
+    1541
+  ],
+  "nodes": [
+    {
+      "id": "node_1",
+      "grid_col": 3060,
+      "grid_row": 2016
+    },
+    {
+      "id": "node_2",
+      "grid_col": 3180,
+      "grid_row": 2028
+    },
+    {
+      "id": "node_3",
+      "grid_col": 2209,
+      "grid_row": 2115
+    },
+    {
+      "id": "node_4",
+      "grid_col": 2779,
+      "grid_row": 2127
+    },
+    {
+      "id": "node_5",
+      "grid_col": 2893,
+      "grid_row": 2127
+    },
+    {
+      "id": "node_6",
+      "grid_col": 2970,
+      "grid_row": 2133
+    },
+    {
+      "id": "node_7",
+      "grid_col": 2665,
+      "grid_row": 2127
+    },
+    {
+      "id": "node_8",
+      "grid_col": 2551,
+      "grid_row": 2127
+    },
+    {
+      "id": "node_9",
+      "grid_col": 2431,
+      "grid_row": 2127
+    },
+    {
+      "id": "node_10",
+      "grid_col": 2009,
+      "grid_row": 2142
+    },
+    {
+      "id": "node_11",
+      "grid_col": 2169,
+      "grid_row": 2139
+    },
+    {
+      "id": "node_12",
+      "grid_col": 2305,
+      "grid_row": 2121
+    },
+    {
+      "id": "node_13",
+      "grid_col": 1889,
+      "grid_row": 2152
+    },
+    {
+      "id": "node_14",
+      "grid_col": 1827,
+      "grid_row": 2148
+    },
+    {
+      "id": "node_15",
+      "grid_col": 1667,
+      "grid_row": 2167
+    },
+    {
+      "id": "node_16",
+      "grid_col": 2012,
+      "grid_row": 2284
+    },
+    {
+      "id": "node_17",
+      "grid_col": 1895,
+      "grid_row": 2284
+    },
+    {
+      "id": "node_18",
+      "grid_col": 1679,
+      "grid_row": 2296
+    },
+    {
+      "id": "node_19",
+      "grid_col": 3131,
+      "grid_row": 2315
+    },
+    {
+      "id": "node_20",
+      "grid_col": 2964,
+      "grid_row": 2315
+    },
+    {
+      "id": "node_21",
+      "grid_col": 1679,
+      "grid_row": 2426
+    },
+    {
+      "id": "node_22",
+      "grid_col": 1984,
+      "grid_row": 2414
+    },
+    {
+      "id": "node_23",
+      "grid_col": 2188,
+      "grid_row": 2401
+    },
+    {
+      "id": "node_24",
+      "grid_col": 1815,
+      "grid_row": 2407
+    },
+    {
+      "id": "node_25",
+      "grid_col": 2964,
+      "grid_row": 2432
+    },
+    {
+      "id": "node_26",
+      "grid_col": 2970,
+      "grid_row": 2500
+    },
+    {
+      "id": "node_27",
+      "grid_col": 3340,
+      "grid_row": 2491
+    },
+    {
+      "id": "node_28",
+      "grid_col": 1960,
+      "grid_row": 2500
+    },
+    {
+      "id": "node_29",
+      "grid_col": 2391,
+      "grid_row": 2429
+    },
+    {
+      "id": "node_30",
+      "grid_col": 1815,
+      "grid_row": 2515
+    },
+    {
+      "id": "node_31",
+      "grid_col": 2175,
+      "grid_row": 2568
+    },
+    {
+      "id": "node_32",
+      "grid_col": 2348,
+      "grid_row": 2571
+    },
+    {
+      "id": "node_33",
+      "grid_col": 2705,
+      "grid_row": 2571
+    },
+    {
+      "id": "node_34",
+      "grid_col": 2487,
+      "grid_row": 2555
+    },
+    {
+      "id": "node_35",
+      "grid_col": 2970,
+      "grid_row": 2571
+    },
+    {
+      "id": "node_36",
+      "grid_col": 2092,
+      "grid_row": 2697
+    },
+    {
+      "id": "node_37",
+      "grid_col": 1679,
+      "grid_row": 2700
+    },
+    {
+      "id": "node_38",
+      "grid_col": 2182,
+      "grid_row": 2697
+    },
+    {
+      "id": "node_39",
+      "grid_col": 1984,
+      "grid_row": 2691
+    },
+    {
+      "id": "node_40",
+      "grid_col": 1858,
+      "grid_row": 2691
+    },
+    {
+      "id": "node_41",
+      "grid_col": 2182,
+      "grid_row": 2787
+    },
+    {
+      "id": "node_42",
+      "grid_col": 1787,
+      "grid_row": 2796
+    },
+    {
+      "id": "node_43",
+      "grid_col": 1673,
+      "grid_row": 2796
+    },
+    {
+      "id": "node_44",
+      "grid_col": 2983,
+      "grid_row": 2820
+    },
+    {
+      "id": "node_45",
+      "grid_col": 1984,
+      "grid_row": 2879
+    },
+    {
+      "id": "node_46",
+      "grid_col": 1750,
+      "grid_row": 2867
+    },
+    {
+      "id": "node_47",
+      "grid_col": 2024,
+      "grid_row": 2879
+    },
+    {
+      "id": "node_48",
+      "grid_col": 3214,
+      "grid_row": 2888
+    },
+    {
+      "id": "node_49",
+      "grid_col": 2188,
+      "grid_row": 2907
+    },
+    {
+      "id": "node_50",
+      "grid_col": 3088,
+      "grid_row": 2894
+    },
+    {
+      "id": "node_51",
+      "grid_col": 3094,
+      "grid_row": 2984
+    },
+    {
+      "id": "node_52",
+      "grid_col": 2964,
+      "grid_row": 3008
+    },
+    {
+      "id": "node_53",
+      "grid_col": 1303,
+      "grid_row": 3002
+    },
+    {
+      "id": "node_54",
+      "grid_col": 992,
+      "grid_row": 3005
+    },
+    {
+      "id": "node_55",
+      "grid_col": 699,
+      "grid_row": 3005
+    },
+    {
+      "id": "node_56",
+      "grid_col": 752,
+      "grid_row": 3005
+    },
+    {
+      "id": "node_57",
+      "grid_col": 854,
+      "grid_row": 3005
+    },
+    {
+      "id": "node_58",
+      "grid_col": 949,
+      "grid_row": 3012
+    },
+    {
+      "id": "node_59",
+      "grid_col": 1051,
+      "grid_row": 3018
+    },
+    {
+      "id": "node_60",
+      "grid_col": 1140,
+      "grid_row": 3012
+    },
+    {
+      "id": "node_61",
+      "grid_col": 1248,
+      "grid_row": 3012
+    },
+    {
+      "id": "node_62",
+      "grid_col": 1362,
+      "grid_row": 3015
+    },
+    {
+      "id": "node_63",
+      "grid_col": 1399,
+      "grid_row": 3002
+    },
+    {
+      "id": "node_64",
+      "grid_col": 2761,
+      "grid_row": 3024
+    },
+    {
+      "id": "node_65",
+      "grid_col": 1501,
+      "grid_row": 3008
+    },
+    {
+      "id": "node_66",
+      "grid_col": 1094,
+      "grid_row": 3005
+    },
+    {
+      "id": "node_67",
+      "grid_col": 1553,
+      "grid_row": 3015
+    },
+    {
+      "id": "node_68",
+      "grid_col": 1602,
+      "grid_row": 3005
+    },
+    {
+      "id": "node_69",
+      "grid_col": 1667,
+      "grid_row": 3002
+    },
+    {
+      "id": "node_70",
+      "grid_col": 1451,
+      "grid_row": 3012
+    },
+    {
+      "id": "node_71",
+      "grid_col": 2194,
+      "grid_row": 3018
+    },
+    {
+      "id": "node_72",
+      "grid_col": 1196,
+      "grid_row": 3005
+    },
+    {
+      "id": "node_73",
+      "grid_col": 2413,
+      "grid_row": 3024
+    },
+    {
+      "id": "node_74",
+      "grid_col": 2061,
+      "grid_row": 3012
+    },
+    {
+      "id": "node_75",
+      "grid_col": 1954,
+      "grid_row": 3008
+    },
+    {
+      "id": "node_76",
+      "grid_col": 1870,
+      "grid_row": 3012
+    },
+    {
+      "id": "node_77",
+      "grid_col": 1907,
+      "grid_row": 3012
+    },
+    {
+      "id": "node_78",
+      "grid_col": 2188,
+      "grid_row": 3141
+    },
+    {
+      "id": "node_79",
+      "grid_col": 2773,
+      "grid_row": 3196
+    }
+  ],
+  "edges": [
+    {
+      "from": "node_78",
+      "to": "node_79",
+      "distance": 588.09
+    },
+    {
+      "from": "node_79",
+      "to": "node_64",
+      "distance": 173.05
+    },
+    {
+      "from": "node_64",
+      "to": "node_52",
+      "distance": 203.96
+    },
+    {
+      "from": "node_52",
+      "to": "node_51",
+      "distance": 131.75
+    },
+    {
+      "from": "node_51",
+      "to": "node_50",
+      "distance": 89.6
+    },
+    {
+      "from": "node_50",
+      "to": "node_48",
+      "distance": 126.49
+    },
+    {
+      "from": "node_52",
+      "to": "node_44",
+      "distance": 188.93
+    },
+    {
+      "from": "node_35",
+      "to": "node_44",
+      "distance": 249.98
+    },
+    {
+      "from": "node_26",
+      "to": "node_35",
+      "distance": 70.9
+    },
+    {
+      "from": "node_26",
+      "to": "node_27",
+      "distance": 369.89
+    },
+    {
+      "from": "node_26",
+      "to": "node_25",
+      "distance": 68.09
+    },
+    {
+      "from": "node_25",
+      "to": "node_20",
+      "distance": 117.13
+    },
+    {
+      "from": "node_20",
+      "to": "node_19",
+      "distance": 166.4
+    },
+    {
+      "from": "node_19",
+      "to": "node_2",
+      "distance": 290.87
+    },
+    {
+      "from": "node_2",
+      "to": "node_1",
+      "distance": 120.81
+    },
+    {
+      "from": "node_6",
+      "to": "node_20",
+      "distance": 181.97
+    },
+    {
+      "from": "node_5",
+      "to": "node_6",
+      "distance": 77.28
+    },
+    {
+      "from": "node_5",
+      "to": "node_4",
+      "distance": 114.01
+    },
+    {
+      "from": "node_4",
+      "to": "node_7",
+      "distance": 114.01
+    },
+    {
+      "from": "node_33",
+      "to": "node_35",
+      "distance": 265
+    },
+    {
+      "from": "node_34",
+      "to": "node_33",
+      "distance": 219.32
+    },
+    {
+      "from": "node_32",
+      "to": "node_34",
+      "distance": 139.52
+    },
+    {
+      "from": "node_32",
+      "to": "node_29",
+      "distance": 148.21
+    },
+    {
+      "from": "node_32",
+      "to": "node_31",
+      "distance": 172.59
+    },
+    {
+      "from": "node_23",
+      "to": "node_31",
+      "distance": 166.91
+    },
+    {
+      "from": "node_11",
+      "to": "node_23",
+      "distance": 262.66
+    },
+    {
+      "from": "node_11",
+      "to": "node_3",
+      "distance": 47.04
+    },
+    {
+      "from": "node_11",
+      "to": "node_12",
+      "distance": 136.84
+    },
+    {
+      "from": "node_12",
+      "to": "node_9",
+      "distance": 126.49
+    },
+    {
+      "from": "node_9",
+      "to": "node_8",
+      "distance": 120.18
+    },
+    {
+      "from": "node_8",
+      "to": "node_7",
+      "distance": 114.01
+    },
+    {
+      "from": "node_10",
+      "to": "node_11",
+      "distance": 160.26
+    },
+    {
+      "from": "node_10",
+      "to": "node_13",
+      "distance": 120.53
+    },
+    {
+      "from": "node_13",
+      "to": "node_14",
+      "distance": 61.71
+    },
+    {
+      "from": "node_14",
+      "to": "node_15",
+      "distance": 161.3
+    },
+    {
+      "from": "node_18",
+      "to": "node_15",
+      "distance": 130.05
+    },
+    {
+      "from": "node_18",
+      "to": "node_21",
+      "distance": 129.46
+    },
+    {
+      "from": "node_13",
+      "to": "node_17",
+      "distance": 132.69
+    },
+    {
+      "from": "node_10",
+      "to": "node_16",
+      "distance": 141.82
+    },
+    {
+      "from": "node_21",
+      "to": "node_24",
+      "distance": 136.84
+    },
+    {
+      "from": "node_24",
+      "to": "node_22",
+      "distance": 169.59
+    },
+    {
+      "from": "node_28",
+      "to": "node_22",
+      "distance": 89.76
+    },
+    {
+      "from": "node_30",
+      "to": "node_24",
+      "distance": 107.88
+    },
+    {
+      "from": "node_21",
+      "to": "node_37",
+      "distance": 274.33
+    },
+    {
+      "from": "node_40",
+      "to": "node_37",
+      "distance": 178.96
+    },
+    {
+      "from": "node_40",
+      "to": "node_39",
+      "distance": 126.34
+    },
+    {
+      "from": "node_39",
+      "to": "node_36",
+      "distance": 108.03
+    },
+    {
+      "from": "node_36",
+      "to": "node_38",
+      "distance": 89.36
+    },
+    {
+      "from": "node_38",
+      "to": "node_31",
+      "distance": 129.61
+    },
+    {
+      "from": "node_38",
+      "to": "node_41",
+      "distance": 89.39
+    },
+    {
+      "from": "node_64",
+      "to": "node_73",
+      "distance": 348.2
+    },
+    {
+      "from": "node_73",
+      "to": "node_71",
+      "distance": 218.87
+    },
+    {
+      "from": "node_71",
+      "to": "node_78",
+      "distance": 123.45
+    },
+    {
+      "from": "node_71",
+      "to": "node_49",
+      "distance": 111.14
+    },
+    {
+      "from": "node_49",
+      "to": "node_41",
+      "distance": 120.37
+    },
+    {
+      "from": "node_74",
+      "to": "node_71",
+      "distance": 132.64
+    },
+    {
+      "from": "node_75",
+      "to": "node_74",
+      "distance": 107.89
+    },
+    {
+      "from": "node_75",
+      "to": "node_77",
+      "distance": 46.32
+    },
+    {
+      "from": "node_76",
+      "to": "node_77",
+      "distance": 36.98
+    },
+    {
+      "from": "node_69",
+      "to": "node_43",
+      "distance": 206.61
+    },
+    {
+      "from": "node_45",
+      "to": "node_47",
+      "distance": 40.06
+    },
+    {
+      "from": "node_46",
+      "to": "node_45",
+      "distance": 234.51
+    },
+    {
+      "from": "node_46",
+      "to": "node_42",
+      "distance": 79.96
+    },
+    {
+      "from": "node_42",
+      "to": "node_43",
+      "distance": 114.01
+    },
+    {
+      "from": "node_43",
+      "to": "node_37",
+      "distance": 95.75
+    },
+    {
+      "from": "node_69",
+      "to": "node_68",
+      "distance": 64.78
+    },
+    {
+      "from": "node_67",
+      "to": "node_68",
+      "distance": 50.16
+    },
+    {
+      "from": "node_65",
+      "to": "node_67",
+      "distance": 52.75
+    },
+    {
+      "from": "node_70",
+      "to": "node_65",
+      "distance": 49.4
+    },
+    {
+      "from": "node_63",
+      "to": "node_70",
+      "distance": 53.19
+    },
+    {
+      "from": "node_62",
+      "to": "node_63",
+      "distance": 38.98
+    },
+    {
+      "from": "node_53",
+      "to": "node_62",
+      "distance": 59.83
+    },
+    {
+      "from": "node_61",
+      "to": "node_53",
+      "distance": 56.23
+    },
+    {
+      "from": "node_72",
+      "to": "node_61",
+      "distance": 52.75
+    },
+    {
+      "from": "node_60",
+      "to": "node_72",
+      "distance": 55.81
+    },
+    {
+      "from": "node_66",
+      "to": "node_60",
+      "distance": 46.63
+    },
+    {
+      "from": "node_59",
+      "to": "node_66",
+      "distance": 44.87
+    },
+    {
+      "from": "node_54",
+      "to": "node_59",
+      "distance": 59.83
+    },
+    {
+      "from": "node_58",
+      "to": "node_54",
+      "distance": 43.58
+    },
+    {
+      "from": "node_57",
+      "to": "node_58",
+      "distance": 95.72
+    },
+    {
+      "from": "node_56",
+      "to": "node_57",
+      "distance": 101.69
+    },
+    {
+      "from": "node_55",
+      "to": "node_56",
+      "distance": 52.38
+    }
+  ],
+  "total_nodes": 79,
+  "total_edges": 82
+}
