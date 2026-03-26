@@ -1,0 +1,59 @@
+======================================================================
+OCCUPANCY MAP METADATA (from scan)
+======================================================================
+  xy_min: [-8640.6021, -1050.9440]
+  xy_max: [4300.4551, 13197.5518]
+  grid_size: 4314 x 4750
+  cell_size_cm: 3.0
+  z_min: 2750.0, z_max: 2900.0
+
+======================================================================
+USD FILE ANALYSIS
+======================================================================
+  File: /home/ad.msoe.edu/loducaj/isaac-sim-msoe/test_building/../assets/environments/msoe_building/MSOEBuildingTake2.usd
+
+--- Root Prims and Transforms ---
+
+  Prim: /World
+  Type: Xform
+  World Translation: (0.0000, 0.0000, 0.0000)
+  Scale: (1.000000, 1.000000, 1.000000)
+
+  Prim: /Environment
+  Type: Xform
+  World Translation: (0.0000, 0.0000, 0.0000)
+  Scale: (1.000000, 1.000000, 1.000000)
+
+--- World Bounding Box ---
+  USD BBox Min: (-8540.6021, -950.9440, 838.2000)
+  USD BBox Max: (4200.4551, 13097.5518, 3596.6401)
+  USD Size: (12741.06 x 14048.50 x 2758.44)
+
+======================================================================
+COMPARISON: USD vs Occupancy Map
+======================================================================
+  Occupancy (minus 100cm padding):
+    X: [-8540.60, 4200.46]
+    Y: [-950.94, 13097.55]
+  Current USD bounding box:
+    X: [-8540.60, 4200.46]
+    Y: [-950.94, 13097.55]
+    Z: [838.20, 3596.64]
+
+  OFFSET (USD - Occupancy):
+    X offset: 0.00 cm
+    Y offset: 0.00 cm
+
+  Coordinates match within 10cm tolerance. No repositioning detected.
+
+  SCALE CHECK:
+    Occupancy size: 12741.06 x 14048.50 cm
+    USD size:       12741.06 x 14048.50 cm
+    Scale ratio X:  1.000000
+    Scale ratio Y:  1.000000
+
+  Scale matches within 1% tolerance. No rescaling detected.
+
+======================================================================
+DONE
+======================================================================
