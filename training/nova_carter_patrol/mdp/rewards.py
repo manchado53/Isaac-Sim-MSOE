@@ -1,11 +1,16 @@
 """Custom reward functions for Nova Carter Patrol environment.
 
 Reward terms:
-- position_tracking_tanh: smooth distance-based reward using tanh
-- heading_alignment: penalty for not facing the goal
-- velocity_near_goal: penalty for moving fast near the goal
-- collision_penalty: binary penalty when LiDAR detects contact
-- obstacle_proximity: smooth penalty near obstacles
+- delta_progress: reward for net distance closed to goal this step (d_prev - d_current)
+- distance_to_goal: smooth proximity reward using tanh (pull-in magnet near goal)
+- time_penalty: constant -1 per step (combined with negative weight)
+- goal_progress: reward for closing distance to goal (forward_vel * cos(heading_error))
+- goal_reached: binary bonus on arrival
+- position_tracking_tanh: smooth distance-based reward using tanh (unused)
+- heading_alignment: penalty for not facing the goal (unused)
+- velocity_near_goal: penalty for moving fast near the goal (unused)
+- collision_penalty: binary penalty when LiDAR detects contact (unused)
+- obstacle_proximity: smooth penalty near obstacles (unused)
 """
 
 from __future__ import annotations
@@ -19,6 +24,69 @@ from isaaclab.sensors import RayCaster
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
+
+
+def delta_progress(
+    env: ManagerBasedRLEnv, command_name: str
+) -> torch.Tensor:
+    """Reward for net distance closed to goal this step (d_prev - d_current).
+
+    Directly measures actual displacement toward goal rather than approximating
+    via velocity. Cannot be gamed by oscillating — only net forward progress counts.
+
+    Returns 0 on the first call and on any step where the distance jumps by more
+    than 1m (goal resampling after arrival, or episode reset). This prevents large
+    negative spikes when a new goal is assigned far away.
+
+    Shape: (num_envs,)
+    """
+    command = env.command_manager.get_command(command_name)
+    d_current = torch.norm(command[:, :2], dim=-1)
+
+    if not hasattr(env, "_dp_d_prev"):
+        env._dp_d_prev = d_current.clone()
+        return torch.zeros(env.num_envs, device=env.device)
+
+    delta = env._dp_d_prev - d_current
+
+    # Zero out any step where the goal jumped (resampled or episode reset).
+    # Max legitimate delta at 1 m/s top speed is ~0.1 m/step; 1m is a safe cutoff.
+    large_jump = delta.abs() > 1.0
+    delta = torch.where(large_jump, torch.zeros_like(delta), delta)
+
+    env._dp_d_prev = d_current.clone()
+    return delta
+
+
+def time_penalty(env: ManagerBasedRLEnv) -> torch.Tensor:
+    """Constant 1.0 per step — use with a negative weight as a time penalty.
+
+    Calibrated so that a robot moving at 0.2 m/s toward the goal earns
+    more from delta_progress (weight=3.0) than it loses from r_time (weight=-0.05).
+
+    Shape: (num_envs,)
+    """
+    return torch.ones(env.num_envs, device=env.device)
+
+
+def goal_progress(
+    env: ManagerBasedRLEnv, command_name: str
+) -> torch.Tensor:
+    """Reward for closing distance to the goal each step.
+
+    Computes forward_velocity * cos(heading_error) — the component of the
+    robot's velocity directed toward the goal. Equivalent to the instantaneous
+    rate of distance closing in m/s.
+
+    Positive when moving toward goal, zero when moving perpendicular,
+    negative when moving away. Directly incentivizes efficient direct paths.
+
+    Shape: (num_envs,)
+    """
+    command = env.command_manager.get_command(command_name)
+    heading_error = command[:, 3]
+    forward_vel = env.scene["robot"].data.root_lin_vel_b[:, 0]
+    return forward_vel * torch.cos(heading_error)
 
 
 def position_tracking_tanh(
