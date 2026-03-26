@@ -1,67 +1,43 @@
 #!/usr/bin/env python3
 """
-Nova Carter — VLM Patrol Demo
+Nova Carter — VLM Patrol Demo  (Phase 1: Simulation)
 
-Drives Nova Carter through the MSOE Innovation Center (Kern Engineering
-Building) and runs Qwen2-VL inference on the robot's onboard camera feed.
-The resulting scene descriptions are overlaid on the output video.
+Drives Nova Carter through the MSOE Innovation Center and collects onboard
++ follow-cam RGBA frames.  Saves them to a .npz cache file for Phase 2+3.
 
-Pipeline:
-  Phase 1 — Simulation : collect onboard + follow RGBA frames in memory
-  Phase 2 — VLM        : run Qwen2-VL-2B-Instruct on sampled frames locally
-  Phase 3 — Video      : overlay captions on onboard frames, write MP4s
-
-Outputs (in videos/):
-  vlm_demo_onboard.mp4  — annotated 1st-person feed with AI captions
-  vlm_demo_follow.mp4   — 3rd-person debug view (unannotated)
-
-Setup (run once on a GPU node before submitting the job):
-  ~/isaacsim/python.sh -m pip install transformers accelerate qwen-vl-utils Pillow
-
-No API key required — Qwen2-VL runs locally on the T4 GPU after Isaac Sim closes.
-First run downloads ~4 GB of model weights to ~/.cache/huggingface/.
+Run via submit_isaac_job.sh which calls this script then nova_carter_vlm_phase23.py.
 
 Tuning notes:
-  The Innovation Center USD is a Revit export without collision geometry.
-  A ground plane is added to support the robot. If the robot spawns
-  underground or above the floor, adjust ROBOT_SPAWN_Z below.
-  If the building interior isn't visible in camera, adjust ROBOT_SPAWN_XY.
+  ROBOT_SPAWN_Z  — currently Floor 4 (Z≈26.8 m slab + 0.5 m clearance = 27.3).
+                   If robot falls through: increase to 28.0 or 29.0.
+  ROBOT_SPAWN_XY — building centroid confirmed across all floors via USD diagnostic.
 """
 
 import os
 import sys
-import textwrap
-import subprocess
-import shutil
-
 import numpy as np
 
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
 
-MAX_FRAMES     = 720          # 48s of sim time (steps @ 30 Hz physics)
-FPS            = 15           # output video FPS (we capture every other render step)
-VLM_INTERVAL   = 15           # run VLM every Nth *collected* frame (~2 s of video)
-VLM_MODEL_ID   = "Qwen/Qwen2-VL-2B-Instruct"
+MAX_FRAMES     = 1440  # 96 s of sim time at 30 Hz physics (doubled for Floor 4 friction)
+FPS            = 15    # output video frame rate
+VLM_INTERVAL   = 15    # send every Nth collected frame to VLM (~2 s intervals)
 CAM_RESOLUTION = (640, 480)
 
-# ---------------------------------------------------------------------------
-# Spawn tuning — adjust if the robot clips into geometry or misses the building.
-#
-# The Innovation Center USD is a Revit export in feet (metersPerUnit=0.3048).
-# Isaac Sim reads metersPerUnit from the file, so coordinates here are metres.
-#
-#   ROBOT_SPAWN_Z  — lift above world origin to sit on the ground floor.
-#                    Try 1.0, 2.0, 5.0 if the robot falls on first run.
-#   ROBOT_SPAWN_XY — move into a corridor. Tune after checking the output video.
-# ---------------------------------------------------------------------------
-ROBOT_SPAWN_XY = (0.0, 0.0)
-ROBOT_SPAWN_Z  = 1.0
+# Building coordinates from USD mesh diagnostic (IQR centroid of floor-level prims).
+# Building footprint: X -41.4 to 1.9 (43 m), Y 57.7 to 82.6 (25 m) in USD space.
+# Floor slabs: Z=13.6 (Floor 1), Z=18.2 (Floor 2), Z=22.5 (Floor 3), Z=26.8 (Floor 4).
+# Target: Floor 4. Spawn 0.5 m above Floor 4 slab.
+ROBOT_SPAWN_XY = (-19.7, 70.1)
+ROBOT_SPAWN_Z  = 27.3   # Floor 4 slab Z=26.8 + 0.5 m clearance
 
 # ---------------------------------------------------------------------------
 # Phase 1: Isaac Sim
-# SimulationApp must be created before any omni.* or isaacsim.* imports.
+# SimulationApp must be the very first isaacsim/omni import.
+# NOTE: simulation_app.close() calls os._exit(0) internally, so any code
+#       that must run after the sim lives in nova_carter_vlm_phase23.py.
 # ---------------------------------------------------------------------------
 
 os.environ["OMNI_KIT_ACCEPT_EULA"] = "YES"
@@ -75,7 +51,6 @@ from pxr import Sdf, UsdLux, UsdGeom
 import isaacsim.core.utils.numpy.rotations as rot_utils
 from scipy.spatial.transform import Rotation as R
 from isaacsim.core.api import World
-from isaacsim.core.utils.stage import add_reference_to_stage
 from isaacsim.robot.wheeled_robots.controllers.differential_controller import DifferentialController
 from isaacsim.robot.wheeled_robots.robots import WheeledRobot
 from isaacsim.sensors.camera import Camera
@@ -83,7 +58,6 @@ from isaacsim.storage.native import get_assets_root_path
 
 _script_dir  = os.path.dirname(os.path.abspath(__file__))
 _project_dir = os.path.abspath(os.path.join(_script_dir, "..", ".."))
-sys.path.insert(0, _project_dir)
 
 # ---------------------------------------------------------------------------
 # Scene setup
@@ -104,16 +78,44 @@ if not os.path.isfile(_building_usd):
     sys.exit(1)
 
 print(f"[Phase 1] Loading: {_building_usd}")
-add_reference_to_stage(_building_usd, prim_path="/World/InnovationCenter")
-
+# Use sublayer insertion instead of add_reference_to_stage — the Revit USD has
+# no defaultPrim set, so reference loading silently loads nothing.
+# Sublayer merges all prims directly into the stage without needing a defaultPrim.
 stage = omni.usd.get_context().get_stage()
+stage.GetRootLayer().subLayerPaths.insert(0, _building_usd)
 
-# Revit exports have no lights — add ambient + directional
-UsdLux.DistantLight.Define(stage, Sdf.Path("/World/DistantLight")).CreateIntensityAttr(3000)
-UsdLux.DomeLight.Define(stage,    Sdf.Path("/World/DomeLight")).CreateIntensityAttr(1500)
+# Exterior sky light — very high intensity to bleed through windows/openings
+dome = UsdLux.DomeLight.Define(stage, Sdf.Path("/World/DomeLight"))
+dome.CreateIntensityAttr(50000)
 
-# Ground plane — the building USD has no collision geometry; robot drives on this
+# Interior fill light — travels with robot to illuminate onboard camera view
+_fill_light = UsdLux.SphereLight.Define(stage, Sdf.Path("/World/RobotFillLight"))
+_fill_light.CreateIntensityAttr(200000)
+_fill_light.CreateRadiusAttr(0.1)
+_fill_light_xform = UsdGeom.Xformable(_fill_light.GetPrim())
+
+# Follow-cam fill light — travels with follow camera (7+ m from robot fill light,
+# so needs its own source; inverse-square falloff makes the robot light ~60x dimmer
+# at follow-cam distance)
+_follow_light = UsdLux.SphereLight.Define(stage, Sdf.Path("/World/FollowFillLight"))
+_follow_light.CreateIntensityAttr(600000)
+_follow_light.CreateRadiusAttr(0.1)
+_follow_light_xform = UsdGeom.Xformable(_follow_light.GetPrim())
+
+# Ground plane at world origin (always present as a safety net)
 world.scene.add_default_ground_plane()
+
+# Floor 4 fallback ground plane — the default plane is at Z=0 and will NOT catch
+# the robot at Floor 4 (Z≈26.8). This physics plane at Z=26.75 acts as a floor.
+# If the USD floor slab has collision geometry, this plane is redundant but harmless.
+world.scene.add_default_ground_plane(
+    z_position=26.75,
+    name="floor4_ground_plane",
+    prim_path="/World/floor4GroundPlane",
+    static_friction=0.3,
+    dynamic_friction=0.3,
+    restitution=0.0,
+)
 
 # ---------------------------------------------------------------------------
 # Robot
@@ -136,9 +138,12 @@ controller = DifferentialController(name="ctrl", wheel_radius=0.14, wheel_base=0
 # Cameras
 # ---------------------------------------------------------------------------
 
-ONBOARD_OFFSET = np.array([0.20, 0.0, 0.65])  # metres from robot centre
-FOLLOW_OFFSET  = np.array([5.0, -5.0, 4.0])
-FOLLOW_ORIENT  = rot_utils.euler_angles_to_quats(np.array([0, 30, 135]), degrees=True)
+ONBOARD_OFFSET = np.array([0.20, 0.0, 0.65])
+# Follow cam: 6 m ahead of robot, 1.5 m up, facing back (yaw 180°, pitch 15° down).
+# Camera is in front of the robot looking back — shows robot approaching with the
+# atrium/glass entrance behind it. Avoids the atrium tree cluster that sits behind the robot.
+FOLLOW_OFFSET  = np.array([6.0, 0.0, 1.5])
+FOLLOW_ORIENT  = rot_utils.euler_angles_to_quats(np.array([0, 8, 180]), degrees=True)
 
 W, H = CAM_RESOLUTION
 
@@ -158,25 +163,34 @@ follow_cam = Camera(
 )
 
 world.reset()
+simulation_app.update()   # flush renderer before camera init
 onboard_cam.initialize()
 
-# Wide FOV for onboard — better situational awareness
+# Wide FOV for onboard
 usd_cam = UsdGeom.Camera(stage.GetPrimAtPath("/World/OnboardCam"))
 usd_cam.GetFocalLengthAttr().Set(5.0)
 usd_cam.GetClippingRangeAttr().Set((0.01, 10000.0))
 
 follow_cam.initialize()
 
+# Renderer warmup — camera returns None until the render pipeline is warm
+print("[Phase 1] Warming up renderer (10 steps)...")
+for _ in range(10):
+    world.step(render=True)
+
 # ---------------------------------------------------------------------------
-# Navigation sequence  (start_step, end_step, [linear_vel m/s, angular_vel rad/s])
+# Navigation sequence
 # ---------------------------------------------------------------------------
 
+# Route stays within the 43 m (X) x 25 m (Y) building footprint.
+# Actual robot speed on Floor 4 observed ~0.3 m/s (half of commanded 0.6 m/s due
+# to floor friction). Doubled step counts to cover ~6 m forward and ~9 m return.
 nav_sequence = [
-    (0,    180, [0.5,  0.0]),        # straight
-    (180,  270, [0.0,  np.pi / 6]), # turn right
-    (270,  450, [0.5,  0.0]),        # straight
-    (450,  540, [0.0,  np.pi / 6]), # turn right
-    (540,  720, [0.5,  0.0]),        # straight
+    (0,    600, [0.6,  0.0       ]),   # forward along +X corridor (~6 m at 0.3 m/s)
+    (600,  780, [0.0,  np.pi / 4 ]),   # 90° left turn
+    (780,  900, [0.4,  0.0       ]),   # short cross-corridor jog (~1.2 m in Y)
+    (900,  1080,[0.0,  np.pi / 4 ]),   # 90° left turn (now facing -X)
+    (1080, 1440,[0.6,  0.0       ]),   # return sweep along -X corridor (~9 m)
 ]
 
 def get_command(step):
@@ -189,19 +203,25 @@ def get_command(step):
 # Simulation loop
 # ---------------------------------------------------------------------------
 
-onboard_frames = []  # (H, W, 4) uint8 — every collected frame
-follow_frames  = []  # (H, W, 4) uint8
-vlm_frame_idxs = []  # indices into onboard_frames to send to VLM
+onboard_frames = []
+follow_frames  = []
+vlm_frame_idxs = []
 
 print(f"[Phase 1] Simulating {MAX_FRAMES} steps...")
 
+_pos_logged = False   # log robot Z on first valid step
+
 for step in range(MAX_FRAMES):
     if world.is_playing():
-        carter.apply_wheel_actions(controller.forward(command=get_command(step)))
-
         pos, quat = carter.get_world_pose()
 
-        # Keep onboard camera attached to robot heading
+        if not _pos_logged:
+            print(f"[Phase 1] Robot spawn position: "
+                  f"X={pos[0]:.2f}  Y={pos[1]:.2f}  Z={pos[2]:.2f}")
+            print(f"[Phase 1] Expected Floor 4 slab Z≈26.8 — "
+                  f"robot is {'ON Floor 4' if 26.0 <= pos[2] <= 30.0 else 'NOT on Floor 4 (check spawn Z)'}")
+            _pos_logged = True
+
         rot = R.from_quat([quat[1], quat[2], quat[3], quat[0]])
         onboard_cam.set_world_pose(
             position=pos + rot.apply(ONBOARD_OFFSET),
@@ -212,9 +232,23 @@ for step in range(MAX_FRAMES):
             orientation=FOLLOW_ORIENT,
         )
 
-    world.step(render=True)  # pose must be set BEFORE step (async pipeline)
+        # Move fill light with robot (1 m above robot center)
+        light_pos = pos + np.array([0.0, 0.0, 1.0])
+        _fill_light_xform.ClearXformOpOrder()
+        _fill_light_xform.AddTranslateOp().Set((float(light_pos[0]), float(light_pos[1]), float(light_pos[2])))
 
-    if world.is_playing() and step % 2 == 0 and step > 10:
+        # Follow fill light sits halfway between camera and robot, slightly above,
+        # so it illuminates both the robot and the corridor walls ahead of it.
+        follow_light_pos = pos + FOLLOW_OFFSET * 0.5 + np.array([0.0, 0.0, 1.5])
+        _follow_light_xform.ClearXformOpOrder()
+        _follow_light_xform.AddTranslateOp().Set((float(follow_light_pos[0]), float(follow_light_pos[1]), float(follow_light_pos[2])))
+
+    world.step(render=True)
+
+    if world.is_playing():
+        carter.apply_wheel_actions(controller.forward(command=get_command(step)))
+
+    if world.is_playing() and step % 2 == 0:
         ob = onboard_cam.get_rgba()
         fl = follow_cam.get_rgba()
 
@@ -228,240 +262,31 @@ for step in range(MAX_FRAMES):
             follow_frames.append(np.clip(fl, 0, 255).astype(np.uint8))
 
     if step % 120 == 0:
+        _p, _ = carter.get_world_pose() if world.is_playing() else (np.array([0,0,0]), None)
         print(f"[Phase 1]   step {step}/{MAX_FRAMES}  "
-              f"| frames: {len(onboard_frames)}")
+              f"| frames: {len(onboard_frames)}  "
+              f"| robot XYZ: ({_p[0]:.1f}, {_p[1]:.1f}, {_p[2]:.1f})")
+
+print(f"[Phase 1] Done — {len(onboard_frames)} onboard, "
+      f"{len(follow_frames)} follow, {len(vlm_frame_idxs)} queued for VLM.")
+
+# ---------------------------------------------------------------------------
+# Save frame cache for Phase 2+3
+# simulation_app.close() calls os._exit(0), so Phase 2+3 runs as a separate
+# process (nova_carter_vlm_phase23.py) invoked by submit_isaac_job.sh.
+# ---------------------------------------------------------------------------
+
+_cache_path = os.path.join(_project_dir, "frame_cache.npz")
+print(f"[Phase 1] Saving frame cache to {_cache_path} ...")
+np.savez_compressed(
+    _cache_path,
+    onboard_frames  = np.array(onboard_frames,  dtype=np.uint8),
+    follow_frames   = np.array(follow_frames,   dtype=np.uint8),
+    vlm_frame_idxs  = np.array(vlm_frame_idxs,  dtype=np.int32),
+    config          = np.array([FPS, W, H]),
+)
+print(f"[Phase 1] Cache saved ({os.path.getsize(_cache_path) // 1024 // 1024} MB).")
 
 world.stop()
 simulation_app.close()
-print(f"[Phase 1] Done — {len(onboard_frames)} onboard frames, "
-      f"{len(vlm_frame_idxs)} queued for VLM.")
-
-# ---------------------------------------------------------------------------
-# Phase 2: Qwen2-VL Inference
-# Isaac Sim is fully closed; GPU memory is free for the VLM.
-# ---------------------------------------------------------------------------
-
-print(f"\n[Phase 2] Loading {VLM_MODEL_ID}...")
-
-try:
-    import torch
-    from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
-    from qwen_vl_utils import process_vision_info
-    from PIL import Image, ImageDraw, ImageFont
-    HAS_PIL = True
-except ImportError as e:
-    print(f"[Phase 2] ERROR: Missing dependency — {e}")
-    print("  Fix: ~/isaacsim/python.sh -m pip install "
-          "transformers accelerate qwen-vl-utils Pillow")
-    sys.exit(1)
-
-# Load model — float16 keeps VRAM usage to ~4 GB (T4 has 16 GB)
-vlm_model = Qwen2VLForConditionalGeneration.from_pretrained(
-    VLM_MODEL_ID,
-    torch_dtype=torch.float16,
-    device_map="auto",       # places model on GPU automatically
-)
-vlm_model.eval()
-
-processor = AutoProcessor.from_pretrained(VLM_MODEL_ID)
-print(f"[Phase 2] Model loaded on {next(vlm_model.parameters()).device}")
-
-VLM_PROMPT = (
-    "You are the vision system of an autonomous patrol robot navigating the "
-    "MSOE Kern Engineering Innovation Center, a modern university engineering "
-    "building currently under construction. Describe what the robot sees in "
-    "1-2 sentences: the space ahead, architectural features, rooms, corridors, "
-    "equipment, or anything notable. Maximum 25 words."
-)
-
-def rgba_to_pil(rgba: np.ndarray) -> Image.Image:
-    """Convert (H, W, 4) uint8 RGBA numpy array to a PIL RGB image."""
-    return Image.fromarray(rgba[:, :, :3].astype(np.uint8), "RGB")
-
-def run_vlm(pil_image: Image.Image) -> str:
-    """Run Qwen2-VL inference on a PIL image. Returns the caption string."""
-    messages = [{
-        "role": "user",
-        "content": [
-            {"type": "image", "image": pil_image},
-            {"type": "text",  "text": VLM_PROMPT},
-        ],
-    }]
-
-    text = processor.apply_chat_template(
-        messages, tokenize=False, add_generation_prompt=True
-    )
-    image_inputs, video_inputs = process_vision_info(messages)
-
-    inputs = processor(
-        text=[text],
-        images=image_inputs,
-        videos=video_inputs,
-        padding=True,
-        return_tensors="pt",
-    ).to(vlm_model.device)
-
-    with torch.no_grad():
-        generated_ids = vlm_model.generate(
-            **inputs,
-            max_new_tokens=64,
-            do_sample=False,   # deterministic — no temperature/top_p/top_k
-        )
-
-    # Trim input tokens; decode only the newly generated portion
-    trimmed = [
-        out[len(inp):]
-        for inp, out in zip(inputs.input_ids, generated_ids)
-    ]
-    return processor.batch_decode(
-        trimmed,
-        skip_special_tokens=True,
-        clean_up_tokenization_spaces=False,
-    )[0].strip()
-
-# frame_index → caption
-captions: dict[int, str] = {}
-
-for i, frame_idx in enumerate(vlm_frame_idxs):
-    try:
-        pil_img = rgba_to_pil(onboard_frames[frame_idx])
-        caption = run_vlm(pil_img)
-    except Exception as e:
-        caption = f"[VLM error: {type(e).__name__}]"
-
-    captions[frame_idx] = caption
-    print(f"[Phase 2]   [{i+1:2d}/{len(vlm_frame_idxs)}] "
-          f"frame {frame_idx:4d}: {caption[:70]}")
-
-print(f"[Phase 2] Done — {len(captions)} captions generated.")
-
-# Free GPU memory before video assembly
-del vlm_model
-if torch.cuda.is_available():
-    torch.cuda.empty_cache()
-
-# ---------------------------------------------------------------------------
-# Phase 3: Annotate frames and write videos
-# ---------------------------------------------------------------------------
-
-print(f"\n[Phase 3] Writing videos...")
-
-videos_dir = os.path.join(_project_dir, "videos")
-os.makedirs(videos_dir, exist_ok=True)
-
-ONBOARD_OUT = os.path.join(videos_dir, "vlm_demo_onboard.mp4")
-FOLLOW_OUT  = os.path.join(videos_dir, "vlm_demo_follow.mp4")
-
-# --- ffmpeg (mirrors VideoRecorder._get_ffmpeg_path) ---
-
-def find_ffmpeg():
-    try:
-        import imageio_ffmpeg
-        return imageio_ffmpeg.get_ffmpeg_exe()
-    except ImportError:
-        pass
-    local = os.path.expanduser("~/bin/ffmpeg")
-    if os.path.isfile(local) and os.access(local, os.X_OK):
-        return local
-    return shutil.which("ffmpeg")
-
-def open_writer(path: str, width: int, height: int, fps: int):
-    ffmpeg = find_ffmpeg()
-    if ffmpeg is None:
-        raise RuntimeError("ffmpeg not found — imageio-ffmpeg should be bundled with Isaac Sim")
-    cmd = [
-        ffmpeg, "-y",
-        "-f", "rawvideo", "-vcodec", "rawvideo",
-        "-s", f"{width}x{height}", "-pix_fmt", "rgb24", "-r", str(fps),
-        "-i", "-",
-        "-c:v", "libx264", "-pix_fmt", "yuv420p",
-        path,
-    ]
-    return subprocess.Popen(cmd, stdin=subprocess.PIPE,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-# --- Caption overlay ---
-
-def get_caption(frame_idx: int) -> str:
-    candidates = [fi for fi in captions if fi <= frame_idx]
-    if not candidates:
-        return "Initializing scene analysis..."
-    return captions[max(candidates)]
-
-def load_font(size: int):
-    for path in [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-        "/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf",
-    ]:
-        try:
-            return ImageFont.truetype(path, size)
-        except (IOError, AttributeError):
-            continue
-    return None
-
-font_main  = load_font(15)
-font_badge = load_font(12)
-
-def annotate(rgba: np.ndarray, caption: str, frame_num: int, total: int) -> np.ndarray:
-    """Overlay caption bar and HUD onto frame. Returns RGB uint8 array."""
-    img  = Image.fromarray(rgba[:, :, :3].astype(np.uint8), "RGB")
-    draw = ImageDraw.Draw(img)
-    h, w = rgba.shape[:2]
-
-    # Caption bar — bottom
-    lines   = textwrap.wrap(caption, width=62)
-    line_h  = 20
-    padding = 8
-    bar_h   = len(lines) * line_h + 2 * padding
-    bar_y   = h - bar_h
-    draw.rectangle([(0, bar_y), (w, h)], fill=(10, 10, 10))
-    y = bar_y + padding
-    for line in lines:
-        draw.text((padding, y), line, fill=(255, 255, 255), font=font_main)
-        y += line_h
-
-    # Badge — top left
-    draw.rectangle([(0, 0), (150, 22)], fill=(80, 40, 140))   # purple for Qwen
-    draw.text((6, 4), "QWEN2-VL VISION", fill=(255, 255, 255), font=font_badge)
-
-    # Frame counter — top right
-    draw.text((w - 70, 4), f"{frame_num}/{total}",
-              fill=(180, 180, 180), font=font_badge)
-
-    return np.array(img)
-
-# --- Write annotated onboard video ---
-
-total = len(onboard_frames)
-proc  = open_writer(ONBOARD_OUT, W, H, FPS)
-
-for i, frame in enumerate(onboard_frames):
-    annotated = annotate(frame, get_caption(i), i + 1, total)
-    proc.stdin.write(annotated.tobytes())
-    if (i + 1) % 50 == 0:
-        print(f"[Phase 3]   onboard {i+1}/{total}")
-
-proc.stdin.close()
-proc.wait()
-if proc.returncode == 0:
-    print(f"[Phase 3] ✓ {ONBOARD_OUT}")
-else:
-    print(f"[Phase 3] ffmpeg error: {proc.stderr.read().decode()}")
-
-# --- Write follow video ---
-
-if follow_frames:
-    proc2 = open_writer(FOLLOW_OUT, W, H, FPS)
-    for frame in follow_frames:
-        proc2.stdin.write(frame[:, :, :3].tobytes())
-    proc2.stdin.close()
-    proc2.wait()
-    if proc2.returncode == 0:
-        print(f"[Phase 3] ✓ {FOLLOW_OUT}")
-    else:
-        print(f"[Phase 3] ffmpeg error: {proc2.stderr.read().decode()}")
-
-print(f"\nDemo complete!")
-print(f"  Onboard (annotated): {ONBOARD_OUT}")
-print(f"  Follow view:         {FOLLOW_OUT}")
+# os._exit(0) is called internally — nothing below here runs.
