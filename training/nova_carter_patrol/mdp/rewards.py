@@ -38,10 +38,18 @@ def delta_progress(
     than 1m (goal resampling after arrival, or episode reset). This prevents large
     negative spikes when a new goal is assigned far away.
 
+    Uses world-frame distance (pos_command_w - root_pos_w) instead of the stale
+    body-frame command (pos_command_b). pos_command_b is refreshed in
+    command_manager.compute() which runs AFTER reward_manager.compute(), so it
+    always reflects the previous step's robot position.
+
     Shape: (num_envs,)
     """
-    command = env.command_manager.get_command(command_name)
-    d_current = torch.norm(command[:, :2], dim=-1)
+    cmd_term = env.command_manager.get_term(command_name)
+    d_current = torch.norm(
+        cmd_term.pos_command_w[:, :2] - env.scene["robot"].data.root_pos_w[:, :2],
+        dim=1,
+    )
 
     if not hasattr(env, "_dp_d_prev"):
         env._dp_d_prev = d_current.clone()
@@ -98,10 +106,16 @@ def position_tracking_tanh(
     sensitivity scale: use a large std (e.g. 2.0) for coarse tracking and
     a small std (e.g. 0.2) for fine arrival precision.
 
+    Uses world-frame distance (pos_command_w - root_pos_w) instead of the stale
+    body-frame command. See delta_progress docstring for timing explanation.
+
     Shape: (num_envs,)
     """
-    command = env.command_manager.get_command(command_name)
-    dist = torch.norm(command[:, :2], dim=-1)
+    cmd_term = env.command_manager.get_term(command_name)
+    dist = torch.norm(
+        cmd_term.pos_command_w[:, :2] - env.scene["robot"].data.root_pos_w[:, :2],
+        dim=1,
+    )
     return 1.0 - torch.tanh(dist / std)
 
 
@@ -159,10 +173,16 @@ def goal_reached(
     Used as a bonus reward on top of tanh shaping to give an explicit
     success signal when the robot arrives at the goal.
 
+    Uses world-frame distance (pos_command_w - root_pos_w) instead of the stale
+    body-frame command. See delta_progress docstring for timing explanation.
+
     Shape: (num_envs,)
     """
-    command = env.command_manager.get_command(command_name)
-    dist = torch.norm(command[:, :2], dim=-1)
+    cmd_term = env.command_manager.get_term(command_name)
+    dist = torch.norm(
+        cmd_term.pos_command_w[:, :2] - env.scene["robot"].data.root_pos_w[:, :2],
+        dim=1,
+    )
     return (dist < threshold).float()
 
 

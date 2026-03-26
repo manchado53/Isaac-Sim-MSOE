@@ -14,6 +14,7 @@ import isaaclab.sim as sim_utils
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.envs import ManagerBasedRLEnvCfg
+from isaaclab.managers import CurriculumTermCfg as CurrTerm
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
@@ -32,6 +33,7 @@ from nova_carter_patrol.mdp import observations as obs_mdp
 from nova_carter_patrol.mdp import rewards as rew_mdp
 from nova_carter_patrol.mdp.actions import DifferentialDriveActionCfg
 from nova_carter_patrol.mdp.commands import GoalReachPose2dCommandCfg
+from nova_carter_patrol.mdp import curriculums as curr_mdp
 
 
 # Shared rigid body props for static objects (walls + furniture)
@@ -272,7 +274,7 @@ class NovaCarterPatrolSceneCfg(InteractiveSceneCfg):
     contact_sensor = ContactSensorCfg(
         prim_path="{ENV_REGEX_NS}/Robot/chassis_link",
         update_period=0,
-        history_length=2,
+        history_length=5,   # matches decimation=5 — captures all physics sub-steps in one RL step
         track_air_time=False,
     )
 
@@ -315,7 +317,7 @@ class CommandsCfg:
         simple_heading=True,
         resampling_time_range=(15.0, 15.0),  # fallback timer for unreachable goals
         debug_vis=True,
-        goal_reached_threshold=0.5,  # resample immediately when within 0.5m
+        goal_reached_threshold=0.75,  # resample immediately when within 0.75m
         ranges=GoalReachPose2dCommandCfg.Ranges(
             pos_x=(-4.0, 4.0),  # stay inside the 10m room walls
             pos_y=(-4.0, 4.0),
@@ -364,42 +366,48 @@ class ObservationsCfg:
 
 @configclass
 class RewardsCfg:
-    """Reward terms for navigation with obstacle avoidance.
+    """5-term reward: delta progress + distance magnet + time penalty + arrival bonus + collision.
 
-    Simplified 6-term structure based on literature review (see TRAINING.md).
-    Removed heading_alignment (fights obstacle avoidance, ~-190/episode) and
-    position_tracking_fine (redundant with goal_reached at same 0.5m zone).
+    delta_progress (+3.0): rewards net distance closed per step (d_prev - d_current).
+        Cannot be gamed by oscillating; 10x stronger than time penalty per step of good movement.
+    distance_to_goal (+1.0, std=0.3): steep tanh magnet active only inside 0.75m — the gradient
+        collapses inside the goal zone, pulling the robot through the final gap.
+    time_penalty (-0.05): constant cost per step so hovering and circling are always losing.
+        Robot still gains net reward by moving at ≥0.017 m/s toward goal (3.0×0.017 > 0.05).
+    goal_reached (+100.0): dominant arrival bonus — large enough that reaching is always
+        the best strategy over any finite horizon of hovering.
+    collision (-10.0): hard enough to matter, not so large it causes freezing.
     """
 
-    # Position tracking — gradient from far away
-    position_tracking = RewTerm(
+    # Net distance closed per step — anti-oscillation progress signal
+    delta_progress = RewTerm(
+        func=rew_mdp.delta_progress,
+        weight=3.0,
+        params={"command_name": "pose_command"},
+    )
+    # Steep proximity magnet — pulls robot through the final 0.75m gap
+    distance_to_goal = RewTerm(
         func=rew_mdp.position_tracking_tanh,
-        weight=5.0,
-        params={"command_name": "pose_command", "std": 2.0},
+        weight=1.0,
+        params={"command_name": "pose_command", "std": 0.3},
     )
-    # Velocity near goal — teach the robot to decelerate on approach
-    velocity_near_goal = RewTerm(
-        func=rew_mdp.velocity_near_goal,
-        weight=-0.3,
-        params={"command_name": "pose_command", "threshold": 0.5},
+    # Per-step time cost — makes hovering always net-negative
+    time_penalty = RewTerm(
+        func=rew_mdp.time_penalty,
+        weight=-0.05,
     )
-    collision = RewTerm(
-        func=mdp.undesired_contacts,
-        weight=-2.0,
-        params={"sensor_cfg": SceneEntityCfg("contact_sensor", body_names="chassis_link"), "threshold": 1.0},
-    )
-    obstacle_proximity = RewTerm(
-        func=rew_mdp.obstacle_proximity,
-        weight=-0.5,
-        params={"sensor_cfg": SceneEntityCfg("lidar"), "safe_dist": 0.8},
-    )
-    # Bonus reward for reaching the goal — explicit success signal
+    # Dominant arrival bonus
     goal_reached = RewTerm(
         func=rew_mdp.goal_reached,
-        weight=10.0,
-        params={"command_name": "pose_command", "threshold": 0.5},
+        weight=100.0,
+        params={"command_name": "pose_command", "threshold": 0.75},
     )
-    action_smoothness = RewTerm(func=mdp.action_rate_l2, weight=-0.1)
+    # Collision penalty via contact sensor
+    collision = RewTerm(
+        func=mdp.undesired_contacts,
+        weight=-10.0,
+        params={"sensor_cfg": SceneEntityCfg("contact_sensor", body_names="chassis_link"), "threshold": 1.0},
+    )
 
 
 ##
@@ -536,6 +544,23 @@ class EventCfg:
 
 
 ##
+# Curriculum
+##
+
+@configclass
+class CurriculumCfg:
+    """Progressive difficulty: empty room → 3 obstacles → full clutter."""
+
+    navigation_difficulty = CurrTerm(
+        func=curr_mdp.NavigationCurriculum,
+        params={
+            "stage1_steps": 153600,   # ~300 iters (300 * 512)
+            "stage2_steps": 358400,   # ~700 iters (700 * 512)
+        },
+    )
+
+
+##
 # Main Environment Config
 ##
 
@@ -553,6 +578,7 @@ class NovaCarterPatrolFlatEnvCfg(ManagerBasedRLEnvCfg):
     rewards: RewardsCfg = RewardsCfg()
     terminations: TerminationsCfg = TerminationsCfg()
     events: EventCfg = EventCfg()
+    curriculum: CurriculumCfg = CurriculumCfg()
 
     def __post_init__(self):
         """Post initialization."""
