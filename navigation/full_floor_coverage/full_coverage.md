@@ -1,6 +1,6 @@
 # Full Floor Coverage — Navigation Pipeline
 
-Finds the shortest route that visits every reachable node on floor 1 and produces a PNG visualization.
+Finds the shortest route that visits every reachable node on floor 4 and produces a PNG visualization.
 
 ---
 
@@ -10,10 +10,12 @@ This is a **graph coverage problem**: starting from a single node, visit every o
 
 Because the floor plan is a weighted graph (not a complete graph with direct connections between all pairs), the travel cost between any two nodes is their **Dijkstra shortest-path distance**, not straight-line distance. This is solved in two stages:
 
-1. **All-pairs shortest paths** — run Dijkstra from every node to get the full distance matrix
+1. **All-pairs shortest paths** — run Dijkstra from every reachable node to get the full distance matrix
 2. **Nearest-neighbor greedy heuristic** — at each step, move to the closest unvisited node
+3. **2-opt improvement** — repeatedly swap edge pairs to shorten the tour until no swap helps
+4. **Multiple random restarts** — repeat steps 2–3 from several start nodes, keep the shortest result
 
-This is an approximation of the Traveling Salesman Problem (TSP). The nearest-neighbor heuristic gives a practical solution in O(n²) time without guaranteeing the global optimum.
+This is an approximation of the Traveling Salesman Problem (TSP). The nearest-neighbor heuristic gives a practical solution in O(n²) time; 2-opt post-processing typically reduces the tour by a further 10–20%.
 
 ---
 
@@ -23,6 +25,8 @@ This is an approximation of the Traveling Salesman Problem (TSP). The nearest-ne
 |------|-------------|
 | `coverage.json` | Solved coverage route — visit order, full waypoint path, distances, unreachable nodes |
 | `coverage_map.png` | Floor plan PNG with the route and all nodes visualized |
+| `coverage_metrics.txt` | Timing and quality report — per-restart log, 2-opt stats, wall time |
+| `generate_coverage.py` | Generates `coverage.json` and `coverage_metrics.txt` — nearest-neighbor + 2-opt + multi-restart |
 | `visualize_coverage.py` | Script that reads `coverage.json` and generates `coverage_map.png` |
 
 ---
@@ -32,12 +36,19 @@ This is an approximation of the Traveling Salesman Problem (TSP). The nearest-ne
 Run from the repo root:
 
 ```bash
-python3 - << 'EOF'
-import json, heapq, os
+python3 navigation/full_floor_coverage/generate_coverage.py
+```
 
-NODES_FILE = "floor_plans_resized/floor1/floor1_nodes.json"
-OUT_FILE   = "navigation/full_floor_coverage/coverage.json"
-START_NODE = "f1_junc_mid_center"   # change to any reachable node ID
+Or run inline without a separate file:
+
+```bash
+python3 - << 'EOF'
+import json, heapq, os, random
+
+NODES_FILE   = "test_building/test_nodes/Final_Data/floor_4_fullres_graph.json"
+OUT_FILE     = "navigation/full_floor_coverage/coverage.json"
+START_NODE   = "node_1"               # change to any reachable node ID
+NUM_RESTARTS = 10                     # total start candidates tried (including START_NODE)
 
 with open(NODES_FILE) as f:
     data = json.load(f)
@@ -45,8 +56,8 @@ with open(NODES_FILE) as f:
 nodes = {n["id"]: n for n in data["nodes"]}
 adj   = {nid: [] for nid in nodes}
 for e in data["edges"]:
-    a, b = e[0], e[1]
-    d = ((nodes[a]["x"]-nodes[b]["x"])**2 + (nodes[a]["y"]-nodes[b]["y"])**2)**0.5
+    a, b = e["from"], e["to"]
+    d = e["distance"]
     adj[a].append((b, d))
     adj[b].append((a, d))
 
@@ -73,47 +84,88 @@ def reconstruct(prev, end):
     while cur: path.append(cur); cur = prev[cur]
     return list(reversed(path))
 
-# All-pairs Dijkstra
+# All-pairs Dijkstra (only over reachable nodes — skip unreachable sources)
 all_dist, all_prev = {}, {}
-for nid in nodes:
-    all_dist[nid], all_prev[nid] = dijkstra(nid)
+all_dist[START_NODE], all_prev[START_NODE] = dijkstra(START_NODE)
 
 reachable   = [n for n in nodes if all_dist[START_NODE][n] < float("inf")]
 unreachable = [n for n in nodes if all_dist[START_NODE][n] == float("inf")]
 
-# Nearest-neighbor greedy coverage
-unvisited    = set(reachable) - {START_NODE}
-visit_order  = [START_NODE]
-full_path    = [START_NODE]
-total_dist   = 0.0
-current      = START_NODE
+for nid in reachable:
+    if nid != START_NODE:
+        all_dist[nid], all_prev[nid] = dijkstra(nid)
 
-while unvisited:
-    best = min(unvisited, key=lambda n: all_dist[current][n])
-    if all_dist[current][best] == float("inf"):
-        break
-    seg = reconstruct(all_prev[current], best)
+def run_greedy(start):
+    unvisited = set(reachable) - {start}
+    order = [start]
+    dist  = 0.0
+    cur   = start
+    while unvisited:
+        best = min(unvisited, key=lambda n: all_dist[cur][n])
+        if all_dist[cur][best] == float("inf"):
+            break
+        dist += all_dist[cur][best]
+        order.append(best)
+        unvisited.discard(best)
+        cur = best
+    return order, dist
+
+def two_opt(order):
+    best = order[:]
+    n = len(best)
+    improved = True
+    while improved:
+        improved = False
+        for i in range(1, n - 1):
+            for j in range(i + 1, n):
+                j_next = (j + 1) % n
+                before = all_dist[best[i-1]][best[i]] + all_dist[best[j]][best[j_next]]
+                after  = all_dist[best[i-1]][best[j]] + all_dist[best[i]][best[j_next]]
+                if after < before - 1e-9:
+                    best[i:j+1] = best[i:j+1][::-1]
+                    improved = True
+    return best
+
+def tour_distance(order):
+    return sum(all_dist[order[i]][order[i+1]] for i in range(len(order) - 1))
+
+# Multiple random restarts: always include START_NODE plus k-1 random candidates
+candidates = [START_NODE] + random.sample(
+    [n for n in reachable if n != START_NODE],
+    min(NUM_RESTARTS - 1, len(reachable) - 1)
+)
+
+best_order, best_dist = None, float("inf")
+for start in candidates:
+    order, _ = run_greedy(start)
+    order = two_opt(order)
+    dist  = tour_distance(order)
+    print(f"  start={start:40s}  dist={dist:.0f} px  nodes={len(order)}")
+    if dist < best_dist:
+        best_order, best_dist = order, dist
+
+# Rebuild full waypoint path with intermediate corridor hops
+visit_order = best_order
+full_path   = [visit_order[0]]
+for i in range(1, len(visit_order)):
+    seg = reconstruct(all_prev[visit_order[i-1]], visit_order[i])
     full_path.extend(seg[1:])
-    total_dist += all_dist[current][best]
-    visit_order.append(best)
-    unvisited.discard(best)
-    current = best
 
 result = {
-    "description": "Greedy nearest-neighbor full-floor coverage route for floor 1.",
-    "start_node": START_NODE,
-    "start_name": nodes[START_NODE]["name"],
-    "algorithm": "nearest-neighbor heuristic (greedy TSP approximation)",
-    "floor": 1,
+    "description": "2-opt + multi-restart nearest-neighbor full-floor coverage route for floor 4.",
+    "start_node": visit_order[0],
+    "algorithm": "nearest-neighbor heuristic + 2-opt + multi-restart",
+    "num_restarts": NUM_RESTARTS,
+    "floor": 4,
     "total_nodes": len(nodes),
     "reachable_nodes": len(reachable),
     "unreachable_nodes": len(unreachable),
     "nodes_visited": len(visit_order),
     "total_waypoints": len(full_path),
-    "total_distance_px": round(total_dist, 2),
-    "unreachable": [{"id": n, "name": nodes[n]["name"], "type": nodes[n]["type"]} for n in unreachable],
+    "total_distance_px": round(best_dist, 2),
+    "unreachable": [{"id": n} for n in unreachable],
     "visit_order": [
-        {"step": i+1, "node_id": n, "name": nodes[n]["name"], "type": nodes[n]["type"],
+        {"step": i+1, "node_id": n,
          "dist_from_prev": round(all_dist[visit_order[i-1]][n], 2) if i > 0 else 0.0}
         for i, n in enumerate(visit_order)
     ],
@@ -122,22 +174,38 @@ result = {
 os.makedirs(os.path.dirname(OUT_FILE), exist_ok=True)
 with open(OUT_FILE, "w") as f:
     json.dump(result, f, indent=2)
-print(f"Saved {OUT_FILE}  ({len(visit_order)} nodes, {len(full_path)} waypoints, {total_dist:.0f} px)")
+print(f"\nBest tour: {len(visit_order)} nodes, {len(full_path)} waypoints, {best_dist:.0f} px")
+print(f"Saved {OUT_FILE}")
 EOF
+```
+
+The script uses two optimizations over the original single-pass greedy heuristic:
+
+**2-opt post-processing** — after building the greedy tour, repeatedly scan all pairs of edges. If reversing the segment between them reduces total cost, apply the swap. Repeats until no improving swap exists. Typically reduces tour length by 10–20%.
+
+**Multiple random restarts** — runs the greedy heuristic from `NUM_RESTARTS` different start candidates (always including `START_NODE`), applies 2-opt to each, and keeps the shortest result.
+
+To configure, edit the constants at the top of `generate_coverage.py`:
+
+```python
+START_NODE   = "node_55"              # preferred start; always included as a candidate
+NUM_RESTARTS = 10                     # total start candidates tried (including START_NODE)
 ```
 
 ### Output: `coverage.json`
 
 | Field | Description |
 |-------|-------------|
-| `start_node` | Node ID where the route begins |
+| `start_node` | Node ID where the best tour begins (may differ from `START_NODE` if another restart won) |
+| `algorithm` | Records the strategy used (`nearest-neighbor heuristic + 2-opt + multi-restart`) |
+| `num_restarts` | Number of start candidates that were tried |
 | `nodes_visited` | Number of reachable nodes covered |
 | `unreachable_nodes` | Count of isolated nodes (no graph path from start) |
 | `total_waypoints` | Length of `full_path` (includes intermediate corridor hops) |
-| `total_distance_px` | Sum of all Dijkstra hop costs in pixels |
+| `total_distance_px` | Sum of all Dijkstra hop costs in pixels for the winning tour |
 | `visit_order` | Ordered list of target nodes with step number and cost |
 | `full_path` | Complete waypoint sequence including intermediate nodes |
-| `unreachable` | List of node IDs, names, and types with no graph connection |
+| `unreachable` | List of node IDs with no graph connection |
 
 ---
 
@@ -151,12 +219,7 @@ python3 navigation/full_floor_coverage/visualize_coverage.py
 
 | Element | Color |
 |---------|-------|
-| Room nodes | Blue |
-| Hallway nodes | Light grey |
-| Intersection nodes | Amber |
-| Stairwell nodes | Red |
-| Elevator nodes | Purple |
-| Entrance nodes | Green |
+| All nodes | Blue |
 | **Unreachable nodes** | **Magenta X** |
 | Coverage route line | Dark orange |
 | Start node | Large bright green circle |
@@ -164,48 +227,21 @@ python3 navigation/full_floor_coverage/visualize_coverage.py
 
 ---
 
-## Current Results (Floor 1)
+## Current Results (Floor 4)
 
-| Metric | Value |
-|--------|-------|
-| Total nodes | 130 |
-| Reachable from start | 118 |
-| Unreachable (isolated) | 12 |
-| Total coverage waypoints | 202 |
-| Total travel distance | 15,455 px |
-| Start node | `f1_junc_mid_center` (Mid-Center Junction) |
-
-### Unreachable Nodes
-
-These 12 nodes exist in `floor1_nodes.json` but have no edges connecting them to the main graph:
-
-| Node ID | Name | Type |
-|---------|------|------|
-| `f1_stairs_NW` | Stairwell NW | stairwell |
-| `f1_stairs_DN_1` | Stairs DN-1 | stairwell |
-| `f1_stairs_DN_2` | Stairs DN-2 | stairwell |
-| `f1_stairs_DN_3` | Stairs DN-3 | stairwell |
-| `f1_stairs_SW` | Stairwell SW | stairwell |
-| `f1_office_02` | Office 2 | room |
-| `f1_office_03` | Office 3 | room |
-| `f1_room_NW_1` | Room NW 1 | room |
-| `f1_room_mid_W_3` | Room Mid W-3 | room |
-| `f1_junc_atrium_S_center` | Atrium S Center | intersection |
-| `f1_wp_15` | Waypoint 15 | hallway |
-| `f1_wp_16` | Waypoint 16 | hallway |
-
-To make these reachable, add edges for each in `floor_plans_resized/floor1/floor1_nodes.json` connecting them to a neighboring node.
+Run `generate_coverage.py` to populate this section. Results will be printed to stdout and saved in `coverage.json`.
 
 ---
 
 ## Changing the Start Node
 
-Edit `START_NODE` in the Step 1 script to any node ID in the graph, e.g.:
+Edit `START_NODE` at the top of `generate_coverage.py` to any node ID in the graph, e.g.:
 
 ```python
-START_NODE = "f1_junc_left_wing_S"   # southwest corner
-START_NODE = "f1_junc_top_mid"        # north mid corridor
-START_NODE = "f1_junc_mid_center"     # central junction (default)
+START_NODE = "node_1"    # default
+START_NODE = "node_40"   # another candidate
 ```
 
-The nearest-neighbor result will differ depending on start position since the greedy choice at each step depends on current location.
+`START_NODE` is always included as a restart candidate so the best tour is guaranteed to be at least as good as starting from your chosen node. If a random restart produces a shorter tour, the output `start_node` field will reflect the winning start instead.
+
+To increase solution quality at the cost of more compute, raise `NUM_RESTARTS`.
