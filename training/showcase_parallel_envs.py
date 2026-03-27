@@ -157,7 +157,7 @@ def main():
     env = gym.wrappers.RecordVideo(
         env,
         video_folder=video_dir,
-        episode_trigger=lambda ep: ep == 0,   # record first episode only
+        step_trigger=lambda step: step == 0,  # start recording immediately
         video_length=total_frames,
         name_prefix="parallel_showcase",
         disable_logger=True,

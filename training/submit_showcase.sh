@@ -39,7 +39,7 @@ nvidia-smi
 echo ""
 
 CMD="$ISAAC_LAB_DIR/isaaclab.sh -p $PROJECT_DIR/training/showcase_parallel_envs.py \
-    --num_envs 256 --duration 25 --fps 30 --headless --enable_cameras"
+    --num_envs 16 --duration 25 --fps 30 --headless --enable_cameras"
 
 echo "Running: $CMD"
 echo ""
