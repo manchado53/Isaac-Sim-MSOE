@@ -77,6 +77,16 @@ def time_penalty(env: ManagerBasedRLEnv) -> torch.Tensor:
     return torch.ones(env.num_envs, device=env.device)
 
 
+def backward_motion_penalty(env: ManagerBasedRLEnv) -> torch.Tensor:
+    """Penalize rearward motion — robot should always move sensor-end (positive x) first.
+
+    Returns the magnitude of negative forward velocity (0 when moving forward or stopped).
+    Shape: (num_envs,)
+    """
+    forward_vel = env.scene["robot"].data.root_lin_vel_b[:, 0]
+    return torch.relu(-forward_vel)
+
+
 def goal_progress(
     env: ManagerBasedRLEnv, command_name: str
 ) -> torch.Tensor:

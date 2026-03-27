@@ -366,7 +366,7 @@ class ObservationsCfg:
 
 @configclass
 class RewardsCfg:
-    """5-term reward: delta progress + distance magnet + time penalty + arrival bonus + collision.
+    """6-term reward: delta progress + distance magnet + time penalty + arrival bonus + collision + backward motion.
 
     delta_progress (+3.0): rewards net distance closed per step (d_prev - d_current).
         Cannot be gamed by oscillating; 10x stronger than time penalty per step of good movement.
@@ -395,6 +395,11 @@ class RewardsCfg:
     time_penalty = RewTerm(
         func=rew_mdp.time_penalty,
         weight=-0.05,
+    )
+    # Penalty for driving casters-first — encourages sensor end to lead
+    backward_motion = RewTerm(
+        func=rew_mdp.backward_motion_penalty,
+        weight=-2.0,
     )
     # Dominant arrival bonus
     goal_reached = RewTerm(
@@ -554,7 +559,7 @@ class CurriculumCfg:
     navigation_difficulty = CurrTerm(
         func=curr_mdp.NavigationCurriculum,
         params={
-            "stage1_steps": 153600,   # ~300 iters (300 * 512)
+            "stage1_steps": 78125,    # ~152 iters (152 * 512)
             "stage2_steps": 358400,   # ~700 iters (700 * 512)
         },
     )

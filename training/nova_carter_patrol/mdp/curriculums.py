@@ -1,8 +1,8 @@
 """Curriculum learning for Nova Carter Patrol.
 
 Progressively increases navigation difficulty in 3 stages:
-  Stage 1 (iters 0-300):   No furniture, close goals (±2m)
-  Stage 2 (iters 300-700): 3 furniture pieces, medium goals (±3m)
+  Stage 1 (iters 0-152):   No furniture, close goals (±2m)
+  Stage 2 (iters 152-700): 3 furniture pieces, medium goals (±3m)
   Stage 3 (iters 700+):    All 7 furniture, full goals (±4m)
 """
 
@@ -51,7 +51,7 @@ class NavigationCurriculum(ManagerTermBase):
         self,
         env: ManagerBasedRLEnv,
         env_ids: Sequence[int],
-        stage1_steps: int = 153600,   # ~300 iters * 512 steps
+        stage1_steps: int = 78125,    # ~152 iters * 512 steps
         stage2_steps: int = 358400,   # ~700 iters * 512 steps
     ) -> float:
         step = env.common_step_counter
