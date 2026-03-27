@@ -144,62 +144,54 @@ def main():
     print(f"[INFO]   Y range: [{env_origins[:,1].min():.1f}, {env_origins[:,1].max():.1f}]")
 
     total_frames = args_cli.fps * args_cli.duration
-    output_path = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "videos", "parallel_showcase.mp4")
+    video_dir = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "videos", "showcase")
     )
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    os.makedirs(video_dir, exist_ok=True)
 
-    # ── Initial reset ──
-    obs, _ = env.reset()
-    frames = []
-
-    # Set camera to starting position before first frame
+    # Set initial camera before wrapping so RecordVideo sees it from frame 0
     eye0, target0 = camera_pose(0.0, env_origins)
     sim.set_camera_view(eye=eye0, target=target0)
 
+    # RecordVideo captures frames automatically via the gym render pipeline
+    env = gym.wrappers.RecordVideo(
+        env,
+        video_folder=video_dir,
+        episode_trigger=lambda ep: ep == 0,   # record first episode only
+        video_length=total_frames,
+        name_prefix="parallel_showcase",
+        disable_logger=True,
+    )
+
     print(f"[INFO] Recording {total_frames} frames ({args_cli.duration}s @ {args_cli.fps}fps)...")
+    print(f"[INFO] Output folder: {video_dir}")
 
-    # Cycle through simple action patterns: slow forward + gentle turns
     rng = np.random.default_rng(7)
-    action_dim = 2  # [linear_vel, angular_vel]
-
-    # Pre-generate smooth per-env actions that cycle with variety
-    # Each env gets a slightly different phase so they look independent
     env_phases = rng.uniform(0, 2 * np.pi, size=args_cli.num_envs)
+
+    obs, _ = env.reset()
 
     for frame_idx in range(total_frames):
         t = frame_idx / max(total_frames - 1, 1)
 
-        # Update camera
+        # Pan camera each step
         eye, target = camera_pose(t, env_origins)
         sim.set_camera_view(eye=eye, target=target)
 
-        # Smooth sinusoidal actions — robots drive forward with gradual turning
-        # This looks more purposeful than pure random for a showcase
+        # Smooth sinusoidal actions so robots look like they're navigating
         step_t = frame_idx * 0.04
-        linear_vel = 0.6 + 0.3 * np.sin(step_t * 0.5 + env_phases)   # 0.3–0.9 m/s
-        angular_vel = 0.5 * np.sin(step_t * 0.3 + env_phases * 1.3)  # ±0.5 rad/s
+        linear_vel = 0.6 + 0.3 * np.sin(step_t * 0.5 + env_phases)
+        angular_vel = 0.5 * np.sin(step_t * 0.3 + env_phases * 1.3)
         actions = np.stack([linear_vel, angular_vel], axis=1).astype(np.float32)
 
         obs, _, terminated, truncated, _ = env.step(actions)
-
-        frame = env.render()
-        if frame is not None:
-            frames.append(frame)
 
         if frame_idx % 150 == 0:
             pct = 100 * frame_idx / total_frames
             print(f"[INFO]   {frame_idx}/{total_frames} frames ({pct:.0f}%)")
 
     env.close()
-
-    # ── Save video ──
-    print(f"[INFO] Saving {len(frames)} frames to {output_path}")
-    writer = imageio.get_writer(output_path, fps=args_cli.fps, codec="libx264", quality=9)
-    for frame in frames:
-        writer.append_data(frame)
-    writer.close()
-    print(f"[INFO] Done — video saved: {output_path}")
+    print(f"[INFO] Done — video saved to: {video_dir}/")
 
 
 if __name__ == "__main__":
