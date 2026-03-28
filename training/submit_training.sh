@@ -4,9 +4,9 @@
 #SBATCH --gres=gpu:t4:1
 #SBATCH --time=15:00:00
 #SBATCH --mem=64G
-#SBATCH --output=/home/ad.msoe.edu/manchadoa/isaac-sim-msoe/training/logs/train_%j.out
-#SBATCH --error=/home/ad.msoe.edu/manchadoa/isaac-sim-msoe/training/logs/train_%j.err
-#SBATCH --account=undergrad_research
+#SBATCH --output=%x_%j.out
+#SBATCH --error=%x_%j.err
+#SBATCH --account=students
 
 # Nova Carter Patrol RL Training
 # Submit with: cd ~/isaac-sim-msoe && sbatch training/submit_training.sh
