@@ -53,15 +53,14 @@ The reward design uses dual-scale tanh position tracking with heading alignment,
 
 | Term | Function | Weight | Parameters | Purpose |
 |------|----------|--------|------------|---------|
-| `position_tracking` | `position_tracking_tanh` | +0.5 | std=2.0 | Dense gradient toward goal |
-| `velocity_near_goal` | `velocity_near_goal` | -0.3 | threshold=0.5m | Gentle deceleration in final approach |
-| `goal_reached` | `goal_reached` | +10.0 | threshold=0.5m | Large sparse bonus for arrival |
-| `collision` | `mdp.undesired_contacts` | -2.0 | contact_sensor, threshold=1.0N | Physics-based collision penalty via contact sensor |
-| `obstacle_proximity` | `obstacle_proximity` | -0.5 | safe_dist=0.8m | Smooth LiDAR-based avoidance before contact |
-| `action_smoothness` | `action_rate_l2` | -0.1 | — | Penalize jerky actions |
-| `survival` | `is_alive` | +0.1 | — | Positive baseline to stabilize training |
+| `position_tracking` | `position_tracking_tanh` | +2.0 | std=2.0 | Dense gradient — "getting warmer" |
+| `goal_reached` | `goal_reached` | +10.0 | threshold=0.5m | Sparse bonus — "you found it" |
+| `collision` | `mdp.undesired_contacts` | -10.0 | contact_sensor, threshold=1.0N | "crashing is very bad" |
 
 **Removed terms** (see Reward Design Principles below):
+- `velocity_near_goal` — robot should learn deceleration from the tanh gradient and goal_reached spike
+- `obstacle_proximity` — redundant with contact sensor collision penalty
+- `action_smoothness` — adds complexity without clear benefit
 - `position_tracking_fine` (std=0.2) — redundant with `goal_reached` at the same 0.5m zone
 - `heading_alignment` (-0.2) — accumulated ~-190/episode and penalized turning away from goal to avoid obstacles
 

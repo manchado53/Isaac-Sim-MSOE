@@ -87,25 +87,53 @@ The only parts NOT on `chassis_link` are the wheels and casters (separate rigid 
 
 ---
 
+## Articulation Root Position
+
+The articulation root (`chassis_link` origin, the point tracked by `root_pos_w`) sits at the **drive wheel axis** — between the two powered wheels, NOT at the geometric center of the robot.
+
+Verified via USD inspection (`inspect_robot_origin.py`):
+
+```
+    FRONT (sensors/LED) — 0.25m ahead of root
+    ┌──────────────────┐
+    │                  │
+    ├──◉────[ROOT]──◉──┤  ← drive wheels (at root)
+    │                  │
+    │      0.47m       │
+    │                  │
+    │     ○      ○     │  ← casters
+    └──────────────────┘
+    REAR (E-stop/handle)
+```
+
+**Verified body positions (relative to root):**
+- Drive wheels: ±0.207m left/right of root
+- Caster frame: 0.472m behind root
+- Front bumper: ~0.25m ahead of root (0.722m total - 0.472m casters)
+
+Sources: NVIDIA Isaac ROS Nova Carter URDF, USD inspection, Segway product manual.
+
+---
+
 ## Collision Geometry
 
-### LiDAR-to-bumper offsets
+### Offsets from root (tracked point)
 
-The LiDAR sensor is mounted at `chassis_link` center, 0.3m above ground. The robot body extends beyond the LiDAR origin in all directions:
+| Direction | Distance from root | Source |
+|-----------|-------------------|--------|
+| Front bumper | ~0.25 m | 0.722m total - 0.472m casters |
+| Rear (casters) | 0.472 m | USD inspection |
+| Sides | 0.25 m | Segway spec (0.5m / 2) |
 
-| Direction | Distance from chassis center | What it means |
-|-----------|----------------------------|---------------|
-| Front | 0.36 m | Front bumper contact |
-| Back | 0.36 m | Rear bumper contact |
-| Sides | 0.25 m | Side panel contact |
+### LiDAR position
 
-A LiDAR reading of **0.36m at the front = physical contact**. Readings below 0.36m mean the obstacle is inside the robot body.
+The LiDAR sensor is mounted at `chassis_link` center (= root), 0.3m above ground. Since the front bumper is 0.25m ahead of the LiDAR origin, a LiDAR reading of **0.25m at the front = physical contact**.
 
 ### Implications for training
 
-- **LiDAR-based obstacle avoidance** (`obstacle_proximity`): threshold must be > 0.36m to start avoiding before physical contact
-- **Contact sensors** on `chassis_link` detect actual physics collisions regardless of direction — no offset math needed
-- **Goal reached threshold**: should be >= 0.36m (robot's half-length) to avoid requiring the robot to overlap with the goal point
+- **Contact sensors** on `chassis_link` detect actual physics collisions regardless of direction — no offset math needed. This is the primary collision detection method.
+- **Goal reached threshold**: 0.5m from root means the front bumper is ~0.25m from the goal — close enough to "arrive" while still being achievable near walls.
+- **LiDAR** is used for observations (20-ray scan input to policy), not for collision detection.
 
 ---
 

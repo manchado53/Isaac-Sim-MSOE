@@ -5,13 +5,13 @@
 # ── Training ──
 NUM_ENVS = 256              # reduced from 256 — Nova Carter USD is heavier than Ridgeback
 SEED = 42
-MAX_ITERATIONS = 1000         # longer run to let policy converge
+MAX_ITERATIONS = 1500         # curriculum: 300 (empty) + 400 (3 obstacles) + 800 (full)
 CHECKPOINT = None
 
 # ── Video Recording ──
-VIDEO = False               # disabled during training to save RAM; eval records video automatically
-VIDEO_LENGTH = 2000         # steps per recorded clip
-VIDEO_INTERVAL = 2000       # steps between recordings
+VIDEO = True               # disabled during training to save RAM; eval records video automatically
+VIDEO_LENGTH = 900         # steps per recorded clip
+VIDEO_INTERVAL = 5000       # steps between recordings
 
 # ── SLURM ──
 PARTITION = "teaching"      # teaching (T4), batch (T4), dgx (V100), dgxh100 (H100)

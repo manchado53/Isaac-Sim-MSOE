@@ -243,7 +243,7 @@ def main():
     # ── Run scenarios ──
     results = []
     env_origin = base_env.scene.env_origins[0]
-    goal_threshold = 0.5
+    goal_threshold = 0.75
     dt = base_env.step_dt
 
     # Initial reset
