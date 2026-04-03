@@ -189,7 +189,7 @@ def main():
 
     physics_usd = os.path.join(
         _project_dir, "assets", "environments", "msoe_building",
-        "innovation_center_physics.usd"
+        "innovation_center_finalV1_physics.usd"
     )
     if not os.path.exists(physics_usd):
         log(f"ERROR: {physics_usd} not found.")

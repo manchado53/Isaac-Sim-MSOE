@@ -171,13 +171,21 @@ cd ~/isaacsim/isaac-sim-msoe
 │   │   ├── engineering_physics_demo.py         # Multi-floor drop test + video
 │   │   ├── test_building_physics.py            # Collider verification
 │   │   ├── test_engineering_physics.py         # Per-floor drop validation
+│   │   ├── test_door_swing.py                  # Door swing verification test
+│   │   ├── inspect_double_doors.py             # Double door USD structure inspection
 │   │   ├── robot_floor_test.py                 # Robot patrol floor test
 │   │   ├── msoe_building_tour.py               # Orbital building tour
-│   │   └── discover_doors.py                   # Door discovery & cataloging
+│   │   ├── discover_doors.py                   # Door discovery & cataloging
+│   │   ├── floor_camera_screenshots.py         # Per-floor camera discovery & screenshots
+│   │   ├── validate_building_stats.py          # Validation: prim/collider/joint stats + screenshots
+│   │   ├── validate_cube_drop.py               # Validation: 9 cubes per camera, settle test
+│   │   ├── validate_robot_movement.py          # Validation: JetBot patrol per camera
+│   │   └── validate_door_physics.py            # Validation: door swing near cameras
 │   └── jetbot_hospital_overhead.py     # Hospital overhead view demo
 ├── sim_utils/                           # Shared Python utilities
 │   ├── __init__.py
-│   ├── building_physics.py             # Building physics pipeline (~703 lines, includes door/DriveAPI)
+│   ├── building_physics.py             # Building physics pipeline (~735 lines, includes door classification/DriveAPI)
+│   ├── test_cameras.py                 # Shared test camera positions & helpers
 │   ├── video_capture.py                # VideoRecorder for MP4 output
 │   ├── follow_camera.py                # Follow camera for robot tracking
 │   └── README.md
@@ -188,7 +196,9 @@ cd ~/isaacsim/isaac-sim-msoe
 ├── videos/                              # Rendered MP4 output (gitignored)
 ├── logs/                                # SLURM output logs + physics reports
 │   └── Door-logs/                      # Door discovery reports
+├── validate_physics.py                  # Validation pipeline runner (submits SLURM jobs, aggregates results)
 ├── submit_isaac_job.sh                  # SLURM batch job submission
+├── submit_validation_job.sh             # SLURM submission for validation tests
 ├── run_isaac_interactive.sh             # Interactive GPU runner
 ├── requirements.txt                     # Python dependencies
 ├── .claude/                             # Claude Code configuration
@@ -269,28 +279,91 @@ Located in `assets/environments/msoe_building/`. See [physics.md](.claude/docs/p
 
 Doors use a three-stage pipeline defined in `sim_utils/building_physics.py`:
 
-1. **Dynamic rigid body** — `apply_dynamic_rigid_body(stage, prim, mass=15.0, deep_search=True)` adds `RigidBodyAPI`, `CollisionAPI` (convexHull), and `MassAPI` to the door prim. `deep_search=True` is required for Revit-exported instanced meshes.
-2. **Revolute joint** — `create_revolute_joint()` creates a hinge between the world frame (`body0=None`) and the door prim (`body1`). Axis is `"Z"` (vertical). Hinge position estimated via `estimate_door_hinge_offset()` using bounding box min-X edge.
-3. **DriveAPI** — `setup_door_drive()` applies `UsdPhysics.DriveAPI` with `"angular"` mode to the joint, enabling motorized position control.
+1. **Classify mechanism** — `classify_door_mechanism(prim)` checks the prim path for Revit type substrings. Only `HINGED_SINGLE` and `HINGED_DOUBLE` get physics; overhead, sliding, garage, and unknown doors are skipped entirely.
+2. **Dynamic rigid body** — `apply_dynamic_rigid_body(stage, prim, mass=..., deep_search=True)` adds `RigidBodyAPI`, `CollisionAPI` (convexHull), and `MassAPI`. Mass is 15 kg for single doors, 30 kg for double doors. `deep_search=True` is required for Revit-exported instanced meshes.
+3. **Revolute joint** — `create_revolute_joint()` creates a hinge between the world frame (`body0=""`) and the door prim (`body1`). Axis is `"Z"` (vertical). Hinge position estimated via `estimate_door_hinge_offset()` using world-space bounding box min-edge. Angular limits: ±100° for single, ±70° for double.
+4. **DriveAPI** — `setup_door_drive()` applies `UsdPhysics.DriveAPI` with `"angular"` mode to the joint, enabling motorized position control.
 
 **DriveAPI Parameters** (tunable per `DOOR_DRIVE_PARAMS`):
 
-| Parameter | Default | Purpose |
-|-----------|---------|---------|
-| `stiffness` | 300.0 | Spring constant toward target angle |
-| `damping` | 150.0 | Resistance to angular velocity |
-| `max_force` | 3000.0 | Torque limit (Nm) |
-| `target_position` | 0.0 | Initial target angle (degrees) |
+| Parameter | Single Door | Double Door | Purpose |
+|-----------|-------------|-------------|---------|
+| `stiffness` | 300.0 | 500.0 | Spring constant toward target angle |
+| `damping` | 150.0 | 250.0 | Resistance to angular velocity |
+| `max_force` | 3000.0 | 5000.0 | Torque limit (Nm) |
+| `target_position` | 0.0 | 0.0 | Initial target angle (degrees) |
 
 **Runtime control**: Call `set_drive_target(drive, angle_deg)` each step to animate doors (e.g., 0° → 90° for opening).
+
+**Door classification** (`classify_door_mechanism()`):
+
+| Mechanism | Revit Patterns | Physics? |
+|-----------|---------------|----------|
+| `HINGED_SINGLE` | Type_F, Type_G, Type_N, Type_FG, Curtain_Wall | Yes |
+| `HINGED_DOUBLE` | Type_2F, Type_2G, 2FG, 2FU, Type_2F___Dual | Yes |
+| `OVERHEAD` | AV300_RAYNOR, Overhead_Rolling, Overhead_Sectional | Skipped |
+| `SLIDING` | Sliding_Glass, Dormakaba | Skipped |
+| `UNKNOWN` | No match (e.g. Elevator_Door) | Skipped |
+
+**Double door limitation**: Revit exports both leaves as a single combined mesh (verified by `inspect_double_doors.py`). They swing as one unit — independent leaf physics is not possible without a different export format.
 
 **Door discovery**: `simulations/environment/discover_doors.py` catalogs doors via category folders, FamilyData paths, and global name search. Outputs `logs/door_catalog.json` and `logs/door_discovery_report.txt`.
 
 **Key constraints**:
 - Dynamic bodies MUST use `"convexHull"` collision (triangle mesh only works on statics)
-- Doors default to 15 kg mass
-- Overhead/sliding doors skip drive creation (mechanism = `UNKNOWN`)
+- Overhead/sliding/garage/unknown doors are filtered out before rigid body application
 - Doors can be frozen with `RigidBodyAPI.CreateKinematicEnabledAttr(True)` for robot navigation tests
+
+## Test Camera Positions — Innovation Center
+
+Verified security-camera-style positions for visual testing on each floor of `MSOEBuildingTake2.usd`. Top corner of room, 12mm wide-angle lens, looking down diagonally. Coordinates in stage units (feet).
+
+```python
+TEST_CAMERAS = {
+    "G": {"pos": (-42.15, 68.44, 16.44), "target": (-27.42, 83.72, 14.56), "room": "Event Floor IC 100"},
+    "1": {"pos": (-56.03, 62.23, 17.50), "target": (-49.19, 73.19, 14.56), "room": "Robotics Lab IC 101"},
+    "2": {"pos": (-56.28, 60.88, 24.70), "target": (-49.19, 72.96, 23.50), "room": "Classroom 40 IC 302"},
+    "3": {"pos": (-41.51, 67.62, 29.65), "target": (-30.23, 81.20, 27.77), "room": "Capstone Studio IC 405"},
+}
+```
+
+**Camera settings**: focal_length=12.0mm, resolution=1920x1080, frequency=30Hz (matches floor_camera_screenshots.py reference images, default horizontal aperture ~20.955mm)
+**Lighting for interiors**: DistantLight(5000) + DomeLight(2000) + SphereLight(30000) at camera position
+**Discovery script**: `simulations/environment/floor_camera_screenshots.py`
+**Shared module**: `sim_utils/test_cameras.py` — `TEST_CAMERAS` dict, `create_test_camera()`, `add_interior_lighting()`, `look_at_orientation()`
+
+## Physics Validation Pipeline
+
+Comprehensive pipeline for testing USD physics files. Submits 4 separate SLURM jobs, waits for completion, and aggregates results.
+
+**Run the pipeline**:
+```bash
+python validate_physics.py --usd assets/environments/msoe_building/innovation_center_physics.usd
+python validate_physics.py --usd my_physics.usd --skip robot_movement --partition batch
+python validate_physics.py --usd my_physics.usd --dry-run   # preview without submitting
+```
+
+**4 Test Scripts** (each runs as a separate SLURM job via `submit_validation_job.sh`):
+
+| Test | Script | What it does |
+|------|--------|-------------|
+| `building_stats` | `validate_building_stats.py` | Counts colliders, rigid bodies, joints, meshes, floor/door elements. Takes per-camera screenshots. |
+| `cube_drop` | `validate_cube_drop.py` | Drops 9 random cubes near each camera, settles, checks cubes rest on surfaces. Records video. |
+| `robot_movement` | `validate_robot_movement.py` | Spawns JetBot at each camera's floor, runs rectangular patrol, checks robot doesn't fall through. Records video. |
+| `door_physics` | `validate_door_physics.py` | Finds doors within 20ft of each camera, drives to 80 degrees, measures final angle (pass if delta > 5 degrees). Records video. |
+
+**Output**:
+- `logs/validation/validation_report.json` — full structured results
+- `logs/validation/validation_report.txt` — human-readable summary
+- `logs/validation/*_results.json` — per-test JSON results
+- `videos/validate_*.mp4` — per-camera videos for each test
+
+**Pipeline options**:
+- `--usd <path>` — physics USD file to validate (required)
+- `--partition <name>` — SLURM partition (default: teaching)
+- `--timeout <seconds>` — max wait per job (default: 7200)
+- `--skip <tests>` — comma-separated test names to skip
+- `--dry-run` — print sbatch commands without submitting
 
 ## GPU Partitions on Rosie
 

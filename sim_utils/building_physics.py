@@ -405,6 +405,40 @@ def create_revolute_joint(stage, joint_path, body0_path, body1_path,
 # ---------------------------------------------------------------------------
 # Door Mechanism Classification & Drive
 # ---------------------------------------------------------------------------
+#
+# Classification System
+# ---------------------
+# Doors are classified by DoorMechanism based on substrings found in their
+# USD prim path (which encodes the Revit family type name).
+#
+# Only HINGED_SINGLE and HINGED_DOUBLE get physics applied (rigid body +
+# revolute joint + DriveAPI).  OVERHEAD, SLIDING, and UNKNOWN are skipped
+# by the setup pipeline — they require joint types not yet implemented.
+#
+# Mechanism types and their Revit type patterns:
+#   HINGED_SINGLE  — Type_F, Type_G, Type_N, Type_FG, Curtain_Wall (single leaf)
+#   HINGED_DOUBLE  — Type_2F, Type_2G, Type_2FG, Type_2FU, Type_2F___Dual
+#   OVERHEAD       — AV300_RAYNOR, Overhead_Rolling, Overhead_Sectional
+#   SLIDING        — Sliding_Glass, Dormakaba
+#   UNKNOWN        — No pattern matched (e.g. Elevator_Door)
+#
+# Double Door Geometry (Revit Export Limitation)
+# -----------------------------------------------
+# Revit exports double-leaf doors as a SINGLE unified prim with combined
+# geometry (e.g. AL frame mesh + Glass mesh, both spanning the full width).
+# The two leaves are NOT separate sub-prims and cannot be split at runtime.
+#
+# Consequence: double doors are treated as a single swinging unit with:
+#   - One rigid body (30 kg total, vs 15 kg for single doors)
+#   - One revolute joint at the min-edge of the bounding box
+#   - Stronger drive parameters (stiffness=500, damping=250, max_force=5000)
+#   - Reduced angular limits (±70° vs ±100° for single doors)
+#
+# This means both leaves swing together as one piece.  Independent leaf
+# mechanics would require either a different Revit export format or
+# runtime mesh splitting.
+# ---------------------------------------------------------------------------
+
 
 class DoorMechanism(Enum):
     """Mechanical type of a door, determines drive parameters."""
@@ -425,6 +459,7 @@ _MECHANISM_RULES = [
     ("Sliding_Glass", DoorMechanism.SLIDING),
     ("Dormakaba", DoorMechanism.SLIDING),
     # Double-leaf hinged (must check before single)
+    ("Type_2F___Dual", DoorMechanism.HINGED_DOUBLE),  # RS - Type 2F - Dual Door
     ("Type_2F", DoorMechanism.HINGED_DOUBLE),
     ("Type_2G", DoorMechanism.HINGED_DOUBLE),
     ("2FG", DoorMechanism.HINGED_DOUBLE),
@@ -455,7 +490,7 @@ def classify_door_mechanism(door_prim) -> DoorMechanism:
 # Default drive parameters per mechanism: (stiffness, damping, max_force)
 DOOR_DRIVE_PARAMS = {
     DoorMechanism.HINGED_SINGLE: (300.0, 150.0, 3000.0),
-    DoorMechanism.HINGED_DOUBLE: (300.0, 150.0, 3000.0),
+    DoorMechanism.HINGED_DOUBLE: (500.0, 250.0, 5000.0),  # stronger for heavier 2-leaf door
 }
 
 
@@ -589,22 +624,28 @@ def _boxes_overlap(a_min, a_max, b_min, b_max):
     return True
 
 
-def add_door_collision_filters(stage, door_prims, collision_index=None):
-    """Disable collision between each door and overlapping static geometry.
+def add_door_collision_filters(stage, door_prims, collision_index=None,
+                               margin=0.0):
+    """Disable collision between each door and nearby static geometry.
 
     Curtain wall doors from Revit sit flush inside wall/mullion assemblies.
     Without filtering, the door's convex hull collision immediately jams
     against the surrounding static colliders, preventing any rotation.
 
     This function finds all static colliders whose bounding box overlaps
-    each door's initial position and applies ``PhysxFilteredPairsAPI``
-    to prevent collision between them.
+    each door's (optionally inflated) bounding box and applies
+    ``PhysxFilteredPairsAPI`` to prevent collision between them.
 
     Args:
         stage: USD stage.
         door_prims: List of door UsdPrim objects (must have RigidBodyAPI).
         collision_index: Pre-built index from ``_build_collision_index()``.
             If None, one is built automatically.
+        margin: Distance (in stage units, typically meters) to inflate each
+            door's bounding box before the overlap test.  A positive margin
+            catches nearby geometry that the door sweeps into during the
+            first degrees of rotation — essential for curtain wall doors
+            where mullions sit just outside the resting AABB.
 
     Returns:
         Total number of filtered pairs added.
@@ -628,6 +669,13 @@ def add_door_collision_filters(stage, door_prims, collision_index=None):
             continue
         d_min = door_range.GetMin()
         d_max = door_range.GetMax()
+
+        # Inflate bounding box by margin to catch swept-arc geometry
+        if margin > 0:
+            d_min = Gf.Vec3d(d_min[0] - margin, d_min[1] - margin,
+                             d_min[2] - margin)
+            d_max = Gf.Vec3d(d_max[0] + margin, d_max[1] + margin,
+                             d_max[2] + margin)
 
         # Find overlapping static colliders
         overlapping = []
@@ -840,3 +888,79 @@ def iter_building_elements(stage, building_prim, level_filter=None):
         for child in building_prim.GetChildren():
             if child.IsA(UsdGeom.Xform) and child.GetTypeName() != "Scope":
                 yield ("default", None, child)
+
+
+# ---------------------------------------------------------------------------
+# Floor Discovery
+# ---------------------------------------------------------------------------
+
+def discover_floor_levels(stage, building_path="/World/Building"):
+    """Discover distinct floor surfaces by clustering floor element bboxes.
+
+    Iterates floor elements via ``iter_building_elements``, groups them by
+    Z-height (1.5-unit tolerance), and returns an area-weighted centroid per
+    cluster.
+
+    Returns:
+        list[dict]: Sorted by ``z`` ascending.  Each dict has keys
+        ``name``, ``z``, ``center_x``, ``center_y``, ``count``.
+    """
+    bbox_cache = UsdGeom.BBoxCache(
+        Usd.TimeCode.Default(), [UsdGeom.Tokens.default_]
+    )
+    building_prim = stage.GetPrimAtPath(building_path)
+
+    floor_data = []
+    for _level, category_name, element in iter_building_elements(stage, building_prim):
+        if category_name != "Floors":
+            continue
+        bbox = bbox_cache.ComputeWorldBound(element)
+        box_range = bbox.ComputeAlignedRange()
+        bb_min = box_range.GetMin()
+        bb_max = box_range.GetMax()
+        if bb_min == bb_max:
+            continue
+        dx = bb_max[0] - bb_min[0]
+        dy = bb_max[1] - bb_min[1]
+        if dx < 0.5 and dy < 0.5:
+            continue
+        floor_data.append({
+            "z_top": bb_max[2],
+            "x_center": (bb_min[0] + bb_max[0]) / 2.0,
+            "y_center": (bb_min[1] + bb_max[1]) / 2.0,
+            "area": dx * dy,
+        })
+
+    if not floor_data:
+        return []
+
+    # Cluster by Z height (1.5-unit tolerance)
+    floor_data.sort(key=lambda f: f["z_top"])
+    clusters = []
+    current = [floor_data[0]]
+    for fd in floor_data[1:]:
+        if fd["z_top"] - current[0]["z_top"] > 1.5:
+            clusters.append(current)
+            current = [fd]
+        else:
+            current.append(fd)
+    clusters.append(current)
+
+    # Aggregate each cluster with area-weighted center
+    levels = []
+    for i, cluster in enumerate(clusters):
+        total_area = sum(f["area"] for f in cluster)
+        if total_area < 0.01:
+            continue
+        avg_x = sum(f["x_center"] * f["area"] for f in cluster) / total_area
+        avg_y = sum(f["y_center"] * f["area"] for f in cluster) / total_area
+        avg_z = sum(f["z_top"] * f["area"] for f in cluster) / total_area
+        levels.append({
+            "name": f"floor_{i + 1}",
+            "z": avg_z,
+            "center_x": avg_x,
+            "center_y": avg_y,
+            "count": len(cluster),
+        })
+
+    return levels

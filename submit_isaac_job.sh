@@ -41,7 +41,7 @@ cd "$HOME/isaacsim/isaac-sim-msoe" || exit 1
 
 echo "Running Isaac Sim..."
 echo ""
-"$ISAAC_PYTHON" "$SCRIPT"
+"$ISAAC_PYTHON" "$SCRIPT" "${@:2}"
 
 EXIT_CODE=$?
 
