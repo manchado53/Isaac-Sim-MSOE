@@ -2,8 +2,8 @@
 """
 MSOE Innovation Center Physics Setup
 
-Loads the Revit-exported Innovation Center USD, applies physics collisions,
-materials, and joints, then exports innovation_center_physics.usd.
+Loads the Revit-exported Innovation Center (MSOEBuildingTake2) USD, applies physics
+collisions, materials, and joints, then exports innovation_center_physics.usd.
 
 Design:
   - Walls, floors, ceilings, columns, framing -> static colliders (triangle mesh)
@@ -60,6 +60,7 @@ from sim_utils.building_physics import (
     estimate_door_hinge_offset,
     setup_door_drive,
     setup_physics_scene,
+    add_door_collision_filters,
     CATEGORY_MATERIALS,
     DOOR_DRIVE_PARAMS,
     iter_building_elements,
@@ -146,9 +147,17 @@ def main():
             continue
 
         if category == PrimCategory.DYNAMIC_DOOR:
-            if apply_dynamic_rigid_body(stage, element, mass=15.0, deep_search=True):
+            mechanism = classify_door_mechanism(element)
+            # Only set up hinged doors (single and double)
+            if mechanism not in (DoorMechanism.HINGED_SINGLE, DoorMechanism.HINGED_DOUBLE):
+                counts[PrimCategory.SKIP] += 1
+                level_counts[level_name][PrimCategory.SKIP] = level_counts[level_name].get(PrimCategory.SKIP, 0) + 1
+                log(f"  Skipping non-hinged door ({mechanism.name}): {element.GetName()}")
+                continue
+            door_mass = 30.0 if mechanism == DoorMechanism.HINGED_DOUBLE else 15.0
+            if apply_dynamic_rigid_body(stage, element, mass=door_mass, deep_search=True):
                 applied_rigid_body += 1
-                door_prims.append((level_name, element))
+                door_prims.append((level_name, element, mechanism))
                 # Bind Wood physics material to door
                 mat_name = CATEGORY_MATERIALS.get(category)
                 if mat_name and mat_name in material_paths:
@@ -181,11 +190,9 @@ def main():
     joints_skipped = 0
     drives_created = 0
     drives_skipped = 0
-    for level_name, door in door_prims:
+    for level_name, door, mechanism in door_prims:
         door_path = str(door.GetPath())
         joint_path = door_path + "/HingeJoint"
-
-        mechanism = classify_door_mechanism(door)
 
         local_pos0, local_pos1 = estimate_door_hinge_offset(stage, door)
         if local_pos0 is None:
@@ -193,20 +200,27 @@ def main():
             joints_skipped += 1
             continue
 
+        # Double doors get reduced angular limits since both leaves swing as unit
+        if mechanism == DoorMechanism.HINGED_DOUBLE:
+            lower_limit, upper_limit = -70.0, 70.0
+        else:
+            lower_limit, upper_limit = -100.0, 100.0
+
         joint = create_revolute_joint(
             stage,
             joint_path=joint_path,
             body0_path="",          # world frame (static building)
             body1_path=door_path,
             axis="Z",               # vertical hinge axis
-            lower_limit=-100.0,
-            upper_limit=100.0,
+            lower_limit=lower_limit,
+            upper_limit=upper_limit,
             local_pos0=local_pos0,
             local_pos1=local_pos1,
         )
         joints_created += 1
+        log(f"  Joint ({mechanism.name}): {door_path}")
 
-        # Apply DriveAPI for hinged doors only
+        # Apply DriveAPI for hinged doors
         drive_params = DOOR_DRIVE_PARAMS.get(mechanism)
         if drive_params is not None:
             stiffness, damping, max_force = drive_params
@@ -222,6 +236,14 @@ def main():
         log(f"  Joints skipped (no bbox): {joints_skipped}")
     log(f"  Drives created:           {drives_created}")
     log(f"  Drives skipped:           {drives_skipped}")
+
+    # --- Collision filtering for doors ---
+    # Inflate each door's bbox by 1.0m to catch nearby mullions/panels
+    # that the door sweeps into during the first degrees of rotation.
+    log(f"\nApplying collision filters for {len(door_prims)} doors (margin=1.0m)...")
+    door_prim_list = [door for _, door, _ in door_prims]
+    filtered = add_door_collision_filters(stage, door_prim_list, margin=1.0)
+    log(f"  Filtered {filtered} door-static collision pairs")
 
     # --- Summary ---
     t_physics = time.time()
