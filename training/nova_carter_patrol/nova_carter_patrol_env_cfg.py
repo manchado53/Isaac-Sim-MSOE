@@ -240,7 +240,7 @@ class NovaCarterPatrolSceneCfg(InteractiveSceneCfg):
         init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.25)),
     )
 
-    # LiDAR sensor (2D, 20 rays, 360-degree, 10m range)
+    # LiDAR sensor (2D, 40 rays, 360-degree, 10m range)
     # Mounted on Nova Carter's chassis_link (the main body)
     lidar = MultiMeshRayCasterCfg(
         prim_path="{ENV_REGEX_NS}/Robot/chassis_link",
@@ -251,7 +251,7 @@ class NovaCarterPatrolSceneCfg(InteractiveSceneCfg):
             channels=1,
             vertical_fov_range=(0.0, 0.0),
             horizontal_fov_range=(0.0, 360.0),
-            horizontal_res=18.0,  # 360/18 = 20 rays
+            horizontal_res=9.0,  # 360/9 = 40 rays (was 18.0/20 rays — too coarse for obstacle avoidance)
         ),
         max_distance=10.0,
         mesh_prim_paths=[
@@ -327,7 +327,7 @@ class CommandsCfg:
 
 
 ##
-# Observations (26-dim total)
+# Observations (46-dim total)
 ##
 
 @configclass
@@ -336,7 +336,7 @@ class ObservationsCfg:
 
     @configclass
     class PolicyCfg(ObsGroup):
-        """26-dim observation: LiDAR(20) + goal_pos(2) + goal_heading(2) + fwd_vel(1) + yaw_rate(1)."""
+        """46-dim observation: LiDAR(40) + goal_pos(2) + goal_heading(2) + fwd_vel(1) + yaw_rate(1)."""
 
         lidar_scan = ObsTerm(
             func=obs_mdp.lidar_scan_normalized,
@@ -406,6 +406,12 @@ class RewardsCfg:
         func=rew_mdp.goal_reached,
         weight=100.0,
         params={"command_name": "pose_command", "threshold": 0.75},
+    )
+    # Smooth pre-collision penalty — fires before contact, teaches avoidance
+    obstacle_proximity = RewTerm(
+        func=rew_mdp.obstacle_proximity,
+        weight=-0.5,
+        params={"sensor_cfg": SceneEntityCfg("lidar"), "safe_dist": 0.8},
     )
     # Collision penalty via contact sensor
     collision = RewTerm(
