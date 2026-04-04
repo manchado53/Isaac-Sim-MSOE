@@ -6,7 +6,7 @@ Category-colored wireframe boxes on a dark background, camera orbiting
 the full building. Dimmer emissive materials for a subtle, technical look.
 
 Output:
-  - videos/wireframe_showcase.mp4  (~15s @ 30fps, 1920x1080)
+  - videos/environment/wireframe_showcase.mp4  (~15s @ 30fps, 1920x1080)
 
 Usage:
   sbatch submit_isaac_job.sh simulations/environment/wireframe_showcase.py
@@ -236,7 +236,7 @@ def main():
     total_frames = 450
     print(f"\n=== Wireframe Orbit ({total_frames} frames, {total_frames/30:.0f}s) ===", flush=True)
 
-    with VideoRecorder("wireframe_showcase", fps=30) as recorder:
+    with VideoRecorder("environment/wireframe_showcase", fps=30) as recorder:
         for i in range(total_frames):
             # Full 360° orbit
             angle = start_angle + (i / total_frames) * 2 * math.pi
@@ -260,7 +260,7 @@ def main():
 
     t_end = time.time()
     print(f"\nDone! Runtime: {t_end - t_start:.1f}s", flush=True)
-    print(f"Video -> videos/wireframe_showcase.mp4", flush=True)
+    print(f"Video -> videos/environment/wireframe_showcase.mp4", flush=True)
     simulation_app.close()
 
 

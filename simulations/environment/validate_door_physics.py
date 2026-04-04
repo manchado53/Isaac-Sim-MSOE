@@ -10,7 +10,7 @@ Usage:
 
 Output:
     logs/validation/door_physics_results.json
-    videos/validate_doors_cam_*.mp4
+    videos/validation/validate_doors_cam_*.mp4
 """
 
 import os
@@ -34,12 +34,14 @@ _project_dir = os.path.abspath(os.path.join(_script_dir, '..', '..'))
 sys.path.insert(0, _project_dir)
 
 from isaacsim.core.api import World
+from isaacsim.sensors.camera import Camera as IsaacCamera
 from sim_utils.test_cameras import (
-    TEST_CAMERAS, create_test_camera, add_interior_lighting,
+    TEST_CAMERAS, CAMERA_FOCAL_LENGTH, CAMERA_RESOLUTION, CAMERA_FREQUENCY,
+    create_test_camera, add_interior_lighting, look_at_orientation,
     set_focal_length_on_prim,
 )
 from sim_utils.video_capture import VideoRecorder
-from sim_utils.building_physics import setup_physics_scene, set_drive_target
+from sim_utils.building_physics import setup_physics_scene, set_drive_target, DOOR_DRIVE_PARAMS
 
 DOOR_SEARCH_RADIUS = 20.0  # feet — max distance from camera target to door
 DRIVE_TARGET_ANGLE = 80.0  # degrees
@@ -178,11 +180,62 @@ def main():
         for n in names:
             print(f"    - {n}", flush=True)
 
+    # --- Showcase camera: close-up of nearest door to Camera G ---
+    showcase_cam = None
+    showcase_door_name = None
+    if cam_doors.get("G"):
+        nearest = min(cam_doors["G"], key=lambda x: x[4])
+        path_str, _, _, door_prim, dist = nearest
+        door_pos = door_world_position(door_prim)
+        showcase_door_name = door_short_name(path_str)
+
+        # Position camera 8ft from door, on the Camera G side, at eye level
+        cam_g = np.array(TEST_CAMERAS["G"]["pos"])
+        dir_to_door = np.array([door_pos[0] - cam_g[0], door_pos[1] - cam_g[1]])
+        dir_norm = dir_to_door / np.linalg.norm(dir_to_door)
+
+        sc_pos = np.array([
+            door_pos[0] - dir_norm[0] * 8.0,
+            door_pos[1] - dir_norm[1] * 8.0,
+            door_pos[2] + 2.0,
+        ])
+        sc_target = np.array([door_pos[0], door_pos[1], door_pos[2]])
+        sc_orient = look_at_orientation(sc_pos, sc_target)
+
+        showcase_cam = IsaacCamera(
+            prim_path="/World/DoorShowcase",
+            position=sc_pos,
+            frequency=CAMERA_FREQUENCY,
+            resolution=CAMERA_RESOLUTION,
+            orientation=sc_orient,
+        )
+        print(f"\n  Showcase: {showcase_door_name} at {dist:.1f}ft from cam G",
+              flush=True)
+
+    # --- Apply PhysxContactReportAPI to door prims (MUST be before world.reset) ---
+    contact_report_enabled = False
+    try:
+        from pxr import PhysxSchema
+        for path_str, joint_prim, drive, door_prim in all_doors:
+            PhysxSchema.PhysxContactReportAPI.Apply(door_prim)
+        contact_report_enabled = True
+        print(f"[door_physics] Contact reporting enabled on {len(all_doors)} door prims", flush=True)
+    except (ImportError, AttributeError) as e:
+        print(f"[door_physics] Warning: Could not enable contact reporting: {e}", flush=True)
+
+    # Build path lookup for contact report decoding
+    door_prim_paths = {}  # prim path string -> joint path string
+    for path_str, joint_prim, drive, door_prim in all_doors:
+        door_prim_paths[str(door_prim.GetPath())] = path_str
+
     # --- Simulation ---
     world.reset()
     for cam in cameras.values():
         cam.initialize()
         set_focal_length_on_prim(stage, cam)
+    if showcase_cam is not None:
+        showcase_cam.initialize()
+        set_focal_length_on_prim(stage, showcase_cam)
 
     # Warmup
     print("[door_physics] Warming up (30 frames)...", flush=True)
@@ -194,6 +247,36 @@ def main():
     for path_str, joint_prim, drive, door_prim in all_doors:
         initial_angles[path_str] = get_door_angle_from_orient(door_prim)
 
+    # --- Native metrics tracking setup ---
+    prev_angles = dict(initial_angles)  # for numerical angular velocity
+    door_peak_ang_vel = {p: 0.0 for p, _, _, _ in all_doors}
+    door_final_ang_vel = {p: 0.0 for p, _, _, _ in all_doors}
+    door_peak_torque = {p: 0.0 for p, _, _, _ in all_doors}
+    door_contact_impulse = {p: 0.0 for p, _, _, _ in all_doors}
+    door_max_penetration = {p: 0.0 for p, _, _, _ in all_doors}
+
+    # Get drive parameters for torque computation
+    # Default to single-door params (stiffness=300, damping=150)
+    door_stiffness = {}
+    door_damping = {}
+    for path_str, joint_prim, drive, door_prim in all_doors:
+        stiff_attr = drive.GetStiffnessAttr()
+        damp_attr = drive.GetDampingAttr()
+        door_stiffness[path_str] = float(stiff_attr.Get()) if stiff_attr.HasValue() else 300.0
+        door_damping[path_str] = float(damp_attr.Get()) if damp_attr.HasValue() else 150.0
+
+    # Contact report interface (for polling each frame)
+    sim_interface = None
+    if contact_report_enabled:
+        try:
+            from omni.physx import get_physx_simulation_interface
+            from pxr import PhysicsSchemaTools
+            sim_interface = get_physx_simulation_interface()
+        except (ImportError, AttributeError):
+            sim_interface = None
+
+    dt = 1.0 / 60.0  # physics timestep
+
     # --- Record all cameras while doors swing open ---
     # Drive doors AND record simultaneously so the video shows the swing.
     print(f"[door_physics] Driving doors to {DRIVE_TARGET_ANGLE} deg + recording "
@@ -203,12 +286,17 @@ def main():
     for path_str, joint_prim, drive, door_prim in all_doors:
         set_drive_target(drive, DRIVE_TARGET_ANGLE)
 
-    # Open all recorders
+    # Open all recorders (including showcase)
     recorders = {}
     for cam_key in cameras:
-        vname = f"validate_doors_cam_{cam_key}"
+        vname = f"validation/validate_doors_cam_{cam_key}"
         recorders[cam_key] = VideoRecorder(vname, fps=30)
         recorders[cam_key].__enter__()
+
+    showcase_rec = None
+    if showcase_cam is not None:
+        showcase_rec = VideoRecorder("validation/validate_doors_showcase", fps=30)
+        showcase_rec.__enter__()
 
     for i in range(RECORD_FRAMES):
         world.step(render=True)
@@ -216,12 +304,68 @@ def main():
             rgba = cam.get_rgba()
             if rgba is not None and i > 0:
                 recorders[cam_key].capture_rgba(rgba)
+        if showcase_cam is not None and i > 0:
+            rgba = showcase_cam.get_rgba()
+            if rgba is not None:
+                showcase_rec.capture_rgba(rgba)
+
+        # --- Per-frame native metrics (every 5th frame to limit overhead) ---
+        if i % 5 == 0:
+            for path_str, joint_prim, drive, door_prim in all_doors:
+                cur_angle = get_door_angle_from_orient(door_prim)
+                # Angular velocity (numerical derivative)
+                ang_vel = abs(cur_angle - prev_angles.get(path_str, cur_angle)) / (5 * dt)
+                prev_angles[path_str] = cur_angle
+                if ang_vel > door_peak_ang_vel[path_str]:
+                    door_peak_ang_vel[path_str] = ang_vel
+                door_final_ang_vel[path_str] = ang_vel
+                # Computed drive torque
+                angle_error = DRIVE_TARGET_ANGLE - cur_angle
+                torque = abs(door_stiffness[path_str] * angle_error
+                             - door_damping[path_str] * math.radians(ang_vel))
+                if torque > door_peak_torque[path_str]:
+                    door_peak_torque[path_str] = torque
+
+        # --- Contact report polling (every 10th frame) ---
+        if sim_interface is not None and i % 10 == 0:
+            try:
+                headers, data, _ = sim_interface.get_contact_report()
+                for h_idx in range(len(headers)):
+                    header = headers[h_idx]
+                    # Decode actor paths to check if a door is involved
+                    try:
+                        actor0_path = str(PhysicsSchemaTools.decodeSdfPath(
+                            header.actor0[0], header.actor0[1]))
+                        actor1_path = str(PhysicsSchemaTools.decodeSdfPath(
+                            header.actor1[0], header.actor1[1]))
+                    except Exception:
+                        continue
+
+                    # Match against known door prim paths
+                    joint_path = door_prim_paths.get(actor0_path) or door_prim_paths.get(actor1_path)
+                    if joint_path is None:
+                        continue
+
+                    # Accumulate contact data for this door
+                    offset = header.contact_data_offset
+                    for c_idx in range(header.num_contact_data):
+                        cd = data[offset + c_idx]
+                        imp = cd.impulse
+                        impulse_mag = math.sqrt(imp[0]**2 + imp[1]**2 + imp[2]**2)
+                        door_contact_impulse[joint_path] += impulse_mag
+                        if cd.separation < door_max_penetration[joint_path]:
+                            door_max_penetration[joint_path] = cd.separation
+            except Exception as e:
+                if i == 0:
+                    print(f"[door_physics] Contact report error: {e}", flush=True)
+
         if i % 60 == 0:
             print(f"  Frame {i}/{RECORD_FRAMES}", flush=True)
 
-    # Close all recorders
     for rec in recorders.values():
         rec.__exit__(None, None, None)
+    if showcase_rec is not None:
+        showcase_rec.__exit__(None, None, None)
 
     # Measure final angles for ALL doors
     final_angles = {}
@@ -265,6 +409,15 @@ def main():
             else:
                 doors_failed += 1
 
+            # Native metrics for this door
+            peak_av = round(door_peak_ang_vel.get(path_str, 0.0), 1)
+            final_av = round(door_final_ang_vel.get(path_str, 0.0), 1)
+            contact_imp = round(door_contact_impulse.get(path_str, 0.0), 2)
+            max_pen = round(door_max_penetration.get(path_str, 0.0), 4)
+            peak_tq = round(door_peak_torque.get(path_str, 0.0), 1)
+            # Stall: door didn't pass, has high contact impulse, and stopped moving
+            stall = (not passed) and (contact_imp > 10.0) and (final_av < 1.0)
+
             door_details.append({
                 "name": name,
                 "path": path_str,
@@ -273,11 +426,19 @@ def main():
                 "final_angle": round(final, 1),
                 "delta": round(delta, 1),
                 "passed": passed,
+                "peak_angular_velocity": peak_av,
+                "final_angular_velocity": final_av,
+                "contact_impulse_total": contact_imp,
+                "max_penetration_depth": max_pen,
+                "peak_drive_torque": peak_tq,
+                "stall_detected": stall,
             })
 
             status = "PASS" if passed else "FAIL"
+            stall_str = " [STALL]" if stall else ""
             print(f"  {name:<25s} {initial:7.1f} -> {final:7.1f} "
-                  f"(delta={delta:.1f}) [{status}]", flush=True)
+                  f"(delta={delta:.1f}, torque={peak_tq:.0f}, "
+                  f"contact={contact_imp:.1f}) [{status}]{stall_str}", flush=True)
 
         cam_passed = doors_failed == 0
         if not cam_passed:
@@ -302,6 +463,12 @@ def main():
         if abs(final_angles.get(p[0], 0) - initial_angles.get(p[0], 0)) > PASS_THRESHOLD
     )
     total_failed = total_doors - total_passed
+    total_stalled = sum(
+        1 for p in all_doors
+        if (abs(final_angles.get(p[0], 0) - initial_angles.get(p[0], 0)) <= PASS_THRESHOLD
+            and door_contact_impulse.get(p[0], 0) > 10.0
+            and door_final_ang_vel.get(p[0], 0) < 1.0)
+    )
 
     # --- Save results ---
     results = {
@@ -311,8 +478,13 @@ def main():
             "total_doors": total_doors,
             "total_passed": total_passed,
             "total_failed": total_failed,
+            "total_stalled": total_stalled,
         },
         "cameras": camera_results,
+        "showcase": {
+            "door": showcase_door_name,
+            "video": "validate_doors_showcase.mp4",
+        } if showcase_door_name else None,
         "overall_passed": overall_pass,
         "runtime_seconds": round(time.time() - t_start, 1),
     }

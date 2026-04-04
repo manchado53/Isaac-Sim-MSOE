@@ -10,8 +10,8 @@ Validates that the robot stays on the floor (doesn't fall through),
 proving the static colliders work correctly.
 
 Output:
-  - videos/robot_floor_test_follow.mp4
-  - videos/robot_floor_test_overview.mp4
+  - videos/environment/robot_floor_test_follow.mp4
+  - videos/environment/robot_floor_test_overview.mp4
   - logs/robot_floor_test.txt
 """
 
@@ -381,8 +381,8 @@ def main():
 
     signal.signal(signal.SIGTERM, _sigterm_handler)
 
-    with VideoRecorder("robot_floor_test_follow", fps=15) as follow_rec, \
-         VideoRecorder("robot_floor_test_overview", fps=15) as overview_rec:
+    with VideoRecorder("environment/robot_floor_test_follow", fps=15) as follow_rec, \
+         VideoRecorder("environment/robot_floor_test_overview", fps=15) as overview_rec:
 
         for frame in range(max_frames):
             if stop_requested:
@@ -455,8 +455,8 @@ def main():
 
     log(f"\n{'=' * 60}")
     log("Output files:")
-    log("  videos/robot_floor_test_follow.mp4")
-    log("  videos/robot_floor_test_overview.mp4")
+    log("  videos/environment/robot_floor_test_follow.mp4")
+    log("  videos/environment/robot_floor_test_overview.mp4")
     log(f"  {_report_path}")
     log("=" * 60)
 

@@ -120,25 +120,41 @@ def set_focal_length_on_prim(stage, camera):
 def add_interior_lighting(stage):
     """Add lighting suitable for interior building scenes.
 
-    DistantLight(7500) + DomeLight(3500) + SphereLight(45000) at each camera.
-    Split between original and boosted values.
+    Enclosed rooms need strong fill light.  Uses a combination of:
+      - DistantLight (sun) for natural shadows
+      - DomeLight (ambient fill) for overall brightness
+      - SphereLight at each camera position for local fill
+      - RectLight at each camera target (floor center) for even coverage
     """
     distant = UsdLux.DistantLight.Define(stage, Sdf.Path("/World/Val_Sun"))
-    distant.CreateIntensityAttr(7500)
+    distant.CreateIntensityAttr(15000)
     distant.CreateAngleAttr(1.0)
     xform = UsdGeom.Xformable(distant.GetPrim())
-    xform.AddRotateXYZOp().Set((- 45, 30, 0))
+    xform.AddRotateXYZOp().Set((-45, 30, 0))
 
     UsdLux.DomeLight.Define(
         stage, Sdf.Path("/World/Val_DomeLight")
-    ).CreateIntensityAttr(3500)
+    ).CreateIntensityAttr(8000)
 
     for key, cam in TEST_CAMERAS.items():
+        # Sphere light at camera position (overhead fill)
         light = UsdLux.SphereLight.Define(
             stage, Sdf.Path(f"/World/Val_CamLight_{key}")
         )
-        light.CreateIntensityAttr(45000)
-        light.CreateRadiusAttr(0.75)
+        light.CreateIntensityAttr(80000)
+        light.CreateRadiusAttr(1.0)
         UsdGeom.Xformable(light.GetPrim()).AddTranslateOp().Set(
             tuple(cam["pos"])
         )
+
+        # Rect light at target center (floor fill, facing down)
+        rect = UsdLux.RectLight.Define(
+            stage, Sdf.Path(f"/World/Val_FloorLight_{key}")
+        )
+        rect.CreateIntensityAttr(50000)
+        rect.CreateWidthAttr(15.0)
+        rect.CreateHeightAttr(15.0)
+        rx = UsdGeom.Xformable(rect.GetPrim())
+        tx, ty, tz = cam["target"]
+        rx.AddTranslateOp().Set((tx, ty, tz + 4.0))
+        rx.AddRotateXYZOp().Set((90, 0, 0))

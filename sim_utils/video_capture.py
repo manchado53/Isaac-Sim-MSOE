@@ -71,6 +71,9 @@ class VideoRecorder:
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
+        # Support subdirectory paths in video_name (e.g. "validation/validate_cubes_cam_G")
+        (self.output_dir / self.video_name).parent.mkdir(parents=True, exist_ok=True)
+
         self.temp_dir = None
         self.frame_count = 0
         self.viewport_api = None

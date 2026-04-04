@@ -10,7 +10,7 @@ Usage:
         --input assets/environments/msoe_building/MSOEBuildingTake2_physics.usd
 
 Output:
-    - Video: videos/<stem>_demo.mp4  (15s @ 30fps, 1920x1080)
+    - Video: videos/environment/<stem>_demo.mp4  (15s @ 30fps, 1920x1080)
     - Report: logs/<stem>_demo.txt
 """
 
@@ -53,7 +53,7 @@ from sim_utils.building_physics import (
 input_usd = os.path.abspath(args.input)
 stem = os.path.splitext(os.path.basename(input_usd))[0]
 
-video_name = args.video if args.video else f"{stem}_demo"
+video_name = args.video if args.video else f"environment/{stem}_demo"
 
 if args.report:
     report_path = os.path.abspath(args.report)
@@ -330,7 +330,7 @@ def main():
                     f"pos=({cam_x:.0f}, {cam_y:.0f}, {cam_z:.0f})")
 
     log("\nRecording complete.")
-    log(f"  Video  -> videos/{video_name}.mp4")
+    log(f"  Video  -> videos/{video_name}.mp4")  # video_name includes environment/ prefix
     log(f"  Report -> {report_path}")
     log("=" * 60)
 

@@ -315,9 +315,9 @@ def generate_report(usd_path, test_results, job_exit_info, skip_list):
     lines.append(sep)
 
     # List generated videos
-    videos_dir = PROJECT_DIR / "videos"
-    if videos_dir.exists():
-        video_files = sorted(videos_dir.glob("validate_*.mp4"))
+    validation_videos_dir = PROJECT_DIR / "videos" / "validation"
+    if validation_videos_dir.exists():
+        video_files = sorted(validation_videos_dir.glob("validate_*.*"))
         if video_files:
             lines.append("")
             lines.append("Videos:")
@@ -362,14 +362,19 @@ def main():
 
     # Ensure output directories
     (PROJECT_DIR / "logs" / "validation").mkdir(parents=True, exist_ok=True)
-    (PROJECT_DIR / "videos").mkdir(parents=True, exist_ok=True)
+    validation_videos = PROJECT_DIR / "videos" / "validation"
+    validation_videos.mkdir(parents=True, exist_ok=True)
 
-    # Clear previous results
+    # Clear previous results (JSON + videos/screenshots)
     for test_name, result_file in RESULT_FILES.items():
         path = PROJECT_DIR / result_file
         if path.exists():
             path.unlink()
             print(f"  Cleared previous: {result_file}")
+
+    for old_video in validation_videos.glob("validate_*.*"):
+        old_video.unlink()
+        print(f"  Cleared previous: {old_video.relative_to(PROJECT_DIR)}")
 
     # --- Submit jobs ---
     print("\nSubmitting validation jobs...")

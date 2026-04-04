@@ -6,7 +6,7 @@ Discovers floor surfaces dynamically, drops colorful objects on multiple
 floors, lets them settle, then records a 360-degree orbital camera tour.
 
 Output:
-  - videos/innovation_center_demo.mp4  (15s @ 30fps, 1920x1080)
+  - videos/environment/innovation_center_demo.mp4  (15s @ 30fps, 1920x1080)
   - logs/innovation_center_demo.txt
 """
 
@@ -368,7 +368,7 @@ def main():
     orbit_frames = 450
     log(f"Recording {orbit_frames} frames ({orbit_frames / 30:.0f}s at 30fps)...")
 
-    with VideoRecorder("innovation_center_demo", fps=30) as recorder:
+    with VideoRecorder("environment/innovation_center_demo", fps=30) as recorder:
         for i in range(orbit_frames):
             angle = 2 * math.pi * i / orbit_frames
             height_offset = float(bldg_extent[2]) * 0.15 * math.sin(2 * angle)
@@ -390,7 +390,7 @@ def main():
                     f"pos=({cam_x:.0f}, {cam_y:.0f}, {cam_z:.0f})")
 
     log("\nRecording complete.")
-    log(f"  Video  -> videos/innovation_center_demo.mp4")
+    log(f"  Video  -> videos/environment/innovation_center_demo.mp4")
     log(f"  Report -> {_report_path}")
     log("=" * 60)
 

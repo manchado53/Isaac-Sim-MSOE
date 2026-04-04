@@ -13,7 +13,7 @@ Usage:
 
 Output:
     logs/validation/building_stats_results.json
-    videos/validate_stats_cam_*.png
+    videos/validation/validate_stats_cam_*.png
 """
 
 import os
@@ -41,7 +41,11 @@ from sim_utils.test_cameras import (
     TEST_CAMERAS, create_test_camera, add_interior_lighting, look_at_orientation,
     set_focal_length_on_prim,
 )
-from sim_utils.building_physics import setup_physics_scene, iter_building_elements
+from sim_utils.building_physics import (
+    setup_physics_scene, iter_building_elements,
+    get_physics_scene_stats, get_solver_residuals, get_compute_cost,
+    enable_residual_reporting,
+)
 
 
 def save_screenshot(camera, output_path):
@@ -165,6 +169,9 @@ def main():
     for key, cam_dict in TEST_CAMERAS.items():
         cameras[key] = create_test_camera(key, cam_dict, "/World/StatsCam", stage=stage)
 
+    # Enable solver residual reporting (must be before world.reset)
+    enable_residual_reporting(stage)
+
     world.reset()
     for cam in cameras.values():
         cam.initialize()
@@ -174,8 +181,26 @@ def main():
     for _ in range(30):
         world.step(render=True)
 
+    # --- Collect native PhysX metrics (requires running simulation) ---
+    print("[building_stats] Collecting PhysX scene stats...", flush=True)
+    stats["physics_scene_stats"] = get_physics_scene_stats(stage)
+    stats["solver_residuals"] = get_solver_residuals(stage)
+    stats["compute_cost"] = get_compute_cost(stage)
+
+    if stats["physics_scene_stats"]:
+        pss = stats["physics_scene_stats"]
+        print(f"[building_stats] PhysX: {pss.get('nb_static_rigids', '?')} static, "
+              f"{pss.get('nb_dynamic_rigids', '?')} dynamic, "
+              f"{pss.get('nb_active_constraints', '?')} active constraints", flush=True)
+        gpu_mb = stats["compute_cost"].get("gpu_mem_total_mb", "?")
+        print(f"[building_stats] GPU memory: {gpu_mb} MB", flush=True)
+    if stats["solver_residuals"]:
+        sr = stats["solver_residuals"]
+        print(f"[building_stats] Solver residuals: RMS pos={sr.get('rms_position', '?')}, "
+              f"max pos={sr.get('max_position', '?')}", flush=True)
+
     # Capture per-camera screenshots
-    screenshot_dir = os.path.join(_project_dir, "videos")
+    screenshot_dir = os.path.join(_project_dir, "videos", "validation")
     os.makedirs(screenshot_dir, exist_ok=True)
 
     camera_results = {}
