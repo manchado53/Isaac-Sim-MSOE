@@ -165,6 +165,9 @@ function runTSPMode() {
 }
 
 function doTSP() {
+  var NUM_RESTARTS = 10;
+
+  // ── All-pairs Dijkstra ────────────────────────────────────────
   var allDist = {}, allPrev = {};
   var reachable = [];
   var testRes = dijkstra(startNode);
@@ -177,40 +180,93 @@ function doTSP() {
     allPrev[reachable[k]] = r.prev;
   }
 
-  var unvisited = {};
-  for (var k = 0; k < reachable.length; k++) unvisited[reachable[k]] = true;
-  delete unvisited[startNode];
-
-  tspVisitOrder = [startNode];
-  var fullPath = [startNode];
-  var totalDist = 0;
-  var current = startNode;
-
-  while (Object.keys(unvisited).length > 0) {
-    var remaining = Object.keys(unvisited).map(Number);
-    var bestDist = Infinity, bestNode = -1;
-    for (var k = 0; k < remaining.length; k++) {
-      var candidate = remaining[k];
-      if (allDist[current][candidate] < bestDist) {
-        bestDist = allDist[current][candidate];
-        bestNode = candidate;
+  // ── Nearest-neighbor greedy from a given start ────────────────
+  function runGreedy(start) {
+    var unvisited = {};
+    for (var k = 0; k < reachable.length; k++) unvisited[reachable[k]] = true;
+    delete unvisited[start];
+    var order = [start];
+    var current = start;
+    while (Object.keys(unvisited).length > 0) {
+      var remaining = Object.keys(unvisited).map(Number);
+      var bestDist = Infinity, bestNode = -1;
+      for (var k = 0; k < remaining.length; k++) {
+        if (allDist[current][remaining[k]] < bestDist) {
+          bestDist = allDist[current][remaining[k]];
+          bestNode = remaining[k];
+        }
       }
+      if (bestNode === -1) break;
+      order.push(bestNode);
+      delete unvisited[bestNode];
+      current = bestNode;
     }
-    if (bestNode === -1) break;
-    var seg = getPath(allPrev[current], bestNode);
-    for (var s = 1; s < seg.length; s++) fullPath.push(seg[s]);
-    totalDist += allDist[current][bestNode];
-    tspVisitOrder.push(bestNode);
-    delete unvisited[bestNode];
-    current = bestNode;
+    return order;
   }
 
+  // ── Tour distance (sum of Dijkstra hops between consecutive nodes) ──
+  function tourDist(order) {
+    var d = 0;
+    for (var i = 0; i < order.length - 1; i++) d += allDist[order[i]][order[i+1]];
+    return d;
+  }
+
+  // ── 2-opt improvement ─────────────────────────────────────────
+  function twoOpt(order) {
+    var best = order.slice();
+    var n = best.length;
+    var improved = true;
+    while (improved) {
+      improved = false;
+      for (var i = 1; i < n - 1; i++) {
+        for (var j = i + 1; j < n; j++) {
+          var jNext = (j + 1) % n;
+          var before = allDist[best[i-1]][best[i]] + allDist[best[j]][best[jNext]];
+          var after  = allDist[best[i-1]][best[j]] + allDist[best[i]][best[jNext]];
+          if (after < before - 1e-9) {
+            var seg = best.slice(i, j + 1).reverse();
+            for (var k = 0; k < seg.length; k++) best[i + k] = seg[k];
+            improved = true;
+          }
+        }
+      }
+    }
+    return best;
+  }
+
+  // ── Multiple random restarts (always include startNode) ───────
+  var others = reachable.filter(function(n) { return n !== startNode; });
+  var shuffled = others.slice().sort(function() { return Math.random() - 0.5; });
+  var candidates = [startNode].concat(shuffled.slice(0, NUM_RESTARTS - 1));
+
+  var bestOrder = null, bestDist = Infinity;
+  for (var c = 0; c < candidates.length; c++) {
+    var order = twoOpt(runGreedy(candidates[c]));
+    var d = tourDist(order);
+    if (d < bestDist) { bestDist = d; bestOrder = order; }
+  }
+
+  // ── Rotate best tour so it always starts at the clicked node ──
+  var startIdx = bestOrder.indexOf(startNode);
+  if (startIdx > 0) {
+    bestOrder = bestOrder.slice(startIdx).concat(bestOrder.slice(0, startIdx));
+    bestDist = tourDist(bestOrder);
+  }
+
+  // ── Rebuild full waypoint path with corridor hops ─────────────
+  var fullPath = [bestOrder[0]];
+  for (var i = 1; i < bestOrder.length; i++) {
+    var seg = getPath(allPrev[bestOrder[i-1]], bestOrder[i]);
+    for (var s = 1; s < seg.length; s++) fullPath.push(seg[s]);
+  }
+
+  tspVisitOrder = bestOrder;
   resultPath = fullPath;
-  resultDist = totalDist;
+  resultDist = bestDist;
   tspVisitNum = {};
   for (var i = 0; i < tspVisitOrder.length; i++) tspVisitNum[tspVisitOrder[i]] = i + 1;
 
-  statusEl.textContent = "TSP: " + tspVisitOrder.length + "/" + reachable.length + " nodes | " + totalDist.toFixed(0) + "px total";
+  statusEl.textContent = "TSP: " + tspVisitOrder.length + "/" + reachable.length + " nodes | " + bestDist.toFixed(0) + "px total";
   pathInfoEl.textContent = "Start: node_" + (startNode+1) + " | " + fullPath.length + " waypoints";
   startAnim();
 }
