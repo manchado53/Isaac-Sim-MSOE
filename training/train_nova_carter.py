@@ -262,6 +262,69 @@ class DebugOverlayWrapper(gym.Wrapper):
 
 
 
+class PatrolMetricsCallback(BaseCallback):
+    """Logs patrol-specific metrics to TensorBoard every rollout.
+
+    - patrol/goals_per_episode: mean goals reached per completed episode
+    - patrol/collision_rate: fraction of env-steps with contact force > 1N
+    """
+
+    def __init__(self, verbose: int = 0):
+        super().__init__(verbose)
+        self._completed_goals: list[float] = []
+        self._collision_steps = 0
+        self._total_steps = 0
+
+    def _get_isaac_env(self):
+        try:
+            return self.training_env.unwrapped
+        except Exception:
+            return None
+
+    def _on_step(self) -> bool:
+        isaac_env = self._get_isaac_env()
+        if isaac_env is None:
+            return True
+
+        dones = self.locals.get("dones")
+        if dones is None:
+            return True
+
+        self._total_steps += len(dones)
+
+        # Collision rate: count env-steps where chassis contact force exceeds reward threshold
+        try:
+            sensor = isaac_env.scene.sensors["contact_sensor"]
+            # net_forces_w_history shape: (num_envs, history_length, num_bodies, 3)
+            # Take norm over xyz, max over history and bodies to get worst-case per env
+            forces = sensor.data.net_forces_w_history
+            max_force = torch.norm(forces, dim=-1).max(dim=-1).values.max(dim=-1).values  # (num_envs,)
+            self._collision_steps += int((max_force > 1.0).sum().item())
+        except Exception:
+            pass
+
+        # Goals per episode: snapshot command_counter at episode end before env auto-resets
+        try:
+            cmd_term = isaac_env.command_manager.get_term("pose_command")
+            for i, done in enumerate(dones):
+                if bool(done):
+                    self._completed_goals.append(float(cmd_term.command_counter[i].item()))
+        except Exception:
+            pass
+
+        return True
+
+    def _on_rollout_end(self) -> None:
+        if self._completed_goals:
+            self.logger.record("patrol/goals_per_episode", float(np.mean(self._completed_goals)))
+            self._completed_goals.clear()
+
+        if self._total_steps > 0:
+            self.logger.record("patrol/collision_rate", self._collision_steps / self._total_steps)
+        self._collision_steps = 0
+        self._total_steps = 0
+
+
 class ETACallback(BaseCallback):
     """Prints ETA and progress every N iterations to SLURM logs."""
 
@@ -302,28 +365,58 @@ class ETACallback(BaseCallback):
 
 
 class BestModelCallback(BaseCallback):
-    """Saves the model with the highest ep_rew_mean as best_model.zip."""
+    """Saves best and latest model per curriculum stage.
+
+    Per stage:
+      - best_model_stage{N}.zip             — highest ep_rew_mean seen in this stage
+      - best_model_stage{N}_vecnormalize.pkl
+      - latest_model_stage{N}.zip           — overwritten every rollout (progress view)
+      - latest_model_stage{N}_vecnormalize.pkl
+    """
 
     def __init__(self, save_path: str, verbose: int = 0):
         super().__init__(verbose)
         self.save_path = save_path
-        self.best_reward = -float("inf")
+        self.best_reward_per_stage: dict[int, float] = {}
+        self._current_stage: int = 0
+
+    def _get_curriculum_stage(self) -> int:
+        try:
+            isaac_env = self.training_env.unwrapped
+            for term in isaac_env.curriculum_manager._terms.values():
+                if hasattr(term, "current_stage"):
+                    return int(term.current_stage)
+        except Exception:
+            pass
+        return 0
 
     def _on_step(self) -> bool:
         return True
 
+    def _save(self, name: str) -> None:
+        self.model.save(os.path.join(self.save_path, name))
+        if isinstance(self.training_env, VecNormalize):
+            self.training_env.save(os.path.join(self.save_path, f"{name}_vecnormalize.pkl"))
+
     def _on_rollout_end(self) -> None:
-        # Read from ep_info_buffer directly (logger hasn't recorded yet at this point)
         if len(self.model.ep_info_buffer) == 0:
             return
+
+        stage = self._get_curriculum_stage()
         reward = np.mean([ep["r"] for ep in self.model.ep_info_buffer])
-        if reward > self.best_reward:
-            self.best_reward = reward
-            self.model.save(os.path.join(self.save_path, "best_model"))
-            # Also save VecNormalize stats alongside best model
-            if isinstance(self.training_env, VecNormalize):
-                self.training_env.save(os.path.join(self.save_path, "best_model_vecnormalize.pkl"))
-            print(f"[BEST] New best model! ep_rew_mean={reward:.2f} (iter {self.num_timesteps})")
+
+        if stage != self._current_stage:
+            print(f"[BEST] Curriculum stage {self._current_stage} -> {stage}, resetting reward threshold")
+            self._current_stage = stage
+
+        # Always save latest for this stage (overwritten each rollout)
+        self._save(f"latest_model_stage{stage}")
+
+        # Save best for this stage if improved
+        if reward > self.best_reward_per_stage.get(stage, -float("inf")):
+            self.best_reward_per_stage[stage] = reward
+            self._save(f"best_model_stage{stage}")
+            print(f"[BEST] Stage {stage} new best! ep_rew_mean={reward:.2f} (step {self.num_timesteps})")
 
 from isaaclab.utils.io import dump_yaml
 from isaaclab_rl.sb3 import Sb3VecEnvWrapper, process_sb3_cfg
@@ -427,6 +520,7 @@ def main():
 
     # Callbacks
     callbacks = [
+        PatrolMetricsCallback(),
         ETACallback(num_envs=args_cli.num_envs, steps_per_rollout=n_steps_per_rollout),
         BestModelCallback(save_path=log_dir),
     ]

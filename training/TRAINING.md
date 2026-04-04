@@ -64,6 +64,32 @@ The reward design uses dual-scale tanh position tracking with heading alignment,
 - `position_tracking_fine` (std=0.2) — redundant with `goal_reached` at the same 0.5m zone
 - `heading_alignment` (-0.2) — accumulated ~-190/episode and penalized turning away from goal to avoid obstacles
 
+### Isaac Lab Reward Scaling (dt multiplication)
+
+Isaac Lab's reward manager multiplies every reward term by `dt` before returning it:
+
+```python
+value = term_cfg.func(...) * term_cfg.weight * dt
+```
+
+`dt` here is the **RL step duration** = `physics_dt × decimation` = `(1/60) × 5` = **0.0833 seconds**.
+
+This means weights are in "reward per second" units, not "reward per step." The effective per-step values with current weights are:
+
+| Term | Weight (config) | × dt | Effective per RL step |
+|------|----------------|------|-----------------------|
+| `goal_reached` | +100.0 | × 0.0833 | **+8.33** |
+| `collision` | -10.0 | × 0.0833 | **-0.83** |
+| `time_penalty` | -0.05 | × 0.0833 | **-0.004** |
+| `delta_progress` | +3.0 | × 0.0833 | **+0.25 × Δm** |
+| `distance_to_goal` | +1.0 | × 0.0833 | **+0.083** max |
+
+**Relative ratios are preserved** — all terms scale equally, so the incentive structure is consistent. PPO normalizes advantages internally so absolute scale doesn't matter for learning.
+
+**Collision calibration**: at 12Hz RL rate, 1 second of sustained wall contact = 12 steps × -0.83 = **-10.0 total**, which exceeds one goal arrival (+8.33). The penalty is more aggressive than the raw weight of -10.0 suggests.
+
+**To target a specific per-event value**: divide the intended value by dt. For example, to give exactly +100 on goal arrival: `weight = 100 / 0.0833 ≈ 1200`.
+
 ### Key Reward Functions
 
 **`position_tracking_tanh(std)`**: Returns `1 - tanh(distance / std)`. Using two instances with different `std` values provides gradient at all distances — the coarse term (std=2.0) gives signal from far away, while the fine term (std=0.2) provides a sharp peak near the goal for precise stopping.

@@ -1,9 +1,12 @@
 """Curriculum learning for Nova Carter Patrol.
 
-Progressively increases navigation difficulty in 3 stages:
-  Stage 1 (iters 0-152):   No furniture, close goals (±2m)
-  Stage 2 (iters 152-700): 3 furniture pieces, medium goals (±3m)
-  Stage 3 (iters 700+):    All 7 furniture, full goals (±4m)
+Progressively increases navigation difficulty in 4 stages:
+  Stage 1 (empty):    No furniture, close goals (±2m)
+  Stage 2 (blocker):  Desk + couch in center zone, goals ±3m
+  Stage 3 (corridor): Bookshelf + couch form a randomized gap, goals ±4m
+  Stage 4 (clutter):  All 7 pieces in center-biased subzones, goals ±4m
+
+Stage transition steps are configured in CurriculumCfg params.
 """
 
 from __future__ import annotations
@@ -18,29 +21,48 @@ if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
 
 
-# Furniture spawn ranges — pushed to far corners (out of the way)
+# ── Shared corner range — pushes furniture out of the way ──────────────────
 _CORNER_RANGE = {"x": (4.0, 4.5), "y": (4.0, 4.5), "yaw": (0.0, 0.0)}
 
-# Normal spawn ranges per furniture piece (from EventCfg)
-_NORMAL_RANGES = {
-    "reset_furniture_table":     {"x": (1.5, 4.3), "y": (1.5, 4.3), "yaw": (-math.pi, math.pi)},
-    "reset_furniture_bookshelf": {"x": (-4.3, -1.5), "y": (1.5, 4.3), "yaw": (-math.pi, math.pi)},
-    "reset_furniture_chair":     {"x": (1.5, 4.5), "y": (-4.5, -1.5), "yaw": (-math.pi, math.pi)},
-    "reset_furniture_desk":      {"x": (-4.0, -1.5), "y": (-4.0, -1.5), "yaw": (-math.pi, math.pi)},
-    "reset_furniture_cabinet":   {"x": (1.5, 4.5), "y": (-1.5, 1.5), "yaw": (-math.pi, math.pi)},
-    "reset_furniture_couch":     {"x": (-4.0, -1.5), "y": (-1.5, 1.5), "yaw": (-math.pi, math.pi)},
-    "reset_furniture_bin":       {"x": (-1.5, 1.5), "y": (1.5, 4.5), "yaw": (-math.pi, math.pi)},
+# ── Stage 2: center blocker ────────────────────────────────────────────────
+# Desk (1.5×0.7m) and couch (1.8×0.7m) placed anywhere in the ±2m center
+# zone. Robot spawns at ±1m, goals at ±3m — path always crosses the center,
+# so these pieces are guaranteed to be in the way.
+_CENTER_BLOCKER_RANGE = {"x": (-2.0, 2.0), "y": (-2.0, 2.0), "yaw": (-math.pi, math.pi)}
+
+# ── Stage 3: corridor ─────────────────────────────────────────────────────
+# Bookshelf on the left, couch on the right, forming a randomized gap.
+# Fixed yaw keeps furniture faces aligned so the gap is always traversable.
+# Gap width varies from ~1.2m (tightest) to ~3.0m (widest) depending on
+# where each piece lands. Desk adds a second blocker beyond the corridor.
+_CORRIDOR_LEFT    = {"x": (-1.5, -0.6), "y": (-2.5, 2.5), "yaw": (0.0, 0.0)}       # bookshelf
+_CORRIDOR_RIGHT   = {"x": (0.6,  1.5),  "y": (-2.5, 2.5), "yaw": (1.57, 1.57)}     # couch (rotated)
+_CORRIDOR_BLOCKER = {"x": (-2.5, 2.5),  "y": (-2.5, 2.5), "yaw": (-math.pi, math.pi)}  # desk
+
+# ── Stage 4: dense clutter ────────────────────────────────────────────────
+# All 7 pieces in center-biased subzones. Each piece gets its own quadrant
+# within the center region to reduce overlap while still filling the room.
+_DENSE_CENTER = {
+    "reset_furniture_table":     {"x": (-3.0,  0.0), "y": (0.0,  3.0), "yaw": (-math.pi, math.pi)},
+    "reset_furniture_bookshelf": {"x": (0.0,   3.0), "y": (0.0,  3.0), "yaw": (-math.pi, math.pi)},
+    "reset_furniture_chair":     {"x": (0.5,   3.0), "y": (-3.0, 0.5), "yaw": (-math.pi, math.pi)},
+    "reset_furniture_desk":      {"x": (-3.0,  0.0), "y": (-3.0, 0.0), "yaw": (-math.pi, math.pi)},
+    "reset_furniture_cabinet":   {"x": (-1.5,  1.5), "y": (0.0,  3.0), "yaw": (-math.pi, math.pi)},
+    "reset_furniture_couch":     {"x": (-3.0,  3.0), "y": (-1.5, 1.5), "yaw": (-math.pi, math.pi)},
+    "reset_furniture_bin":       {"x": (-1.5,  1.5), "y": (-3.0, 0.0), "yaw": (-math.pi, math.pi)},
 }
 
-# Stage 2 furniture — the 3 largest pieces
-_STAGE2_FURNITURE = ["reset_furniture_table", "reset_furniture_desk", "reset_furniture_couch"]
+# All furniture event term names (for bulk-cornering)
+_ALL_FURNITURE = list(_DENSE_CENTER.keys())
 
 
 class NavigationCurriculum(ManagerTermBase):
     """Progressively increase navigation difficulty over training.
 
-    Modifies furniture spawn ranges and goal command ranges based on
-    training step count. Returns current stage (1, 2, or 3) for logging.
+    Stage 1 — empty room, close goals.
+    Stage 2 — two large blockers in the center zone (path is always blocked).
+    Stage 3 — bookshelf + couch form a randomized corridor; desk adds depth.
+    Stage 4 — all 7 pieces in center-biased subzones; full clutter.
     """
 
     def __init__(self, cfg, env):
@@ -51,16 +73,18 @@ class NavigationCurriculum(ManagerTermBase):
         self,
         env: ManagerBasedRLEnv,
         env_ids: Sequence[int],
-        stage1_steps: int = 78125,    # ~152 iters * 512 steps
-        stage2_steps: int = 358400,   # ~700 iters * 512 steps
+        stage1_steps: int = 25600,    # ~50 iters
+        stage2_steps: int = 102400,   # ~200 iters
+        stage3_steps: int = 179200,   # ~350 iters
     ) -> float:
         step = env.common_step_counter
-        new_stage = 3 if step >= stage2_steps else (2 if step >= stage1_steps else 1)
+        new_stage = (4 if step >= stage3_steps else
+                     3 if step >= stage2_steps else
+                     2 if step >= stage1_steps else 1)
 
         if new_stage == self.current_stage:
             return float(self.current_stage)
 
-        # Stage transition
         self.current_stage = new_stage
         print(f"[CURRICULUM] Advancing to Stage {new_stage} at step {step}", flush=True)
 
@@ -70,47 +94,55 @@ class NavigationCurriculum(ManagerTermBase):
             self._apply_stage2(env)
         elif new_stage == 3:
             self._apply_stage3(env)
+        elif new_stage == 4:
+            self._apply_stage4(env)
 
         return float(self.current_stage)
 
-    def _apply_stage1(self, env: ManagerBasedRLEnv):
-        """Empty room, close goals."""
-        # Push all furniture to corners
-        for term_name in _NORMAL_RANGES:
-            self._set_furniture_range(env, term_name, _CORNER_RANGE)
+    # ── Stage methods ──────────────────────────────────────────────────────
 
-        # Close goal range
+    def _apply_stage1(self, env: ManagerBasedRLEnv):
+        """Empty room — all furniture to corners, close goals."""
+        for term_name in _ALL_FURNITURE:
+            self._set_furniture_range(env, term_name, _CORNER_RANGE)
         cmd_term = env.command_manager.get_term("pose_command")
         cmd_term.cfg.ranges.pos_x = (-2.0, 2.0)
         cmd_term.cfg.ranges.pos_y = (-2.0, 2.0)
         print("[CURRICULUM] Stage 1: No furniture, goals ±2m", flush=True)
 
     def _apply_stage2(self, env: ManagerBasedRLEnv):
-        """3 large furniture pieces, medium goals."""
-        # Bring 3 pieces into play, rest stay in corners
-        for term_name in _NORMAL_RANGES:
-            if term_name in _STAGE2_FURNITURE:
-                self._set_furniture_range(env, term_name, _NORMAL_RANGES[term_name])
-            else:
-                self._set_furniture_range(env, term_name, _CORNER_RANGE)
-
-        # Medium goal range
+        """Center blocker — desk + couch in center zone, medium goals."""
+        for term_name in _ALL_FURNITURE:
+            self._set_furniture_range(env, term_name, _CORNER_RANGE)
+        self._set_furniture_range(env, "reset_furniture_desk",  _CENTER_BLOCKER_RANGE)
+        self._set_furniture_range(env, "reset_furniture_couch", _CENTER_BLOCKER_RANGE)
         cmd_term = env.command_manager.get_term("pose_command")
         cmd_term.cfg.ranges.pos_x = (-3.0, 3.0)
         cmd_term.cfg.ranges.pos_y = (-3.0, 3.0)
-        print("[CURRICULUM] Stage 2: 3 furniture pieces, goals ±3m", flush=True)
+        print("[CURRICULUM] Stage 2: Desk + couch in center zone, goals ±3m", flush=True)
 
     def _apply_stage3(self, env: ManagerBasedRLEnv):
-        """Full furniture, full goals."""
-        # All furniture at normal ranges
-        for term_name in _NORMAL_RANGES:
-            self._set_furniture_range(env, term_name, _NORMAL_RANGES[term_name])
-
-        # Full goal range
+        """Corridor — bookshelf + couch form a randomized gap, desk beyond."""
+        for term_name in _ALL_FURNITURE:
+            self._set_furniture_range(env, term_name, _CORNER_RANGE)
+        self._set_furniture_range(env, "reset_furniture_bookshelf", _CORRIDOR_LEFT)
+        self._set_furniture_range(env, "reset_furniture_couch",     _CORRIDOR_RIGHT)
+        self._set_furniture_range(env, "reset_furniture_desk",      _CORRIDOR_BLOCKER)
         cmd_term = env.command_manager.get_term("pose_command")
         cmd_term.cfg.ranges.pos_x = (-4.0, 4.0)
         cmd_term.cfg.ranges.pos_y = (-4.0, 4.0)
-        print("[CURRICULUM] Stage 3: All 7 furniture pieces, goals ±4m", flush=True)
+        print("[CURRICULUM] Stage 3: Corridor (bookshelf + couch) + desk blocker, goals ±4m", flush=True)
+
+    def _apply_stage4(self, env: ManagerBasedRLEnv):
+        """Dense clutter — all 7 pieces in center-biased subzones."""
+        for term_name, pose_range in _DENSE_CENTER.items():
+            self._set_furniture_range(env, term_name, pose_range)
+        cmd_term = env.command_manager.get_term("pose_command")
+        cmd_term.cfg.ranges.pos_x = (-4.0, 4.0)
+        cmd_term.cfg.ranges.pos_y = (-4.0, 4.0)
+        print("[CURRICULUM] Stage 4: All 7 furniture in center-biased zones, goals ±4m", flush=True)
+
+    # ── Helper ─────────────────────────────────────────────────────────────
 
     def _set_furniture_range(self, env: ManagerBasedRLEnv, term_name: str, pose_range: dict):
         """Update a furniture event term's pose_range."""

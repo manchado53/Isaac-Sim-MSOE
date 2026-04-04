@@ -559,8 +559,9 @@ class CurriculumCfg:
     navigation_difficulty = CurrTerm(
         func=curr_mdp.NavigationCurriculum,
         params={
-            "stage1_steps": 78125,    # ~152 iters (152 * 512)
-            "stage2_steps": 358400,   # ~700 iters (700 * 512)
+            "stage1_steps": 25600,   # ~50 iters  → Stage 2 (center blocker)
+            "stage2_steps": 102400,  # ~200 iters → Stage 3 (corridor)
+            "stage3_steps": 179200,  # ~350 iters → Stage 4 (dense clutter)
         },
     )
 

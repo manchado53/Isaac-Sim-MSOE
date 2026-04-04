@@ -52,7 +52,7 @@ cd "$HOME/isaac-sim-msoe" || exit 1
 # --- Phase 1: Isaac Sim simulation (saves frame_cache.npz) ---
 echo "--- Phase 1: Running Isaac Sim ---"
 echo ""
-"$ISAAC_PYTHON" "$PHASE1_SCRIPT"
+"$ISAAC_PYTHON" "$PHASE1_SCRIPT" "${@:2}"
 PHASE1_EXIT=$?
 
 echo ""
@@ -60,8 +60,18 @@ echo "Phase 1 exit code: $PHASE1_EXIT"
 echo ""
 
 # --- Phase 2+3: VLM inference + video assembly ---
-# Only run if Phase 1 produced the frame cache and the default VLM demo was used.
-if [ -f "frame_cache.npz" ]; then
+# Two cache files are possible:
+#   door_demo_cache.npz  -> RL door demo (nova_carter_rl_door_demo.py)
+#   frame_cache.npz      -> original VLM patrol demo (nova_carter_vlm_demo.py)
+DOOR_CACHE="door_demo_cache_${SLURM_JOB_ID}.npz"
+if [ -f "$DOOR_CACHE" ]; then
+    echo "--- Phase 2: RL door demo VLM + video ---"
+    echo ""
+    conda run -n digital-twin python "simulations/robot/nova_carter_rl_door_phase2.py" --cache "$DOOR_CACHE"
+    PHASE23_EXIT=$?
+    echo ""
+    echo "Phase 2 exit code: $PHASE23_EXIT"
+elif [ -f "frame_cache.npz" ]; then
     echo "--- Phase 2+3: VLM inference + video assembly ---"
     echo ""
     "$ISAAC_PYTHON" "$PHASE23_SCRIPT"
@@ -69,7 +79,7 @@ if [ -f "frame_cache.npz" ]; then
     echo ""
     echo "Phase 2+3 exit code: $PHASE23_EXIT"
 else
-    echo "No frame_cache.npz found — skipping Phase 2+3."
+    echo "No frame cache found — skipping Phase 2+3."
     PHASE23_EXIT=0
 fi
 
