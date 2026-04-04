@@ -10,7 +10,7 @@ Run on Rosie:
     sbatch submit_isaac_job.sh simulations/environment/floor_showcase.py
 
 Output:
-    videos/floor_showcase.mp4  (20s @ 30fps, 1920x1080)
+    videos/environment/floor_showcase.mp4  (20s @ 30fps, 1920x1080)
     logs/floor_showcase.txt
 """
 
@@ -374,7 +374,7 @@ def main():
     log(f"\n--- Recording Orbital Tour ---")
     log(f"  {RECORD_FRAMES} frames ({RECORD_FRAMES / FPS:.0f}s at {FPS}fps)")
 
-    with VideoRecorder("floor_showcase", fps=FPS) as recorder:
+    with VideoRecorder("environment/floor_showcase", fps=FPS) as recorder:
         for i in range(RECORD_FRAMES):
             angle = 2 * math.pi * i / RECORD_FRAMES
             height_offset = float(bldg_extent[2]) * 0.15 * math.sin(2 * angle)
@@ -397,7 +397,7 @@ def main():
 
     log(f"\n{'=' * 65}")
     log("Output:")
-    log(f"  Video  -> videos/floor_showcase.mp4")
+    log(f"  Video  -> videos/environment/floor_showcase.mp4")
     log(f"  Report -> {_report_path}")
     log("=" * 65)
 

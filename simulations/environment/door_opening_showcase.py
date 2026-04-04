@@ -222,7 +222,7 @@ def main():
 
     print(f"Recording {total_frames} frames (12s at 30fps)...", flush=True)
 
-    with VideoRecorder("door_opening_showcase", fps=30) as recorder:
+    with VideoRecorder("environment/door_opening_showcase", fps=30) as recorder:
         for i in range(total_frames):
             # Compute target angle
             if i < open_start:
@@ -246,7 +246,7 @@ def main():
             if i % 60 == 0:
                 print(f"  Frame {i}/{total_frames} (angle={angle:.1f}°)", flush=True)
 
-    print("Done! Video saved to videos/door_opening_showcase.mp4", flush=True)
+    print("Done! Video saved to videos/environment/door_opening_showcase.mp4", flush=True)
     simulation_app.close()
 
 

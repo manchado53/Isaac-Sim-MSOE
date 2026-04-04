@@ -10,7 +10,7 @@ Prerequisites:
   - Run setup_innovation_center_physics.py first to generate the physics USD
 
 Output:
-  - videos/building_door_demo.mp4  (10s @ 30fps)
+  - videos/environment/building_door_demo.mp4  (10s @ 30fps)
 
 Run on Rosie:
     sbatch submit_isaac_job.sh simulations/environment/building_door_demo.py
@@ -243,7 +243,7 @@ def main():
 
     print(f"Recording {total_frames} frames...", flush=True)
 
-    with VideoRecorder("building_door_demo", fps=30) as recorder:
+    with VideoRecorder("environment/building_door_demo", fps=30) as recorder:
         for i in range(total_frames):
             if i < open_start:
                 set_drive_target(drive, 0.0)

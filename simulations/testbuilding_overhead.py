@@ -160,7 +160,7 @@ frame_count = 0
 
 print(f"Simulating {max_frames} frames (1280x720 overhead, ceiling hidden)...")
 
-with VideoRecorder("testbuilding_overhead", fps=15) as recorder:
+with VideoRecorder("environment/testbuilding_overhead", fps=15) as recorder:
     while frame_count < max_frames:
         # Only run a full RTX render pass on frames we actually capture.
         # Physics runs every step regardless of render=True/False.

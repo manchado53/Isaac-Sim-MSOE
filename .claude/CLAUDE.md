@@ -44,6 +44,7 @@ Architectural BIM data (standard in modern building design) can serve as the fou
 - Video recording verified working (`imageio-ffmpeg` installed in Isaac Sim Python)
 
 **Detailed Documentation**:
+- [Building Reference](.claude/docs/building.md) — Innovation Center architecture, floors, rooms, doors, USD hierarchy
 - [Physics & Building Setup](.claude/docs/physics.md) — collision, materials, joints, building pipeline
 - [sim_utils/ README](sim_utils/README.md) — utility library reference
 
@@ -167,24 +168,30 @@ cd ~/isaacsim/isaac-sim-msoe
 │   │   ├── jetbot_block_push.py        # JetBot block pushing task
 │   │   └── jetbot_hospital_demo.py     # Hospital navigation + follow cam
 │   ├── environment/                     # Building physics & environment scripts
-│   │   ├── setup_innovation_center_physics.py  # Generate physics USD
+│   │   ├── setup_innovation_center_physics.py  # Generate IC physics USD
+│   │   ├── setup_building_physics.py           # Generic physics setup (any Revit USD)
 │   │   ├── engineering_physics_demo.py         # Multi-floor drop test + video
-│   │   ├── test_building_physics.py            # Collider verification
-│   │   ├── test_engineering_physics.py         # Per-floor drop validation
-│   │   ├── test_door_swing.py                  # Door swing verification test
-│   │   ├── inspect_double_doors.py             # Double door USD structure inspection
+│   │   ├── building_physics_demo.py            # Generic orbital camera tour demo
+│   │   ├── building_door_demo.py               # Door drive demo (IC exterior cam)
+│   │   ├── door_demo_finalV1.py                # Single door opening demo
+│   │   ├── door_opening_showcase.py            # 2FG entrance door showcase
+│   │   ├── door_walkthrough_showcase.py        # Camera walk-through doorway
+│   │   ├── floor_showcase.py                   # Roof-off ball-drop floor showcase
+│   │   ├── innovation_center_physics_showcase.py # Exposed floors + door animation
+│   │   ├── innovation_center_robot_demo.py     # JetBot patrol demo
+│   │   ├── wireframe_showcase.py               # Collision mesh wireframe tour
 │   │   ├── robot_floor_test.py                 # Robot patrol floor test
 │   │   ├── msoe_building_tour.py               # Orbital building tour
 │   │   ├── discover_doors.py                   # Door discovery & cataloging
 │   │   ├── floor_camera_screenshots.py         # Per-floor camera discovery & screenshots
-│   │   ├── validate_building_stats.py          # Validation: prim/collider/joint stats + screenshots
-│   │   ├── validate_cube_drop.py               # Validation: 9 cubes per camera, settle test
-│   │   ├── validate_robot_movement.py          # Validation: JetBot patrol per camera
-│   │   └── validate_door_physics.py            # Validation: door swing near cameras
+│   │   ├── validate_building_stats.py          # Validation: prim/collider/joint stats + PhysX scene stats + solver residuals + compute cost
+│   │   ├── validate_cube_drop.py               # Validation: 9 cubes per camera, velocity tracking, sleep-based settle, floor raycast
+│   │   ├── validate_robot_movement.py          # Validation: Nova Carter patrol, velocity/speed, ground clearance raycast
+│   │   └── validate_door_physics.py            # Validation: door swing + contact reports, angular velocity, torque, stall detection
 │   └── jetbot_hospital_overhead.py     # Hospital overhead view demo
 ├── sim_utils/                           # Shared Python utilities
 │   ├── __init__.py
-│   ├── building_physics.py             # Building physics pipeline (~735 lines, includes door classification/DriveAPI)
+│   ├── building_physics.py             # Building physics pipeline (~1184 lines, includes door classification/DriveAPI/collision filters/PhysX runtime helpers)
 │   ├── test_cameras.py                 # Shared test camera positions & helpers
 │   ├── video_capture.py                # VideoRecorder for MP4 output
 │   ├── follow_camera.py                # Follow camera for robot tracking
@@ -195,11 +202,23 @@ cd ~/isaacsim/isaac-sim-msoe
 │   └── robots/                         # Robot assets (placeholder)
 ├── videos/                              # Rendered MP4 output (gitignored)
 ├── logs/                                # SLURM output logs + physics reports
-│   └── Door-logs/                      # Door discovery reports
+│   ├── Door-logs/                      # Door discovery reports
+│   ├── tests/                          # Manual test results
+│   └── validation/                     # Validation pipeline results
+├── docs/                                # Project documentation
+│   ├── physics-and-building-reference.md
+│   ├── physics-validation-research.md
+│   ├── native-isaac-sim-metrics.md     # Native PhysX API reference for validation pipeline
+│   └── random_notes.txt
+├── images/                              # Screenshots and diagrams
+│   └── charts/                         # Generated presentation charts (PNGs)
 ├── validate_physics.py                  # Validation pipeline runner (submits SLURM jobs, aggregates results)
+├── extract_validation_metrics.py        # Before/after comparison: extracts metrics from JSON results → summary/CSV/JSON
+├── generate_validation_charts.py        # Generates matplotlib charts (PNGs) from validation results for slides
 ├── submit_isaac_job.sh                  # SLURM batch job submission
 ├── submit_validation_job.sh             # SLURM submission for validation tests
 ├── run_isaac_interactive.sh             # Interactive GPU runner
+├── run_physics_pipeline.sh              # Physics pipeline orchestrator (chains 4 SLURM jobs)
 ├── requirements.txt                     # Python dependencies
 ├── .claude/                             # Claude Code configuration
 │   ├── CLAUDE.md                       # This file
@@ -300,19 +319,59 @@ Doors use a three-stage pipeline defined in `sim_utils/building_physics.py`:
 | Mechanism | Revit Patterns | Physics? |
 |-----------|---------------|----------|
 | `HINGED_SINGLE` | Type_F, Type_G, Type_N, Type_FG, Curtain_Wall | Yes |
-| `HINGED_DOUBLE` | Type_2F, Type_2G, 2FG, 2FU, Type_2F___Dual | Yes |
+| `HINGED_DOUBLE` | Type_2F, Type_2G, 2FG, 2FU, 2F_, Type_2F___Dual | Yes |
 | `OVERHEAD` | AV300_RAYNOR, Overhead_Rolling, Overhead_Sectional | Skipped |
 | `SLIDING` | Sliding_Glass, Dormakaba | Skipped |
 | `UNKNOWN` | No match (e.g. Elevator_Door) | Skipped |
 
-**Double door limitation**: Revit exports both leaves as a single combined mesh (verified by `inspect_double_doors.py`). They swing as one unit — independent leaf physics is not possible without a different export format.
+**Double door limitation**: Revit exports both leaves as a single combined mesh. They swing as one unit — independent leaf physics is not possible without a different export format.
 
 **Door discovery**: `simulations/environment/discover_doors.py` catalogs doors via category folders, FamilyData paths, and global name search. Outputs `logs/door_catalog.json` and `logs/door_discovery_report.txt`.
+
+**Collision filtering**: `add_door_collision_filters(stage, door_prims, margin=1.0)` disables collision between each door and nearby static geometry (walls, mullions) whose bounding boxes overlap. Essential for curtain wall doors that sit flush inside wall assemblies. The `margin` parameter (in stage units) inflates each door's bounding box to catch geometry the door sweeps into during the first degrees of rotation.
 
 **Key constraints**:
 - Dynamic bodies MUST use `"convexHull"` collision (triangle mesh only works on statics)
 - Overhead/sliding/garage/unknown doors are filtered out before rigid body application
 - Doors can be frozen with `RigidBodyAPI.CreateKinematicEnabledAttr(True)` for robot navigation tests
+
+## Additional building_physics.py Utilities
+
+Beyond door physics, `sim_utils/building_physics.py` provides:
+
+- **`setup_physics_scene(stage, gravity, time_steps_per_second, gpu_dynamics)`** -- Creates and configures a `PhysicsScene` with gravity, solver frequency, and optional GPU dynamics.
+- **`iter_building_elements(stage, building_prim, level_filter)`** -- Traverses Revit-exported buildings, yielding `(level_name, category_name, element_prim)` tuples. Auto-detects three building structures: flat, category-based (Innovation Center), and hierarchical (Engineering Building).
+- **`discover_floor_levels(stage, building_path)`** -- Clusters floor elements by Z-height and returns area-weighted centroids per floor level. Used by demo scripts to auto-discover spawn positions.
+- **`categorize_prim(name)`** / **`PrimCategory`** -- Classifies prims into `STATIC_STRUCTURAL`, `STATIC_GLAZING`, `STATIC_STAIR`, `DYNAMIC_DOOR`, or `SKIP` based on Revit naming patterns.
+
+### Native PhysX Runtime Helpers
+
+These functions query the PhysX simulation engine for data only available **after** `world.reset()` + `world.step()`. All wrapped in try/except for graceful degradation.
+
+- **`get_physics_scene_stats(stage)`** -- Snapshots `PhysicsSceneStats` into a plain dict: body counts (static/dynamic/kinematic/active), shape counts by type, contact pairs, solver partitions, GPU memory breakdown.
+- **`get_solver_residuals(stage)`** -- Reads RMS/max position/velocity residuals from `PhysxResidualReportingAPI`. Requires `enable_residual_reporting(stage)` called before `world.reset()`.
+- **`get_compute_cost(stage)`** -- Extracts GPU memory breakdown in MB (solver, broadphase, narrowphase, articulation, total) from `PhysicsSceneStats`.
+- **`check_body_sleeping(stage, prim_path)`** -- Returns True/False for whether a rigid body has settled (PhysX sleep state).
+- **`raycast_down(origin, max_distance)`** -- Casts ray straight down, returns `(hit, distance, position)`. Uses `get_physx_scene_query_interface()`.
+- **`enable_residual_reporting(stage)`** -- Applies `PhysxResidualReportingAPI` to physics scene prim. Must be called before `world.reset()`.
+- **`encode_prim_path(prim_path_str)`** -- Encodes SdfPath to uint64 for PhysX runtime APIs.
+
+## Physics Pipeline Orchestrator
+
+`run_physics_pipeline.sh` chains 4 SLURM jobs with dependencies to process any raw Revit-exported USD:
+
+```bash
+./run_physics_pipeline.sh assets/environments/msoe_building/MSOEBuildingTake2.usd
+./run_physics_pipeline.sh assets/environments/msoe_building/MyBuilding.usd --mem 48G --margin 1.5
+```
+
+**Pipeline steps** (each a separate SLURM job):
+1. **Physics Setup** (`setup_building_physics.py`) -- Apply colliders, materials, joints, drives
+2. **Floor Drop Test** (after step 1) -- Verify floors are solid
+3. **Door Swing Test** (after step 1, parallel with step 2) -- Verify doors rotate
+4. **Demo Video** (after steps 2+3) -- Orbital camera tour with drop objects
+
+**Options**: `--margin FLOAT` (collision filter margin), `--mem SIZE`, `--time DURATION`, `--partition NAME`, `--output PATH`
 
 ## Test Camera Positions — Innovation Center
 
@@ -328,7 +387,7 @@ TEST_CAMERAS = {
 ```
 
 **Camera settings**: focal_length=12.0mm, resolution=1920x1080, frequency=30Hz (matches floor_camera_screenshots.py reference images, default horizontal aperture ~20.955mm)
-**Lighting for interiors**: DistantLight(5000) + DomeLight(2000) + SphereLight(30000) at camera position
+**Lighting for interiors**: DistantLight(7500) + DomeLight(3500) + SphereLight(45000) at camera position
 **Discovery script**: `simulations/environment/floor_camera_screenshots.py`
 **Shared module**: `sim_utils/test_cameras.py` — `TEST_CAMERAS` dict, `create_test_camera()`, `add_interior_lighting()`, `look_at_orientation()`
 
@@ -347,10 +406,10 @@ python validate_physics.py --usd my_physics.usd --dry-run   # preview without su
 
 | Test | Script | What it does |
 |------|--------|-------------|
-| `building_stats` | `validate_building_stats.py` | Counts colliders, rigid bodies, joints, meshes, floor/door elements. Takes per-camera screenshots. |
-| `cube_drop` | `validate_cube_drop.py` | Drops 9 random cubes near each camera, settles, checks cubes rest on surfaces. Records video. |
-| `robot_movement` | `validate_robot_movement.py` | Spawns JetBot at each camera's floor, runs rectangular patrol, checks robot doesn't fall through. Records video. |
-| `door_physics` | `validate_door_physics.py` | Finds doors within 20ft of each camera, drives to 80 degrees, measures final angle (pass if delta > 5 degrees). Records video. |
+| `building_stats` | `validate_building_stats.py` | Counts colliders, rigid bodies, joints, meshes, floor/door elements. Takes per-camera screenshots. Collects PhysX scene stats (body/shape counts, contact pairs, GPU memory), solver residuals, and compute cost. |
+| `cube_drop` | `validate_cube_drop.py` | Drops 9 cubes near each camera, records video. Tracks per-cube velocity (max impact speed), sleep-based settle detection (`frames_to_settle`), pre-drop floor raycast verification. |
+| `robot_movement` | `validate_robot_movement.py` | Spawns Nova Carter at each camera's floor, drives toward camera, records video. Tracks XY velocity (mean/max speed) and ground clearance via raycast. |
+| `door_physics` | `validate_door_physics.py` | Finds doors within 20ft of each camera, drives to 80 deg, records video. Applies PhysxContactReportAPI for contact impulse/penetration, tracks angular velocity, computes drive torque, detects stalled doors. |
 
 **Output**:
 - `logs/validation/validation_report.json` — full structured results

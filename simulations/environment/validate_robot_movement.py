@@ -11,7 +11,7 @@ Usage:
 
 Output:
     logs/validation/robot_movement_results.json
-    videos/validate_robot_cam_*.mp4
+    videos/validation/validate_robot_cam_*.mp4
 """
 
 import os
@@ -45,15 +45,16 @@ from sim_utils.test_cameras import (
     set_focal_length_on_prim,
 )
 from sim_utils.video_capture import VideoRecorder
-from sim_utils.building_physics import setup_physics_scene
+from sim_utils.building_physics import setup_physics_scene, raycast_down
 
 # Navigation parameters
-FWD_SPEED = 0.2          # m/s
-TURN_RATE = math.pi / 6  # rad/s
-PATROL_DIST = 2.0        # meters per leg
-SETTLE_FRAMES = 90       # 1.5s settle before driving
-RECORD_FRAMES = 150      # 5s at 30fps
-Z_DROP_THRESHOLD = 0.5   # meters — max allowed Z drop
+FEET_PER_METER = 1.0 / 0.3048   # ~3.28 — robot assets are in meters, building in feet
+FWD_SPEED = 2.0           # ft/s — robot approaches camera at brisk pace
+APPROACH_OFFSET = 12.0    # feet — spawn this far beyond camera target
+SETTLE_FRAMES = 90        # 1.5s settle before driving
+DRIVE_FRAMES = 600        # 10s at 60Hz — robot covers ~20ft toward camera
+RECORD_FRAMES = 300       # 10s at 30fps video
+Z_DROP_THRESHOLD = 0.5    # meters — max allowed Z drop
 
 
 def freeze_doors(stage):
@@ -77,32 +78,6 @@ def add_ground_plane(stage, z):
     UsdPhysics.CollisionAPI.Apply(mesh.GetPrim())
     coll = UsdPhysics.MeshCollisionAPI.Apply(mesh.GetPrim())
     coll.CreateApproximationAttr("none")
-
-
-def build_nav_sequence():
-    """Build a rectangular patrol: forward, turn 90, repeat 4 times.
-
-    Returns (sequence, total_frames) where sequence is list of
-    (start_frame, end_frame, [linear_vel, angular_vel]).
-    """
-    fwd_frames = int(PATROL_DIST / FWD_SPEED * 60)
-    turn_frames = int((math.pi / 2) / TURN_RATE * 60)
-
-    seq = []
-    frame = 0
-    for _ in range(4):
-        seq.append((frame, frame + fwd_frames, [FWD_SPEED, 0.0]))
-        frame += fwd_frames
-        seq.append((frame, frame + turn_frames, [0.0, TURN_RATE]))
-        frame += turn_frames
-    return seq, frame
-
-
-def get_command(step, nav_sequence):
-    for start, end, cmd in nav_sequence:
-        if start <= step < end:
-            return cmd
-    return [0, 0]
 
 
 def main():
@@ -149,17 +124,6 @@ def main():
         sys.exit(1)
     carter_asset = assets_root_path + "/Isaac/Robots/NVIDIA/NovaCarter/nova_carter.usd"
 
-    # Nav sequence
-    nav_sequence, total_nav_frames = build_nav_sequence()
-    total_sim_frames = SETTLE_FRAMES + total_nav_frames
-
-    # --- Per-camera robot test ---
-    # We test each camera sequentially. For each camera:
-    # 1. Spawn robot near camera target (on the floor)
-    # 2. Run patrol, record video
-    # 3. Check final Z
-    # 4. Remove robot, reset for next camera
-
     camera_results = {}
     overall_pass = True
 
@@ -168,16 +132,32 @@ def main():
     for key, cam_dict in TEST_CAMERAS.items():
         cameras[key] = create_test_camera(key, cam_dict, "/World/RobotCam", stage=stage)
 
-    # We need to test one floor per camera. The target Z gives us the floor level.
+    # Spawn robots beyond each camera's target, oriented to approach the camera
+    controllers = {}
     for cam_key, cam_dict in TEST_CAMERAS.items():
+        cx, cy, cz = cam_dict["pos"]
         tx, ty, tz = cam_dict["target"]
         room = cam_dict["room"]
         print(f"\n[robot_movement] Testing camera {cam_key}: {room}", flush=True)
 
-        # Spawn Nova Carter near camera target, slightly above floor
-        spawn_pos = np.array([tx, ty, tz + 0.05])
-        robot_name = f"carter_{cam_key}"
+        # Direction from camera to target (horizontal)
+        dx = tx - cx
+        dy = ty - cy
+        length = math.sqrt(dx**2 + dy**2)
+        fwd_x, fwd_y = dx / length, dy / length
 
+        # Spawn beyond target so robot approaches toward camera
+        spawn_x = tx + fwd_x * APPROACH_OFFSET
+        spawn_y = ty + fwd_y * APPROACH_OFFSET
+        spawn_pos = np.array([spawn_x, spawn_y, tz + 0.2])
+
+        # Orient robot to face toward camera
+        heading_yaw = math.degrees(math.atan2(-fwd_y, -fwd_x))
+        orientation = rot_utils.euler_angles_to_quats(
+            np.array([0, 0, heading_yaw]), degrees=True
+        )
+
+        robot_name = f"carter_{cam_key}"
         carter = world.scene.add(WheeledRobot(
             prim_path=f"/World/NovaCarter_{cam_key}",
             name=robot_name,
@@ -185,12 +165,25 @@ def main():
             create_robot=True,
             usd_path=carter_asset,
             position=spawn_pos,
+            orientation=orientation,
         ))
-        controller = DifferentialController(
-            name=f"ctrl_{cam_key}", wheel_radius=0.14, wheel_base=0.4
+
+        # Scale robot from meters to feet so it matches the building
+        robot_prim = stage.GetPrimAtPath(f"/World/NovaCarter_{cam_key}")
+        xformable = UsdGeom.Xformable(robot_prim)
+        xformable.AddScaleOp().Set(Gf.Vec3f(FEET_PER_METER, FEET_PER_METER, FEET_PER_METER))
+
+        # Wheel radius/base must also be scaled to match
+        scaled_wheel_radius = 0.14 * FEET_PER_METER
+        scaled_wheel_base = 0.4 * FEET_PER_METER
+        controllers[cam_key] = DifferentialController(
+            name=f"ctrl_{cam_key}",
+            wheel_radius=scaled_wheel_radius,
+            wheel_base=scaled_wheel_base,
         )
 
-        print(f"  Spawned at ({tx:.1f}, {ty:.1f}, {tz + 0.05:.2f})", flush=True)
+        print(f"  Spawned at ({spawn_x:.1f}, {spawn_y:.1f}, {tz + 0.05:.2f}) "
+              f"facing camera", flush=True)
 
     # Single world.reset() after all robots are added
     world.reset()
@@ -217,49 +210,60 @@ def main():
         pos, _ = robot.get_world_pose()
         initial_positions[cam_key] = float(pos[2])
 
-    # Run navigation + record video for each camera
-    print(f"[robot_movement] Running patrol ({total_nav_frames} frames)...", flush=True)
+    # Drive robots toward cameras and record video
+    print(f"[robot_movement] Driving toward cameras ({DRIVE_FRAMES} frames)...", flush=True)
 
-    # We record all cameras' videos simultaneously during the patrol
     recorders = {}
-    video_dir = os.path.join(_project_dir, "videos")
-    os.makedirs(video_dir, exist_ok=True)
 
-    # Open all recorders
     for cam_key in TEST_CAMERAS:
-        vname = f"validate_robot_cam_{cam_key}"
+        vname = f"validation/validate_robot_cam_{cam_key}"
         recorders[cam_key] = VideoRecorder(vname, fps=30)
         recorders[cam_key].__enter__()
 
     position_tracks = {k: [] for k in TEST_CAMERAS}
+    velocity_tracks = {k: [] for k in TEST_CAMERAS}
+    clearance_tracks = {k: [] for k in TEST_CAMERAS}
 
-    for frame in range(total_nav_frames):
-        # Apply navigation commands to all robots
+    for frame in range(DRIVE_FRAMES):
+        # All robots drive forward (each oriented toward its camera)
         for cam_key in TEST_CAMERAS:
             robot_name = f"carter_{cam_key}"
             robot = world.scene.get_object(robot_name)
-            cmd = get_command(frame, nav_sequence)
             robot.apply_wheel_actions(
-                controller.forward(command=cmd)
+                controllers[cam_key].forward(command=[FWD_SPEED, 0.0])
             )
-            # Track position
             pos, _ = robot.get_world_pose()
             position_tracks[cam_key].append(
                 [float(pos[0]), float(pos[1]), float(pos[2])]
             )
 
+            # Track velocity (XY speed magnitude)
+            try:
+                vel = robot.get_linear_velocity()
+                xy_speed = float(np.sqrt(vel[0]**2 + vel[1]**2))
+                velocity_tracks[cam_key].append(xy_speed)
+            except Exception:
+                velocity_tracks[cam_key].append(0.0)
+
+            # Track ground clearance (every 10th frame)
+            if frame % 10 == 0:
+                hit, dist, _ = raycast_down(
+                    (float(pos[0]), float(pos[1]), float(pos[2])),
+                    max_distance=20.0,
+                )
+                if hit and dist is not None:
+                    clearance_tracks[cam_key].append(float(dist))
+
         world.step(render=True)
 
-        # Capture from all cameras
         for cam_key, cam in cameras.items():
             rgba = cam.get_rgba()
             if rgba is not None and frame > 0:
                 recorders[cam_key].capture_rgba(rgba)
 
         if frame % 120 == 0:
-            print(f"  Frame {frame}/{total_nav_frames}", flush=True)
+            print(f"  Frame {frame}/{DRIVE_FRAMES}", flush=True)
 
-    # Close all recorders
     for rec in recorders.values():
         rec.__exit__(None, None, None)
 
@@ -281,6 +285,18 @@ def main():
         track = position_tracks[cam_key]
         sampled_track = track[::30] if len(track) > 30 else track
 
+        # Velocity stats
+        vel_data = velocity_tracks[cam_key]
+        mean_speed = round(float(np.mean(vel_data)), 4) if vel_data else 0.0
+        max_speed = round(float(np.max(vel_data)), 4) if vel_data else 0.0
+        sampled_vel = vel_data[::30] if len(vel_data) > 30 else vel_data
+        sampled_vel = [round(v, 4) for v in sampled_vel]
+
+        # Ground clearance stats
+        clr_data = clearance_tracks[cam_key]
+        min_clearance = round(float(min(clr_data)), 4) if clr_data else None
+        sampled_clr = [round(c, 4) for c in clr_data]
+
         camera_results[cam_key] = {
             "room": cam_dict["room"],
             "passed": passed,
@@ -289,6 +305,11 @@ def main():
             "z_drop": round(z_drop, 3),
             "final_position": [float(pos[0]), float(pos[1]), float(pos[2])],
             "position_samples": sampled_track,
+            "velocity_samples": sampled_vel,
+            "mean_speed": mean_speed,
+            "max_speed": max_speed,
+            "ground_clearance_samples": sampled_clr,
+            "min_ground_clearance": min_clearance,
             "video": f"validate_robot_cam_{cam_key}.mp4",
         }
 
@@ -297,7 +318,8 @@ def main():
 
         status = "PASS" if passed else "FAIL"
         print(f"  Camera {cam_key} ({cam_dict['room']}): "
-              f"z_drop={z_drop:.3f} [{status}]", flush=True)
+              f"z_drop={z_drop:.3f}, speed={mean_speed:.3f}/{max_speed:.3f} m/s, "
+              f"min_clearance={min_clearance} [{status}]", flush=True)
 
     # --- Save results ---
     results = {

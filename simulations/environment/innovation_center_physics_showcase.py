@@ -11,7 +11,7 @@ Run on Rosie:
     sbatch submit_isaac_job.sh simulations/environment/innovation_center_physics_showcase.py
 
 Output:
-    videos/innovation_center_physics_showcase.mp4  (20s @ 30fps, 1920x1080)
+    videos/environment/innovation_center_physics_showcase.mp4  (20s @ 30fps, 1920x1080)
     logs/innovation_center_physics_showcase.txt
 """
 
@@ -400,7 +400,7 @@ def main():
 
     # Record
     log("Recording...")
-    with VideoRecorder("innovation_center_physics_showcase", fps=FPS) as recorder:
+    with VideoRecorder("environment/innovation_center_physics_showcase", fps=FPS) as recorder:
         for i in range(RECORD_FRAMES):
             # Door animation
             target_angle = compute_door_target(i)
@@ -449,7 +449,7 @@ def main():
 
     log(f"\n{'=' * 65}")
     log("Output:")
-    log(f"  Video  -> videos/innovation_center_physics_showcase.mp4")
+    log(f"  Video  -> videos/environment/innovation_center_physics_showcase.mp4")
     log(f"  Report -> {_report_path}")
     log("=" * 65)
 

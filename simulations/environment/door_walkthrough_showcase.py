@@ -296,7 +296,7 @@ def main():
 
     print(f"Recording {total_frames} frames (12s at 30fps)...", flush=True)
 
-    with VideoRecorder("door_walkthrough_showcase", fps=30) as recorder:
+    with VideoRecorder("environment/door_walkthrough_showcase", fps=30) as recorder:
         for i in range(total_frames):
             # --- Camera position ---
             # Linear interpolation: steady speed from start to end
@@ -331,7 +331,7 @@ def main():
                       f"cam=({cam_pos[0]:.1f}, {cam_pos[1]:.1f}, {cam_pos[2]:.1f}), "
                       f"door={angle:.1f}°", flush=True)
 
-    print("Done! Video saved to videos/door_walkthrough_showcase.mp4", flush=True)
+    print("Done! Video saved to videos/environment/door_walkthrough_showcase.mp4", flush=True)
     simulation_app.close()
 
 

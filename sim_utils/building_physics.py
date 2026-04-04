@@ -964,3 +964,221 @@ def discover_floor_levels(stage, building_path="/World/Building"):
         })
 
     return levels
+
+
+# ---------------------------------------------------------------------------
+# Native PhysX Runtime Metrics Helpers
+# ---------------------------------------------------------------------------
+# These functions query the PhysX simulation engine for data that is only
+# available AFTER world.reset() has been called and at least one world.step()
+# has executed.  All are wrapped in try/except so they degrade gracefully
+# when the underlying APIs are unavailable.
+# ---------------------------------------------------------------------------
+
+def encode_prim_path(prim_path_str):
+    """Encode a USD prim path string to the uint64 used by PhysX runtime APIs.
+
+    Returns the encoded int, or None if encoding is unavailable.
+    """
+    try:
+        from pxr import PhysicsSchemaTools
+        return PhysicsSchemaTools.encodeSdfPath(Sdf.Path(prim_path_str))
+    except (ImportError, AttributeError):
+        return None
+
+
+def get_physics_scene_stats(stage, scene_path="/World/PhysicsScene"):
+    """Snapshot PhysicsSceneStats into a plain dict.
+
+    Returns a dict with selected PhysX scene statistics, or an empty dict
+    if the API is unavailable.
+    """
+    try:
+        import omni.usd
+        from omni.physx import get_physx_statistics_interface
+        from omni.physx.bindings._physx import PhysicsSceneStats
+        from pxr import PhysicsSchemaTools
+
+        stage_id = omni.usd.get_context().get_stage_id()
+        encoded_path = PhysicsSchemaTools.encodeSdfPath(Sdf.Path(scene_path))
+
+        stats = PhysicsSceneStats()
+        get_physx_statistics_interface().get_physx_scene_statistics(
+            stage_id, encoded_path, stats
+        )
+
+        return {
+            # Body counts
+            "nb_static_rigids": stats.nb_static_rigids,
+            "nb_dynamic_rigids": stats.nb_dynamic_rigids,
+            "nb_active_dynamic_rigids": stats.nb_active_dynamic_rigids,
+            "nb_kinematic_rigids": stats.nb_kinematic_rigids,
+            "nb_active_kinematic_rigids": stats.nb_active_kinematic_rigids,
+            "nb_articulations": stats.nb_articulations,
+            # Constraints
+            "nb_active_constraints": stats.nb_active_constraints,
+            "nb_axis_solver_constraints": stats.nb_axis_solver_constaints,
+            # Shape counts
+            "nb_box_shapes": stats.nb_box_shapes,
+            "nb_sphere_shapes": stats.nb_sphere_shapes,
+            "nb_capsule_shapes": stats.nb_capsule_shapes,
+            "nb_convex_shapes": stats.nb_convex_shapes,
+            "nb_trimesh_shapes": stats.nb_trimesh_shapes,
+            "nb_plane_shapes": stats.nb_plane_shapes,
+            # Broadphase / narrowphase
+            "nb_new_pairs": stats.nb_new_pairs,
+            "nb_lost_pairs": stats.nb_lost_pairs,
+            "nb_new_touches": stats.nb_new_touches,
+            "nb_lost_touches": stats.nb_lost_touches,
+            "nb_discrete_contact_pairs_total": stats.nb_discrete_contact_pairs_total,
+            "nb_discrete_contact_pairs_with_contacts": stats.nb_discrete_contact_pairs_with_contacts,
+            # Solver
+            "nb_partitions": stats.nb_partitions,
+            # Memory
+            "compressed_contact_size": stats.compressed_contact_size,
+            "required_contact_constraint_memory": stats.required_contact_constraint_memory,
+            "peak_constraint_memory": stats.peak_constraint_memory,
+            # GPU memory
+            "gpu_mem_heap": stats.gpu_mem_heap,
+            "gpu_mem_heap_broadphase": stats.gpu_mem_heap_broadphase,
+            "gpu_mem_heap_narrowphase": stats.gpu_mem_heap_narrowphase,
+            "gpu_mem_heap_solver": stats.gpu_mem_heap_solver,
+            "gpu_mem_heap_articulation": stats.gpu_mem_heap_articulation,
+            "gpu_mem_heap_simulation": stats.gpu_mem_heap_simulation,
+            "gpu_mem_heap_other": stats.gpu_mem_heap_other,
+        }
+    except Exception as e:
+        print(f"[building_physics] Warning: could not collect scene stats: {e}")
+        return {}
+
+
+def get_solver_residuals(stage, scene_path="/World/PhysicsScene"):
+    """Read solver residual values from the physics scene prim.
+
+    PhysxResidualReportingAPI must be applied and the carb setting
+    /physics/updateResidualsToUsd must be True BEFORE world.reset().
+    Call this AFTER at least one world.step().
+
+    Returns dict with rms/max position/velocity residuals, or empty dict.
+    """
+    try:
+        from pxr import PhysxSchema as _PhysxSchema
+
+        scene_prim = stage.GetPrimAtPath(scene_path)
+        if not scene_prim.IsValid():
+            return {}
+
+        residual_api = _PhysxSchema.PhysxResidualReportingAPI(scene_prim)
+
+        rms_pos = residual_api.GetPhysxResidualReportingRmsResidualPositionIterationAttr().Get()
+        max_pos = residual_api.GetPhysxResidualReportingMaxResidualPositionIterationAttr().Get()
+        rms_vel = residual_api.GetPhysxResidualReportingRmsResidualVelocityIterationAttr().Get()
+        max_vel = residual_api.GetPhysxResidualReportingMaxResidualVelocityIterationAttr().Get()
+
+        return {
+            "rms_position": float(rms_pos) if rms_pos is not None else None,
+            "max_position": float(max_pos) if max_pos is not None else None,
+            "rms_velocity": float(rms_vel) if rms_vel is not None else None,
+            "max_velocity": float(max_vel) if max_vel is not None else None,
+        }
+    except Exception as e:
+        print(f"[building_physics] Warning: could not read solver residuals: {e}")
+        return {}
+
+
+def get_compute_cost(stage, scene_path="/World/PhysicsScene"):
+    """Extract GPU memory breakdown and physics step timing.
+
+    GPU memory comes from PhysicsSceneStats (bytes → MB).
+    Physics step timing comes from PhysicsProfileStats if available.
+
+    Returns dict with cost metrics, or empty dict.
+    """
+    result = {}
+    try:
+        scene_stats = get_physics_scene_stats(stage, scene_path)
+        if scene_stats:
+            to_mb = 1.0 / (1024 * 1024)
+            result["gpu_mem_total_mb"] = round(scene_stats.get("gpu_mem_heap", 0) * to_mb, 2)
+            result["gpu_mem_solver_mb"] = round(scene_stats.get("gpu_mem_heap_solver", 0) * to_mb, 2)
+            result["gpu_mem_broadphase_mb"] = round(scene_stats.get("gpu_mem_heap_broadphase", 0) * to_mb, 2)
+            result["gpu_mem_narrowphase_mb"] = round(scene_stats.get("gpu_mem_heap_narrowphase", 0) * to_mb, 2)
+            result["gpu_mem_articulation_mb"] = round(scene_stats.get("gpu_mem_heap_articulation", 0) * to_mb, 2)
+            result["peak_constraint_memory_mb"] = round(scene_stats.get("peak_constraint_memory", 0) * to_mb, 2)
+    except Exception as e:
+        print(f"[building_physics] Warning: could not compute GPU cost: {e}")
+
+    # Physics step timing from profiler data
+    try:
+        import carb
+        carb.settings.get_settings().set("/physics/exposeProfilerData", True)
+        from omni.physx.bindings._physx import PhysicsProfileStats
+        # Profile stats may need a frame to populate after enabling
+    except Exception:
+        pass
+
+    return result
+
+
+def check_body_sleeping(stage, prim_path_str):
+    """Check if a rigid body is sleeping (has settled).
+
+    Returns True if sleeping, False if awake, None if query failed.
+    """
+    try:
+        import omni.usd
+        from omni.physx import get_physx_simulation_interface
+        from pxr import PhysicsSchemaTools
+
+        stage_id = omni.usd.get_context().get_stage_id()
+        encoded = PhysicsSchemaTools.encodeSdfPath(Sdf.Path(prim_path_str))
+        return get_physx_simulation_interface().is_sleeping(stage_id, encoded)
+    except Exception:
+        return None
+
+
+def raycast_down(origin, max_distance=100.0):
+    """Cast a ray straight down from origin and return hit info.
+
+    Args:
+        origin: (x, y, z) tuple or list in stage units
+        max_distance: maximum ray distance
+
+    Returns:
+        (hit: bool, distance: float or None, position: tuple or None)
+    """
+    try:
+        import carb
+        from omni.physx import get_physx_scene_query_interface
+
+        sq = get_physx_scene_query_interface()
+        hit = sq.raycast_closest(
+            carb.Float3(float(origin[0]), float(origin[1]), float(origin[2])),
+            carb.Float3(0.0, 0.0, -1.0),
+            float(max_distance),
+        )
+        if hit and "distance" in hit:
+            pos = hit.get("position", (0, 0, 0))
+            return (True, float(hit["distance"]), (float(pos[0]), float(pos[1]), float(pos[2])))
+        return (False, None, None)
+    except Exception:
+        return (False, None, None)
+
+
+def enable_residual_reporting(stage, scene_path="/World/PhysicsScene"):
+    """Apply PhysxResidualReportingAPI to the physics scene prim.
+
+    MUST be called BEFORE world.reset().
+    """
+    try:
+        import carb
+        from pxr import PhysxSchema as _PhysxSchema
+
+        scene_prim = stage.GetPrimAtPath(scene_path)
+        if scene_prim.IsValid():
+            _PhysxSchema.PhysxResidualReportingAPI.Apply(scene_prim)
+            carb.settings.get_settings().set("/physics/updateResidualsToUsd", True)
+            return True
+    except (ImportError, AttributeError) as e:
+        print(f"[building_physics] Warning: could not enable residual reporting: {e}")
+    return False

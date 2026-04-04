@@ -10,7 +10,7 @@ Run on Rosie:
     sbatch submit_isaac_job.sh simulations/environment/door_demo_finalV1.py
 
 Output:
-    videos/door_demo_finalV1.mp4  (12s @ 30fps, 1920x1080)
+    videos/environment/door_demo_finalV1.mp4  (12s @ 30fps, 1920x1080)
     logs/door_demo_finalV1.txt
 """
 
@@ -286,7 +286,7 @@ def main():
 
     log(f"\nRecording {total_frames} frames (12s at 30fps)...")
 
-    with VideoRecorder("door_demo_finalV1", fps=30) as recorder:
+    with VideoRecorder("environment/door_demo_finalV1", fps=30) as recorder:
         for i in range(total_frames):
             # Compute target angle
             if i < open_start:
@@ -311,7 +311,7 @@ def main():
                 log(f"  Frame {i}/{total_frames} (angle={angle:.1f} deg)")
 
     log(f"\nDone!")
-    log(f"  Video  -> videos/door_demo_finalV1.mp4")
+    log(f"  Video  -> videos/environment/door_demo_finalV1.mp4")
     log(f"  Report -> {_report_path}")
     log("=" * 60)
 

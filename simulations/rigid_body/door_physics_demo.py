@@ -284,7 +284,7 @@ def main():
 
     print(f"Recording {total_frames} frames...", flush=True)
 
-    with VideoRecorder("door_physics_demo", fps=30) as recorder:
+    with VideoRecorder("rigid_body/door_physics_demo", fps=30) as recorder:
         for i in range(total_frames):
             if i < open_start:
                 set_drive_target(drive, 0.0)

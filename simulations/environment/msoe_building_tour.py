@@ -7,7 +7,7 @@ scene hierarchy, computes the bounding box, and records an orbital camera tour.
 
 Output:
   - logs/msoe_building_report.txt -> prim hierarchy, type summary, bounding box
-  - videos/msoe_building_tour.mp4 -> orbital tour video
+  - videos/environment/msoe_building_tour.mp4 -> orbital tour video
 """
 
 import os
@@ -240,7 +240,7 @@ def orbital_tour(world, bb_min, bb_max):
     orbit_steps = 360
     log(f"  Recording {orbit_steps} frames...")
 
-    with VideoRecorder("msoe_building_tour", fps=15) as recorder:
+    with VideoRecorder("environment/msoe_building_tour", fps=15) as recorder:
         for i in range(orbit_steps):
             angle = 2 * math.pi * i / orbit_steps
 
@@ -348,7 +348,7 @@ def main():
     log("\n" + "=" * 60)
     log("Done!")
     log(f"  Report -> {_report_path}")
-    log("  Video  -> videos/msoe_building_tour.mp4")
+    log("  Video  -> videos/environment/msoe_building_tour.mp4")
     log("=" * 60)
 
     _report_file.close()

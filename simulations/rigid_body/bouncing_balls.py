@@ -70,7 +70,7 @@ def main():
     num_frames = 300
     print(f"\n✓ Running simulation for {num_frames} steps with video recording...")
 
-    with VideoRecorder("bouncing_balls") as recorder:
+    with VideoRecorder("rigid_body/bouncing_balls") as recorder:
         for i in range(num_frames):
             world.step(render=True)
             recorder.capture()
@@ -81,7 +81,7 @@ def main():
 
     print("\n" + "=" * 60)
     print("✓ Simulation completed successfully!")
-    print("✓ Video saved to: videos/bouncing_balls.mp4")
+    print("✓ Video saved to: videos/rigid_body/bouncing_balls.mp4")
     print("=" * 60)
 
     simulation_app.close()

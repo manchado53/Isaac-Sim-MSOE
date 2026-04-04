@@ -9,7 +9,7 @@ Falls back to room-based placement when no suitable Revit camera exists for
 a floor.
 
 Output:
-  - videos/floor_<name>_camera.png   (one PNG per floor, 1920x1080)
+  - videos/environment/floor_<name>_camera.png   (one PNG per floor, 1920x1080)
   - logs/floor_camera_report.txt     (detailed discovery log)
   - stdout JSON summary of camera positions
 
@@ -599,7 +599,7 @@ def main():
 
     # --- Create camera and capture screenshots ---
     log("\n--- Capturing screenshots ---")
-    output_dir = os.path.join(_project_dir, "videos")
+    output_dir = os.path.join(_project_dir, "videos", "environment")
     os.makedirs(output_dir, exist_ok=True)
 
     # Create a single camera sensor at the first position

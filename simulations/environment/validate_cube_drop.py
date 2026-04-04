@@ -10,7 +10,7 @@ Usage:
 
 Output:
     logs/validation/cube_drop_results.json
-    videos/validate_cubes_cam_*.mp4
+    videos/validation/validate_cubes_cam_*.mp4
 """
 
 import os
@@ -40,13 +40,13 @@ from sim_utils.test_cameras import (
     set_focal_length_on_prim,
 )
 from sim_utils.video_capture import VideoRecorder
-from sim_utils.building_physics import setup_physics_scene
+from sim_utils.building_physics import setup_physics_scene, check_body_sleeping, raycast_down
 
-CUBE_SIZE = 0.3         # meters
+CUBE_SIZE = 1.0         # feet (~0.3m) — visible from ceiling cameras
 NUM_CUBES = 9           # per camera
-DROP_HEIGHT = 3.0       # feet above target z
+DROP_HEIGHT = 4.0       # feet above target z (higher for bigger cubes)
 SETTLE_FRAMES = 300     # ~5s at 60Hz physics (after recording, for final position check)
-RECORD_FRAMES = 240     # ~8s at 30fps video (captures drop + bounce + settle)
+RECORD_FRAMES = 300     # ~10s at 30fps video (captures drop + bounce + settle)
 PASS_THRESHOLD = -1.0   # cube final_z must be > (target_z + threshold)
 
 CUBE_COLORS = [
@@ -151,8 +151,8 @@ def main():
             fwd_x, fwd_y = dx / length, dy / length
             perp_x, perp_y = -fwd_y, fwd_x
 
-        # 3x3 grid with 1.5-foot spacing (tight cluster visible from above)
-        grid_spacing = 1.5
+        # 3x3 grid with 2.5-foot spacing (room for 1ft cubes)
+        grid_spacing = 2.5
         cubes_for_cam = []
         idx = 0
         for row in [-1, 0, 1]:
@@ -191,12 +191,27 @@ def main():
     for _ in range(30):
         world.step(render=True)
 
+    # --- Pre-drop floor raycast verification ---
+    print("[cube_drop] Verifying floor colliders via raycast...", flush=True)
+    floor_raycast_results = {}  # "cube_name" -> {hit, distance}
+    for cam_key, cubes_for_cam in all_cubes.items():
+        for name, cube, floor_z in cubes_for_cam:
+            pos, _ = cube.get_world_pose()
+            hit, dist, _ = raycast_down((float(pos[0]), float(pos[1]), float(pos[2])))
+            floor_raycast_results[name] = {"hit": hit, "distance": round(dist, 3) if dist else None}
+            if not hit:
+                print(f"  WARNING: {name} has no floor collider below spawn point!", flush=True)
+
+    # --- Velocity tracking setup ---
+    cube_max_speed = {name: 0.0 for cam_key, cubes in all_cubes.items() for name, _, _ in cubes}
+    cube_final_vel = {}
+
     # Record ALL cameras simultaneously while cubes drop and settle.
     # This captures the cubes falling, bouncing, and coming to rest.
     print(f"[cube_drop] Recording drop + settle ({RECORD_FRAMES} frames)...", flush=True)
     recorders = {}
     for cam_key in cameras:
-        vname = f"validate_cubes_cam_{cam_key}"
+        vname = f"validation/validate_cubes_cam_{cam_key}"
         recorders[cam_key] = VideoRecorder(vname, fps=30)
         recorders[cam_key].__enter__()
 
@@ -206,6 +221,18 @@ def main():
             rgba = cam.get_rgba()
             if rgba is not None and i > 0:
                 recorders[cam_key].capture_rgba(rgba)
+        # Track velocity every 5th frame during drop
+        if i % 5 == 0:
+            for cam_key, cubes_for_cam in all_cubes.items():
+                for name, cube, _ in cubes_for_cam:
+                    try:
+                        vel = cube.get_linear_velocity()
+                        speed = float(np.linalg.norm(vel))
+                        if speed > cube_max_speed[name]:
+                            cube_max_speed[name] = speed
+                        cube_final_vel[name] = [float(vel[0]), float(vel[1]), float(vel[2])]
+                    except Exception:
+                        pass
         if i % 60 == 0:
             print(f"  Frame {i}/{RECORD_FRAMES}", flush=True)
 
@@ -213,9 +240,34 @@ def main():
         rec.__exit__(None, None, None)
 
     # Additional settle frames (no recording) for final position check
-    print(f"[cube_drop] Extra settling ({SETTLE_FRAMES} frames)...", flush=True)
+    # Also track sleep state to detect when cubes have truly settled
+    print(f"[cube_drop] Extra settling ({SETTLE_FRAMES} frames) with sleep detection...", flush=True)
+    settle_frames = {cam_key: None for cam_key in all_cubes}
     for i in range(SETTLE_FRAMES):
         world.step(render=False)
+        # Check sleep state every 10th frame
+        if i % 10 == 0:
+            for cam_key, cubes_for_cam in all_cubes.items():
+                if settle_frames[cam_key] is not None:
+                    continue  # already settled
+                all_sleeping = True
+                for name, cube, _ in cubes_for_cam:
+                    sleeping = check_body_sleeping(stage, f"/World/{name}")
+                    if sleeping is not True:
+                        all_sleeping = False
+                        break
+                if all_sleeping:
+                    settle_frames[cam_key] = RECORD_FRAMES + i
+                    print(f"  Camera {cam_key}: all cubes settled at frame {RECORD_FRAMES + i}", flush=True)
+            # Also capture final velocity on last frame
+            if i == SETTLE_FRAMES - 1:
+                for cam_key, cubes_for_cam in all_cubes.items():
+                    for name, cube, _ in cubes_for_cam:
+                        try:
+                            vel = cube.get_linear_velocity()
+                            cube_final_vel[name] = [float(vel[0]), float(vel[1]), float(vel[2])]
+                        except Exception:
+                            pass
         if i % 60 == 0:
             print(f"  Step {i}/{SETTLE_FRAMES}", flush=True)
 
@@ -233,11 +285,17 @@ def main():
             passed = final_z > (floor_z + PASS_THRESHOLD)
             if passed:
                 cubes_landed += 1
+            raycast_info = floor_raycast_results.get(name, {})
+            final_vel = cube_final_vel.get(name)
             cube_details.append({
                 "name": name,
                 "final_position": [float(pos[0]), float(pos[1]), float(pos[2])],
                 "floor_z": floor_z,
                 "passed": passed,
+                "final_velocity": final_vel,
+                "max_impact_speed": round(cube_max_speed.get(name, 0.0), 3),
+                "floor_raycast_hit": raycast_info.get("hit"),
+                "floor_raycast_distance": raycast_info.get("distance"),
             })
 
         cam_passed = cubes_landed == len(cubes_for_cam)
@@ -250,6 +308,7 @@ def main():
             "cubes_landed": cubes_landed,
             "cubes_total": len(cubes_for_cam),
             "cube_details": cube_details,
+            "frames_to_settle": settle_frames.get(cam_key),
             "video": f"validate_cubes_cam_{cam_key}.mp4",
         }
 
@@ -257,11 +316,20 @@ def main():
         print(f"  Camera {cam_key} ({TEST_CAMERAS[cam_key]['room']}): "
               f"{cubes_landed}/{len(cubes_for_cam)} landed [{status}]", flush=True)
 
+    # --- Settle detection summary ---
+    settled_values = [v for v in settle_frames.values() if v is not None]
+    settle_detection = {
+        "method": "sleep_state",
+        "all_settled": len(settled_values) == len(settle_frames),
+        "max_frames_to_settle": max(settled_values) if settled_values else None,
+    }
+
     # --- Save results ---
     results = {
         "test": "cube_drop",
         "usd_file": os.path.basename(usd_path),
         "cameras": camera_results,
+        "settle_detection": settle_detection,
         "overall_passed": overall_pass,
         "runtime_seconds": round(time.time() - t_start, 1),
     }
