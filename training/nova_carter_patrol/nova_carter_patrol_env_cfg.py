@@ -453,14 +453,14 @@ class TerminationsCfg:
 class EventCfg:
     """Reset events for robot and furniture. Walls are NOT randomized."""
 
-    # Robot resets near room center (±1.0m — reduced from ±2.0m to avoid
-    # spawning on top of furniture, which caused instant collisions and NaN)
+    # Robot resets near room center (±0.5m — tight spawn zone ensures no
+    # overlap with furniture which is guaranteed >= 1.5m from origin)
     reset_base = EventTerm(
         func=mdp.reset_root_state_uniform,
         mode="reset",
         params={
             "asset_cfg": SceneEntityCfg("robot"),
-            "pose_range": {"x": (-1.0, 1.0), "y": (-1.0, 1.0), "yaw": (-math.pi, math.pi)},
+            "pose_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "yaw": (-math.pi, math.pi)},
             "velocity_range": {},
         },
     )

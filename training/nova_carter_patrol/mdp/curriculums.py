@@ -25,31 +25,31 @@ if TYPE_CHECKING:
 _CORNER_RANGE = {"x": (4.0, 4.5), "y": (4.0, 4.5), "yaw": (0.0, 0.0)}
 
 # ── Stage 2: center blocker ────────────────────────────────────────────────
-# Desk (1.5×0.7m) and couch (1.8×0.7m) placed anywhere in the ±2m center
-# zone. Robot spawns at ±1m, goals at ±3m — path always crosses the center,
-# so these pieces are guaranteed to be in the way.
-_CENTER_BLOCKER_RANGE = {"x": (-2.0, 2.0), "y": (-2.0, 2.0), "yaw": (-math.pi, math.pi)}
+# Desk blocks the north half, couch blocks the south half.
+# Both are kept >= 1.5m from origin so robot (±0.5m spawn) never overlaps.
+_BLOCKER_NORTH = {"x": (-3.0, 3.0), "y": (1.5, 3.5), "yaw": (-math.pi, math.pi)}   # desk
+_BLOCKER_SOUTH = {"x": (-3.0, 3.0), "y": (-3.5, -1.5), "yaw": (-math.pi, math.pi)} # couch
 
 # ── Stage 3: corridor ─────────────────────────────────────────────────────
-# Bookshelf on the left, couch on the right, forming a randomized gap.
-# Fixed yaw keeps furniture faces aligned so the gap is always traversable.
-# Gap width varies from ~1.2m (tightest) to ~3.0m (widest) depending on
-# where each piece lands. Desk adds a second blocker beyond the corridor.
-_CORRIDOR_LEFT    = {"x": (-1.5, -0.6), "y": (-2.5, 2.5), "yaw": (0.0, 0.0)}       # bookshelf
-_CORRIDOR_RIGHT   = {"x": (0.6,  1.5),  "y": (-2.5, 2.5), "yaw": (1.57, 1.57)}     # couch (rotated)
-_CORRIDOR_BLOCKER = {"x": (-2.5, 2.5),  "y": (-2.5, 2.5), "yaw": (-math.pi, math.pi)}  # desk
+# Bookshelf on the left wall, couch on the right wall, forming a traversable
+# gap in the center. Pushed far enough from origin that robot (±0.5m) can
+# never spawn inside them. Desk adds a blocker beyond the corridor opening.
+_CORRIDOR_LEFT    = {"x": (-3.0, -1.8), "y": (-2.5, 2.5), "yaw": (0.0, 0.0)}       # bookshelf — edge >= 1.17m from origin
+_CORRIDOR_RIGHT   = {"x": (1.9,   3.0), "y": (-2.5, 2.5), "yaw": (1.57, 1.57)}     # couch rotated — edge >= 1.0m from origin
+_CORRIDOR_BLOCKER = {"x": (-3.0,  3.0), "y": (1.5,  3.5), "yaw": (-math.pi, math.pi)}  # desk — north of spawn
 
 # ── Stage 4: dense clutter ────────────────────────────────────────────────
-# All 7 pieces in center-biased subzones. Each piece gets its own quadrant
-# within the center region to reduce overlap while still filling the room.
+# All 7 pieces distributed around the room in zones guaranteed >= 1.5m from
+# origin (accounting for furniture half-diagonals). Robot spawns at ±0.5m so
+# no piece can ever overlap the spawn zone.
 _DENSE_CENTER = {
-    "reset_furniture_table":     {"x": (-3.0,  0.0), "y": (0.0,  3.0), "yaw": (-math.pi, math.pi)},
-    "reset_furniture_bookshelf": {"x": (0.0,   3.0), "y": (0.0,  3.0), "yaw": (-math.pi, math.pi)},
-    "reset_furniture_chair":     {"x": (0.5,   3.0), "y": (-3.0, 0.5), "yaw": (-math.pi, math.pi)},
-    "reset_furniture_desk":      {"x": (-3.0,  0.0), "y": (-3.0, 0.0), "yaw": (-math.pi, math.pi)},
-    "reset_furniture_cabinet":   {"x": (-1.5,  1.5), "y": (0.0,  3.0), "yaw": (-math.pi, math.pi)},
-    "reset_furniture_couch":     {"x": (-3.0,  3.0), "y": (-1.5, 1.5), "yaw": (-math.pi, math.pi)},
-    "reset_furniture_bin":       {"x": (-1.5,  1.5), "y": (-3.0, 0.0), "yaw": (-math.pi, math.pi)},
+    "reset_furniture_table":     {"x": (-3.5, -1.5), "y": (1.5,  3.5), "yaw": (-math.pi, math.pi)},  # NW
+    "reset_furniture_bookshelf": {"x": (1.5,   3.5), "y": (1.5,  3.5), "yaw": (-math.pi, math.pi)},  # NE
+    "reset_furniture_chair":     {"x": (1.5,   3.5), "y": (-3.5, -1.5), "yaw": (-math.pi, math.pi)}, # SE
+    "reset_furniture_desk":      {"x": (-3.5, -2.0), "y": (-3.5, -2.0), "yaw": (-math.pi, math.pi)}, # SW (large, extra buffer)
+    "reset_furniture_cabinet":   {"x": (-1.2,  1.2), "y": (1.5,   3.5), "yaw": (-math.pi, math.pi)}, # N center
+    "reset_furniture_couch":     {"x": (-3.5, -2.0), "y": (-1.2,  1.2), "yaw": (-math.pi, math.pi)}, # W center (large, extra buffer)
+    "reset_furniture_bin":       {"x": (-1.2,  1.2), "y": (-3.5, -1.5), "yaw": (-math.pi, math.pi)}, # S center
 }
 
 # All furniture event term names (for bulk-cornering)
@@ -111,15 +111,15 @@ class NavigationCurriculum(ManagerTermBase):
         print("[CURRICULUM] Stage 1: No furniture, goals ±2m", flush=True)
 
     def _apply_stage2(self, env: ManagerBasedRLEnv):
-        """Center blocker — desk + couch in center zone, medium goals."""
+        """Center blocker — desk north, couch south, both clear of spawn zone."""
         for term_name in _ALL_FURNITURE:
             self._set_furniture_range(env, term_name, _CORNER_RANGE)
-        self._set_furniture_range(env, "reset_furniture_desk",  _CENTER_BLOCKER_RANGE)
-        self._set_furniture_range(env, "reset_furniture_couch", _CENTER_BLOCKER_RANGE)
+        self._set_furniture_range(env, "reset_furniture_desk",  _BLOCKER_NORTH)
+        self._set_furniture_range(env, "reset_furniture_couch", _BLOCKER_SOUTH)
         cmd_term = env.command_manager.get_term("pose_command")
         cmd_term.cfg.ranges.pos_x = (-3.0, 3.0)
         cmd_term.cfg.ranges.pos_y = (-3.0, 3.0)
-        print("[CURRICULUM] Stage 2: Desk + couch in center zone, goals ±3m", flush=True)
+        print("[CURRICULUM] Stage 2: Desk (north) + couch (south) blockers, goals ±3m", flush=True)
 
     def _apply_stage3(self, env: ManagerBasedRLEnv):
         """Corridor — bookshelf + couch form a randomized gap, desk beyond."""
