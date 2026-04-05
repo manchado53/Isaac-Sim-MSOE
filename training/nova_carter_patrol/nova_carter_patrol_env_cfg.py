@@ -410,7 +410,7 @@ class RewardsCfg:
     # Smooth pre-collision penalty — fires before contact, teaches avoidance
     obstacle_proximity = RewTerm(
         func=rew_mdp.obstacle_proximity,
-        weight=-0.5,
+        weight=-0.1,
         params={"sensor_cfg": SceneEntityCfg("lidar"), "safe_dist": 0.8},
     )
     # Collision penalty via contact sensor

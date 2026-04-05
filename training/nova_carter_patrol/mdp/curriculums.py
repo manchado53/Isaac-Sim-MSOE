@@ -73,9 +73,9 @@ class NavigationCurriculum(ManagerTermBase):
         self,
         env: ManagerBasedRLEnv,
         env_ids: Sequence[int],
-        stage1_steps: int = 25600,    # ~50 iters
-        stage2_steps: int = 102400,   # ~200 iters
-        stage3_steps: int = 179200,   # ~350 iters
+        stage1_steps: int = 76800,    # ~150 iters
+        stage2_steps: int = 204800,   # ~400 iters
+        stage3_steps: int = 358400,   # ~700 iters
     ) -> float:
         step = env.common_step_counter
         new_stage = (4 if step >= stage3_steps else
