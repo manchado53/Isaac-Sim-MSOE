@@ -465,3 +465,30 @@ When making major changes (reward weights, env config, new reward terms, termina
 - **CLAUDE.md**: Update if the change affects workflow, file organization, or project-level context
 - **README.md**: Update if the change affects how others use or understand the project
 - **Code docstrings/comments**: Update inline docs in the files being changed to reflect new values or behavior
+
+### Training Experiment Logging (REQUIRED)
+
+**Every time a training job is submitted** (`sbatch training/submit_training.sh`), update `training/EXPERIMENTS.md` before or immediately after submission. Required fields:
+
+- Add a row to the **Run Index** table with job ID and status "Running"
+- Add a **Detailed Run Notes** entry with:
+  - Job ID and log file paths
+  - Full reward config (all terms, weights, params)
+  - What changed from the previous run and **why**
+  - The hypothesis being tested
+  - Result (fill in after job completes)
+
+This applies to eval jobs submitted via `submit_eval_scenarios.sh` as well — note which model checkpoint was evaluated.
+
+### Run Directory Tracking (REQUIRED)
+
+**Immediately after every `sbatch` submission**, set up a cron job to watch for the new run directory and fill it into EXPERIMENTS.md automatically:
+
+```
+CronCreate every 5 minutes:
+  - ls ~/isaac-sim-msoe/training/logs/sb3/NovaCarter-Patrol/ to find new timestamped dirs
+  - When found: update EXPERIMENTS.md Run Index row and Detailed Run Notes header (replace "TBD (Job XXXXXX)" with actual timestamp), update Weights path
+  - CronDelete the job once the directory is confirmed and EXPERIMENTS.md is updated
+```
+
+The run directory is created when the job actually starts on the compute node (may be minutes to hours after submission depending on queue). The cron fires every 5 minutes until it finds the directory. Cancel with CronDelete once resolved.

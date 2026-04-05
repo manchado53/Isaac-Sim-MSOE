@@ -12,16 +12,7 @@ Training runs on MSOE's Rosie supercomputer using NVIDIA Isaac Lab (GPU-parallel
 
 ### Robot: Nova Carter
 
-NVIDIA's flagship autonomous mobile robot (AMR) with real differential-drive wheel physics.
-
-| Parameter | Value |
-|-----------|-------|
-| USD | `Isaac/Robots/NVIDIA/NovaCarter/nova_carter.usd` |
-| Drive type | Differential drive (2 powered wheels + passive casters) |
-| Wheel radius | 0.14 m |
-| Wheel base | 0.4 m |
-| Max linear velocity | 0.5 m/s |
-| Max angular velocity | 1.0 rad/s |
+See [NOVA_CARTER_SPECS.md](NOVA_CARTER_SPECS.md) for full robot specifications, rigid body structure, collision geometry, and sensor details.
 
 ### Environment: 10m x 10m Walled Room
 
@@ -62,15 +53,42 @@ The reward design uses dual-scale tanh position tracking with heading alignment,
 
 | Term | Function | Weight | Parameters | Purpose |
 |------|----------|--------|------------|---------|
-| `position_tracking` | `position_tracking_tanh` | +0.5 | std=2.0 | Coarse gradient from far away |
-| `position_tracking_fine` | `position_tracking_tanh` | +0.5 | std=0.2 | Sharp signal for precise arrival |
-| `heading_alignment` | `heading_alignment` | -0.2 | — | Penalize not facing the goal |
-| `velocity_near_goal` | `velocity_near_goal` | -2.0 | threshold=1.0m | Teach deceleration on approach |
-| `goal_reached` | `goal_reached` | +2.0 | threshold=0.5m | Bonus when within 0.5m of goal |
-| `collision` | `collision_penalty` | -2.0 | threshold=0.15m | Binary penalty on LiDAR contact |
-| `obstacle_proximity` | `obstacle_proximity` | -1.0 | safe_dist=0.5m | Smooth penalty near obstacles |
-| `action_smoothness` | `action_rate_l2` | -0.1 | — | Penalize jerky actions |
-| `survival` | `is_alive` | +0.1 | — | Positive baseline to stabilize training |
+| `position_tracking` | `position_tracking_tanh` | +2.0 | std=2.0 | Dense gradient — "getting warmer" |
+| `goal_reached` | `goal_reached` | +10.0 | threshold=0.5m | Sparse bonus — "you found it" |
+| `collision` | `mdp.undesired_contacts` | -10.0 | contact_sensor, threshold=1.0N | "crashing is very bad" |
+
+**Removed terms** (see Reward Design Principles below):
+- `velocity_near_goal` — robot should learn deceleration from the tanh gradient and goal_reached spike
+- `obstacle_proximity` — redundant with contact sensor collision penalty
+- `action_smoothness` — adds complexity without clear benefit
+- `position_tracking_fine` (std=0.2) — redundant with `goal_reached` at the same 0.5m zone
+- `heading_alignment` (-0.2) — accumulated ~-190/episode and penalized turning away from goal to avoid obstacles
+
+### Isaac Lab Reward Scaling (dt multiplication)
+
+Isaac Lab's reward manager multiplies every reward term by `dt` before returning it:
+
+```python
+value = term_cfg.func(...) * term_cfg.weight * dt
+```
+
+`dt` here is the **RL step duration** = `physics_dt × decimation` = `(1/60) × 5` = **0.0833 seconds**.
+
+This means weights are in "reward per second" units, not "reward per step." The effective per-step values with current weights are:
+
+| Term | Weight (config) | × dt | Effective per RL step |
+|------|----------------|------|-----------------------|
+| `goal_reached` | +100.0 | × 0.0833 | **+8.33** |
+| `collision` | -10.0 | × 0.0833 | **-0.83** |
+| `time_penalty` | -0.05 | × 0.0833 | **-0.004** |
+| `delta_progress` | +3.0 | × 0.0833 | **+0.25 × Δm** |
+| `distance_to_goal` | +1.0 | × 0.0833 | **+0.083** max |
+
+**Relative ratios are preserved** — all terms scale equally, so the incentive structure is consistent. PPO normalizes advantages internally so absolute scale doesn't matter for learning.
+
+**Collision calibration**: at 12Hz RL rate, 1 second of sustained wall contact = 12 steps × -0.83 = **-10.0 total**, which exceeds one goal arrival (+8.33). The penalty is more aggressive than the raw weight of -10.0 suggests.
+
+**To target a specific per-event value**: divide the intended value by dt. For example, to give exactly +100 on goal arrival: `weight = 100 / 0.0833 ≈ 1200`.
 
 ### Key Reward Functions
 
@@ -80,7 +98,9 @@ The reward design uses dual-scale tanh position tracking with heading alignment,
 
 **`heading_alignment`**: Returns `|heading_error|`, penalized so the robot learns to face the goal direction.
 
-**`goal_reached(threshold)`**: Returns 1.0 when distance < threshold, 0.0 otherwise. Gives an explicit success signal on top of the continuous tanh rewards. Weight is +2.0 — enough to incentivize clean arrival but not so large it dominates the shaping.
+**`goal_reached(threshold)`**: Returns 1.0 when distance < threshold, 0.0 otherwise. Gives an explicit success signal on top of the continuous tanh rewards. Weight is +10.0 — large enough to strongly incentivize closing the final distance rather than hovering nearby.
+
+**`mdp.undesired_contacts`** (Isaac Lab built-in): Uses the contact sensor on `chassis_link` to detect actual physics collisions. Threshold is 1.0N (force-based). Replaces the old LiDAR-based collision penalty which had a blind spot due to LiDAR-to-bumper offset (see NOVA_CARTER_SPECS.md).
 
 ### Goal-Reached Command Resampling
 
@@ -104,6 +124,64 @@ The original reward used `GoalProgressReward` (delta-distance per step) + `goal_
 
 The tanh approach (introduced second) provided continuous gradients but used a fixed 10-15s resampling timer. The current design (Pattern B) keeps the tanh shaping and adds goal-reached resampling so the robot doesn't waste simulation time sitting at reached goals.
 
+### Reward Design Principles (from literature)
+
+A survey of 11 published navigation RL systems reveals consistent patterns for what works and what fails in reward design.
+
+#### Core reward terms (present in nearly every paper)
+
+Every successful system uses these three signals:
+1. **Dense distance progress** — continuous reward for moving toward the goal (weights range +0.5 to +500)
+2. **Sparse goal bonus** — large one-time reward for arrival (weights range +3 to +120)
+3. **Sparse collision penalty** — largest negative signal in the system (weights range -5 to -100)
+
+Sources: Tai et al. 2017, Sahar et al. 2025, Cimurs TD3, NavBot PPO, HMP-DRL 2024.
+
+#### Heading alignment: additive vs multiplicative
+
+The literature is split on heading alignment (6/11 use it, 5/11 do not). Key findings:
+- **Additive heading** (our original approach) lets the robot ignore heading while maximizing other terms. The Isaac Lab JetBot tutorial specifically warns against this.
+- **Multiplicative heading** (e.g., `forward_vel * exp(alignment)`) works better because the robot must satisfy both terms simultaneously.
+- **No heading** works fine in many systems — the robot learns heading implicitly from the distance gradient. Tai et al. 2017 explicitly noted "orientation NOT considered" and achieved successful sim-to-real transfer.
+- **Heading fights obstacle avoidance** — when the robot needs to turn away from the goal to go around furniture, an additive heading penalty punishes the correct behavior.
+
+Sources: [Isaac Lab JetBot Tutorial](https://isaac-sim.github.io/IsaacLab/main/source/setup/walkthrough/training_jetbot_reward_exploration.html), [Tai et al. 2017 (arXiv:1703.00420)](https://arxiv.org/abs/1703.00420), [RND3QN (PMC)](https://pmc.ncbi.nlm.nih.gov/articles/PMC9958619/).
+
+#### Known degenerate policies from reward design
+
+| Problem | Cause | Source |
+|---------|-------|--------|
+| Robot stands still | Positive survival reward + harsh collision penalty | Survival Penalty paper (PMC, 2023) |
+| Robot drives backward | Multiplicative heading × velocity without exp() | Isaac Lab JetBot Tutorial |
+| Robot spins in place | Heading reward without distance coupling | Enhanced PPO (arXiv:2405.16266) |
+| Exploration death | Too many negative penalties or terminal conditions | WheeledLab (arXiv:2502.07380) |
+| Slow-motion policy | Positive distance reward accumulated by moving slowly | Survival Penalty paper (PMC, 2023) |
+| Numerical instability | Large sudden collision penalties | Survival Penalty paper (PMC, 2023) |
+
+#### Fewer terms is better
+
+Most successful published systems use 3-6 reward terms. The Isaac Lab tutorial and WheeledLab both emphasize that simpler reward functions with careful term combination outperform many loosely-weighted terms. Each additional term adds a hyperparameter (weight) that interacts with all other terms.
+
+Sources: [WheeledLab (arXiv:2502.07380)](https://arxiv.org/abs/2502.07380), [Isaac Lab JetBot Tutorial](https://isaac-sim.github.io/IsaacLab/main/source/setup/walkthrough/training_jetbot_reward_exploration.html).
+
+#### Reference reward structures from published work
+
+**Sahar et al. 2025 (RL-Navigation, Isaac Sim JetBot → TurtleBot4 sim-to-real)**:
+9 terms: progress_dis×10, potential×0.1, +30 goal, -30 collision, -1/-2/-2 proximity zones, speed bonus. No heading in reward (heading in obs only). Achieved zero-shot sim-to-real transfer.
+[arXiv:2501.02902](https://arxiv.org/abs/2501.02902)
+
+**NavBot PPO (TurtleBot)**:
+3 terms: 500×delta_distance, +120 goal, -100 collision. No heading. Very high distance scaling works well with PPO.
+[github.com/hamidthri/navbot_ppo](https://github.com/hamidthri/navbot_ppo)
+
+**Cimurs TD3 Navigation**:
+5 terms: action[0]/2 forward motion, +100 goal, -100 collision, rotation penalty, proximity penalty. No heading. Elegant simplicity.
+[github.com/reiniscimurs/DRL-robot-navigation](https://github.com/reiniscimurs/DRL-robot-navigation)
+
+**HMP-DRL 2024 (Hybrid Motion Planning)**:
+3 primary (7 sub): 1-d_g/d_max proximity, +3.0 success, -1.0 to -2.5 entity-aware collision. Checkpoint rewards (+0.3) improved success rate by 35.7%.
+[arXiv:2512.24651](https://arxiv.org/html/2512.24651v1)
+
 ---
 
 ## Termination Conditions
@@ -118,6 +196,22 @@ The `command_resample` termination uses Isaac Lab's built-in `mdp.command_resamp
 
 No `collision` termination — handled as reward penalty only. Terminating on collision causes a death spiral when the robot spawns near furniture (instant death -> no useful signal -> NaN gradients).
 
+### Collision Detection
+
+**Important**: The `ContactSensorCfg` must target `chassis_link` only, NOT `Robot/.*` (all bodies). The wheels and casters are always in contact with the ground, producing ~200N+ of force from gravity every step. Using `Robot/.*` makes every step look like a collision.
+
+```python
+# WRONG — detects ground contact through wheels (always ~200N)
+contact_sensor = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*")
+
+# CORRECT — chassis doesn't touch ground normally, so any force = real collision
+contact_sensor = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/chassis_link")
+```
+
+The contact sensor uses `net_forces_w` (shape: `(num_envs, num_bodies, 3)`) which reports total contact force on each tracked body. For filtered contacts (e.g., only detecting contact with specific obstacles), use `filter_prim_paths_expr` and read `force_matrix_w` instead — see [Isaac Lab Contact Sensor docs](https://isaac-sim.github.io/IsaacLab/main/source/overview/core-concepts/sensors/contact_sensor.html).
+
+Both training and evaluation now use the contact sensor for collision detection. The old LiDAR-based collision penalty was removed because the LiDAR-to-bumper offset (0.36m) made the threshold unreliable. LiDAR is still used for `obstacle_proximity` (proactive avoidance before contact). See NOVA_CARTER_SPECS.md for robot dimensions.
+
 ---
 
 ## PPO Hyperparameters
@@ -127,7 +221,7 @@ Configured in `nova_carter_patrol/agents/sb3_ppo_cfg.yaml`:
 | Parameter | Value | Notes |
 |-----------|-------|-------|
 | Algorithm | PPO (SB3) | |
-| Policy | MlpPolicy | 2x128 hidden layers, ReLU |
+| Policy | MlpPolicy | 2x256 hidden layers, ReLU |
 | Learning rate | 3e-4 | |
 | Num envs | 128 | Reduced from 256 — Nova Carter USD is heavier |
 | Steps per rollout | 512 | |
@@ -137,7 +231,7 @@ Configured in `nova_carter_patrol/agents/sb3_ppo_cfg.yaml`:
 | GAE lambda | 0.95 | |
 | Clip range | 0.2 | |
 | Entropy coef | 0.01 | |
-| Target KL | 0.02 | Early-stops policy update if KL diverges (prevents NaN) |
+| Target KL | 0.03 | Early-stops policy update if KL diverges (prevents NaN) |
 | Max grad norm | 0.5 | |
 | VecNormalize | obs only | Reward normalization disabled — causes NaN with short episodes |
 
