@@ -1,0 +1,88 @@
+# Revit to USD Pipeline Configuration
+# Edit this file to customize behavior
+
+# Element Filtering
+filtering:
+  # IFC types to EXCLUDE (MEP, structural details, annotations)
+  exclude_types: []
+    # MEP Systems - EXCLUDE THESE!
+    # - IfcDistributionPort        # 1166 elements
+    # - IfcFlowTerminal            # 262 elements
+    # - IfcFlowFitting             # 208 elements
+    # - IfcFlowSegment             # 183 elements
+    # - IfcDuctSegment
+    # - IfcDuctFitting
+    # - IfcPipeSegment
+    # - IfcPipeFitting
+    # - IfcCableSegment
+    # - IfcCableCarrierSegment
+    # - IfcMechanicalEquipment
+    # - IfcDistributionControlElement
+    
+    # Other excludes
+    # - IfcOpeningElement          # 30 elements - voids, not geometry
+    # - IfcGrid                    # 2 elements - reference grids
+    # - IfcAnnotation
+    # - IfcDuctSegment
+    # - IfcDuctFitting
+    # - IfcPipeSegment
+    # - IfcPipeFitting
+    # - IfcCableSegment
+    # - IfcCableCarrierSegment
+    # - IfcMechanicalEquipment
+    # - IfcFlowTerminal
+    # - IfcDistributionControlElement
+    # - IfcAnnotation
+    # - IfcGrid
+    # - IfcOpeningElement
+    # - IfcDistributionPort
+    # - IfcElectricalElement
+    # - IfcStructuralSurfaceMember
+    # - IfcStructuralCurveMember
+    # - IfcReinforcingBar
+    # - IfcReinforcingMesh
+  
+  # IFC types to INCLUDE (navigation relevant)
+  # If empty, includes everything except excluded types
+  include_types: []
+    # - IfcWall
+    # - IfcWallStandardCase
+    # - IfcSlab
+    # - IfcDoor
+    # - IfcWindow
+    # - IfcStair
+    # - IfcStairFlight
+    # - IfcRamp
+    # - IfcRampFlight
+    # - IfcRailing
+    # - IfcSpace
+    # - IfcFurniture
+    # - IfcBuildingElementProxy
+    # - IfcColumn
+    # - IfcBeam
+    # - IfcCovering
+    # - IfcCurtainWall
+    # - IfcPlate
+    # - IfcMember
+
+# USD Output Settings
+output:
+  default_prim_name: "Building"
+  add_metadata: true
+  optimize_mesh: false
+  create_materials: true
+  
+# Processing Options
+processing:
+  geometry_settings:
+    use_world_coords: true
+    disable_opening_subtractions: false
+  
+  verbose_logging: true
+  skip_on_error: true  # Continue processing if one element fails
+  
+# Paths
+paths:
+  input_folder: "input_ifc"
+  output_folder: "output_usd"
+  log_folder: "logs"
