@@ -2,7 +2,7 @@
 # Framework: Stable-Baselines3
 seed: 42
 
-n_timesteps: !!float 5e6
+n_timesteps: !!float 1e8
 policy: 'MlpPolicy'
 batch_size: 256
 n_steps: 512
