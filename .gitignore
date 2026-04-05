@@ -5,5 +5,8 @@ __pycache__/
 checkpoints/
 tb_logs/
 .claude/
+docs/
+images/
+*.usd
 *.log
 /logs/

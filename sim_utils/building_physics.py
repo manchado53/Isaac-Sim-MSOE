@@ -402,39 +402,311 @@ def create_revolute_joint(stage, joint_path, body0_path, body1_path,
     return joint
 
 
+# ---------------------------------------------------------------------------
+# Door Mechanism Classification & Drive
+# ---------------------------------------------------------------------------
+#
+# Classification System
+# ---------------------
+# Doors are classified by DoorMechanism based on substrings found in their
+# USD prim path (which encodes the Revit family type name).
+#
+# Only HINGED_SINGLE and HINGED_DOUBLE get physics applied (rigid body +
+# revolute joint + DriveAPI).  OVERHEAD, SLIDING, and UNKNOWN are skipped
+# by the setup pipeline — they require joint types not yet implemented.
+#
+# Mechanism types and their Revit type patterns:
+#   HINGED_SINGLE  — Type_F, Type_G, Type_N, Type_FG, Curtain_Wall (single leaf)
+#   HINGED_DOUBLE  — Type_2F, Type_2G, Type_2FG, Type_2FU, Type_2F___Dual
+#   OVERHEAD       — AV300_RAYNOR, Overhead_Rolling, Overhead_Sectional
+#   SLIDING        — Sliding_Glass, Dormakaba
+#   UNKNOWN        — No pattern matched (e.g. Elevator_Door)
+#
+# Double Door Geometry (Revit Export Limitation)
+# -----------------------------------------------
+# Revit exports double-leaf doors as a SINGLE unified prim with combined
+# geometry (e.g. AL frame mesh + Glass mesh, both spanning the full width).
+# The two leaves are NOT separate sub-prims and cannot be split at runtime.
+#
+# Consequence: double doors are treated as a single swinging unit with:
+#   - One rigid body (30 kg total, vs 15 kg for single doors)
+#   - One revolute joint at the min-edge of the bounding box
+#   - Stronger drive parameters (stiffness=500, damping=250, max_force=5000)
+#   - Reduced angular limits (±70° vs ±100° for single doors)
+#
+# This means both leaves swing together as one piece.  Independent leaf
+# mechanics would require either a different Revit export format or
+# runtime mesh splitting.
+# ---------------------------------------------------------------------------
+
+
+class DoorMechanism(Enum):
+    """Mechanical type of a door, determines drive parameters."""
+    HINGED_SINGLE = auto()
+    HINGED_DOUBLE = auto()
+    OVERHEAD = auto()
+    SLIDING = auto()
+    UNKNOWN = auto()
+
+
+# Prim-path substrings -> mechanism mapping (checked in order, first match wins)
+_MECHANISM_RULES = [
+    # Overhead / garage
+    ("AV300_RAYNOR", DoorMechanism.OVERHEAD),
+    ("Overhead_Rolling", DoorMechanism.OVERHEAD),
+    ("Overhead_Sectional", DoorMechanism.OVERHEAD),
+    # Sliding
+    ("Sliding_Glass", DoorMechanism.SLIDING),
+    ("Dormakaba", DoorMechanism.SLIDING),
+    # Double-leaf hinged (must check before single)
+    ("Type_2F___Dual", DoorMechanism.HINGED_DOUBLE),  # RS - Type 2F - Dual Door
+    ("Type_2F", DoorMechanism.HINGED_DOUBLE),
+    ("Type_2G", DoorMechanism.HINGED_DOUBLE),
+    ("2FG", DoorMechanism.HINGED_DOUBLE),
+    ("2FU", DoorMechanism.HINGED_DOUBLE),
+    ("2F_", DoorMechanism.HINGED_DOUBLE),
+    # Single-leaf hinged
+    ("Type_F", DoorMechanism.HINGED_SINGLE),
+    ("Type_G", DoorMechanism.HINGED_SINGLE),
+    ("Type_N", DoorMechanism.HINGED_SINGLE),
+    ("Type_FG", DoorMechanism.HINGED_SINGLE),
+    ("Curtain_Wall", DoorMechanism.HINGED_SINGLE),
+]
+
+
+def classify_door_mechanism(door_prim) -> DoorMechanism:
+    """Classify a door prim's mechanical type by inspecting its path.
+
+    Looks for known substrings in the prim path (which includes the
+    type-group folder name from the Revit export).
+    """
+    path_str = str(door_prim.GetPath())
+    for substring, mechanism in _MECHANISM_RULES:
+        if substring in path_str:
+            return mechanism
+    return DoorMechanism.UNKNOWN
+
+
+# Default drive parameters per mechanism: (stiffness, damping, max_force)
+DOOR_DRIVE_PARAMS = {
+    DoorMechanism.HINGED_SINGLE: (300.0, 150.0, 3000.0),
+    DoorMechanism.HINGED_DOUBLE: (500.0, 250.0, 5000.0),  # stronger for heavier 2-leaf door
+}
+
+
+def setup_door_drive(joint, stiffness=300.0, damping=150.0,
+                     max_force=3000.0, target_position=0.0):
+    """Apply UsdPhysics.DriveAPI (angular position drive) to a revolute joint.
+
+    Args:
+        joint: UsdPhysics.RevoluteJoint or its prim
+        stiffness: Spring constant toward target angle
+        damping: Damping coefficient to prevent oscillation
+        max_force: Maximum torque the drive can apply
+        target_position: Initial target angle in degrees (0 = closed)
+
+    Returns:
+        The UsdPhysics.DriveAPI instance
+    """
+    joint_prim = joint.GetPrim() if hasattr(joint, "GetPrim") else joint
+    drive = UsdPhysics.DriveAPI.Apply(joint_prim, "angular")
+    drive.CreateStiffnessAttr(stiffness)
+    drive.CreateDampingAttr(damping)
+    drive.CreateMaxForceAttr(max_force)
+    drive.CreateTargetPositionAttr(target_position)
+    return drive
+
+
+def set_drive_target(drive, angle_deg):
+    """Update the drive's target angle (degrees) at runtime."""
+    drive.GetTargetPositionAttr().Set(angle_deg)
+
+
 def estimate_door_hinge_offset(stage, door_prim):
     """
     Estimate a hinge position at one vertical edge of a door's bounding box.
+
+    Uses **world-space** bounding box to avoid unit-scale mismatches that
+    occur with Revit-exported geometry (local coords may be in centimeters
+    or other non-stage units).  The world-space hinge position is then
+    inverse-transformed back into body1's local frame for ``local_pos1``.
+
+    The hinge edge is chosen along the door's **narrow horizontal axis**
+    (the door width), picking the min edge.  Doors oriented along X get
+    a min-X hinge; doors oriented along Y get a min-Y hinge.
 
     Returns (local_pos0, local_pos1) as Gf.Vec3f tuples suitable for
     create_revolute_joint, or (None, None) if bounding box can't be computed.
     """
     bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
-    bbox = bbox_cache.ComputeLocalBound(door_prim)
-    box_range = bbox.ComputeAlignedRange()
-    bb_min = box_range.GetMin()
-    bb_max = box_range.GetMax()
 
-    if bb_min == bb_max:
+    # --- World-space bounding box (in stage units = meters) ---
+    world_bbox = bbox_cache.ComputeWorldBound(door_prim)
+    world_range = world_bbox.ComputeAlignedRange()
+    w_min = world_range.GetMin()
+    w_max = world_range.GetMax()
+
+    if w_min == w_max:
         return None, None
 
-    # Hinge at the min-X edge of the door (left side when facing it)
-    # The joint pivot is at the hinge line — vertical axis through one edge
-    hinge_x = bb_min[0]
-    hinge_y = (bb_min[1] + bb_max[1]) / 2.0
-    hinge_z = (bb_min[2] + bb_max[2]) / 2.0
+    dx = w_max[0] - w_min[0]
+    dy = w_max[1] - w_min[1]
 
-    # local_pos1 is the offset from the door's origin to the hinge point
-    local_pos1 = Gf.Vec3f(float(hinge_x), float(hinge_y), float(hinge_z))
+    # Determine door orientation: the wider horizontal axis is the door
+    # width, the thinner one is the door depth (thickness).
+    # Hinge goes on the min edge of the wider axis.
+    if dx >= dy:
+        # Door extends along X — hinge at min-X edge
+        hinge_x = w_min[0]
+        hinge_y = (w_min[1] + w_max[1]) / 2.0
+    else:
+        # Door extends along Y — hinge at min-Y edge
+        hinge_x = (w_min[0] + w_max[0]) / 2.0
+        hinge_y = w_min[1]
 
-    # local_pos0 is the world-space position of the hinge
-    # For a door attached to the world frame, we need the door's world transform
+    hinge_z = (w_min[2] + w_max[2]) / 2.0
+
+    # local_pos0: hinge in body0's frame (body0 = world, so world coords)
+    hinge_world = Gf.Vec3d(hinge_x, hinge_y, hinge_z)
+    local_pos0 = Gf.Vec3f(float(hinge_world[0]),
+                           float(hinge_world[1]),
+                           float(hinge_world[2]))
+
+    # local_pos1: hinge in body1's (door's) local frame.
+    # Inverse-transform the world hinge position into the door's local space
+    # so that units match regardless of internal scale factors.
     xformable = UsdGeom.Xformable(door_prim)
     world_xform = xformable.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
-    hinge_world = world_xform.Transform(Gf.Vec3d(float(hinge_x), float(hinge_y), float(hinge_z)))
-    local_pos0 = Gf.Vec3f(float(hinge_world[0]), float(hinge_world[1]), float(hinge_world[2]))
+    inv_xform = world_xform.GetInverse()
+    hinge_local = inv_xform.Transform(hinge_world)
+    local_pos1 = Gf.Vec3f(float(hinge_local[0]),
+                           float(hinge_local[1]),
+                           float(hinge_local[2]))
 
     return local_pos0, local_pos1
+
+
+# ---------------------------------------------------------------------------
+# Collision Filtering for Doors
+# ---------------------------------------------------------------------------
+
+def _build_collision_index(stage, exclude_prefix=None):
+    """Build a spatial index of all static collision prims.
+
+    Returns list of (prim, bbox_min, bbox_max) tuples.
+    Only includes prims that have CollisionAPI but NOT RigidBodyAPI
+    (i.e., static colliders only).
+    """
+    bbox_cache = UsdGeom.BBoxCache(
+        Usd.TimeCode.Default(), [UsdGeom.Tokens.default_]
+    )
+    index = []
+    for prim in stage.Traverse():
+        if not prim.HasAPI(UsdPhysics.CollisionAPI):
+            continue
+        if prim.HasAPI(UsdPhysics.RigidBodyAPI):
+            continue
+        if exclude_prefix and str(prim.GetPath()).startswith(exclude_prefix):
+            continue
+        bbox = bbox_cache.ComputeWorldBound(prim)
+        rng = bbox.ComputeAlignedRange()
+        if rng.IsEmpty():
+            continue
+        index.append((prim, rng.GetMin(), rng.GetMax()))
+    return index
+
+
+def _boxes_overlap(a_min, a_max, b_min, b_max):
+    """Check if two 3D AABBs overlap."""
+    for i in range(3):
+        if a_min[i] >= b_max[i] or b_min[i] >= a_max[i]:
+            return False
+    return True
+
+
+def add_door_collision_filters(stage, door_prims, collision_index=None,
+                               margin=0.0):
+    """Disable collision between each door and nearby static geometry.
+
+    Curtain wall doors from Revit sit flush inside wall/mullion assemblies.
+    Without filtering, the door's convex hull collision immediately jams
+    against the surrounding static colliders, preventing any rotation.
+
+    This function finds all static colliders whose bounding box overlaps
+    each door's (optionally inflated) bounding box and applies
+    ``PhysxFilteredPairsAPI`` to prevent collision between them.
+
+    Args:
+        stage: USD stage.
+        door_prims: List of door UsdPrim objects (must have RigidBodyAPI).
+        collision_index: Pre-built index from ``_build_collision_index()``.
+            If None, one is built automatically.
+        margin: Distance (in stage units, typically meters) to inflate each
+            door's bounding box before the overlap test.  A positive margin
+            catches nearby geometry that the door sweeps into during the
+            first degrees of rotation — essential for curtain wall doors
+            where mullions sit just outside the resting AABB.
+
+    Returns:
+        Total number of filtered pairs added.
+    """
+    if collision_index is None:
+        collision_index = _build_collision_index(stage)
+
+    bbox_cache = UsdGeom.BBoxCache(
+        Usd.TimeCode.Default(), [UsdGeom.Tokens.default_]
+    )
+
+    total_filtered = 0
+
+    for door_prim in door_prims:
+        door_path = str(door_prim.GetPath())
+
+        # Get door's world bounding box
+        door_bbox = bbox_cache.ComputeWorldBound(door_prim)
+        door_range = door_bbox.ComputeAlignedRange()
+        if door_range.IsEmpty():
+            continue
+        d_min = door_range.GetMin()
+        d_max = door_range.GetMax()
+
+        # Inflate bounding box by margin to catch swept-arc geometry
+        if margin > 0:
+            d_min = Gf.Vec3d(d_min[0] - margin, d_min[1] - margin,
+                             d_min[2] - margin)
+            d_max = Gf.Vec3d(d_max[0] + margin, d_max[1] + margin,
+                             d_max[2] + margin)
+
+        # Find overlapping static colliders
+        overlapping = []
+        for col_prim, c_min, c_max in collision_index:
+            if str(col_prim.GetPath()).startswith(door_path):
+                continue  # skip self/children
+            if _boxes_overlap(d_min, d_max, c_min, c_max):
+                overlapping.append(col_prim)
+
+        if not overlapping:
+            continue
+
+        # Apply FilteredPairsAPI on each collision child of the door.
+        # The filter must be on the prim with CollisionAPI, and targets
+        # must also be collision prims, for PhysX to respect it.
+        door_col_prims = []
+        for child in door_prim.GetChildren():
+            if child.HasAPI(UsdPhysics.CollisionAPI):
+                door_col_prims.append(child)
+
+        # Also apply on the door prim itself (covers both levels)
+        filter_prims = door_col_prims + [door_prim]
+
+        targets = [col.GetPath() for col in overlapping]
+        for fp in filter_prims:
+            api = UsdPhysics.FilteredPairsAPI.Apply(fp)
+            rel = api.GetFilteredPairsRel()
+            rel.SetTargets(targets)
+        total_filtered += len(targets)
+
+    return total_filtered
 
 
 # ---------------------------------------------------------------------------
@@ -616,3 +888,297 @@ def iter_building_elements(stage, building_prim, level_filter=None):
         for child in building_prim.GetChildren():
             if child.IsA(UsdGeom.Xform) and child.GetTypeName() != "Scope":
                 yield ("default", None, child)
+
+
+# ---------------------------------------------------------------------------
+# Floor Discovery
+# ---------------------------------------------------------------------------
+
+def discover_floor_levels(stage, building_path="/World/Building"):
+    """Discover distinct floor surfaces by clustering floor element bboxes.
+
+    Iterates floor elements via ``iter_building_elements``, groups them by
+    Z-height (1.5-unit tolerance), and returns an area-weighted centroid per
+    cluster.
+
+    Returns:
+        list[dict]: Sorted by ``z`` ascending.  Each dict has keys
+        ``name``, ``z``, ``center_x``, ``center_y``, ``count``.
+    """
+    bbox_cache = UsdGeom.BBoxCache(
+        Usd.TimeCode.Default(), [UsdGeom.Tokens.default_]
+    )
+    building_prim = stage.GetPrimAtPath(building_path)
+
+    floor_data = []
+    for _level, category_name, element in iter_building_elements(stage, building_prim):
+        if category_name != "Floors":
+            continue
+        bbox = bbox_cache.ComputeWorldBound(element)
+        box_range = bbox.ComputeAlignedRange()
+        bb_min = box_range.GetMin()
+        bb_max = box_range.GetMax()
+        if bb_min == bb_max:
+            continue
+        dx = bb_max[0] - bb_min[0]
+        dy = bb_max[1] - bb_min[1]
+        if dx < 0.5 and dy < 0.5:
+            continue
+        floor_data.append({
+            "z_top": bb_max[2],
+            "x_center": (bb_min[0] + bb_max[0]) / 2.0,
+            "y_center": (bb_min[1] + bb_max[1]) / 2.0,
+            "area": dx * dy,
+        })
+
+    if not floor_data:
+        return []
+
+    # Cluster by Z height (1.5-unit tolerance)
+    floor_data.sort(key=lambda f: f["z_top"])
+    clusters = []
+    current = [floor_data[0]]
+    for fd in floor_data[1:]:
+        if fd["z_top"] - current[0]["z_top"] > 1.5:
+            clusters.append(current)
+            current = [fd]
+        else:
+            current.append(fd)
+    clusters.append(current)
+
+    # Aggregate each cluster with area-weighted center
+    levels = []
+    for i, cluster in enumerate(clusters):
+        total_area = sum(f["area"] for f in cluster)
+        if total_area < 0.01:
+            continue
+        avg_x = sum(f["x_center"] * f["area"] for f in cluster) / total_area
+        avg_y = sum(f["y_center"] * f["area"] for f in cluster) / total_area
+        avg_z = sum(f["z_top"] * f["area"] for f in cluster) / total_area
+        levels.append({
+            "name": f"floor_{i + 1}",
+            "z": avg_z,
+            "center_x": avg_x,
+            "center_y": avg_y,
+            "count": len(cluster),
+        })
+
+    return levels
+
+
+# ---------------------------------------------------------------------------
+# Native PhysX Runtime Metrics Helpers
+# ---------------------------------------------------------------------------
+# These functions query the PhysX simulation engine for data that is only
+# available AFTER world.reset() has been called and at least one world.step()
+# has executed.  All are wrapped in try/except so they degrade gracefully
+# when the underlying APIs are unavailable.
+# ---------------------------------------------------------------------------
+
+def encode_prim_path(prim_path_str):
+    """Encode a USD prim path string to the uint64 used by PhysX runtime APIs.
+
+    Returns the encoded int, or None if encoding is unavailable.
+    """
+    try:
+        from pxr import PhysicsSchemaTools
+        return PhysicsSchemaTools.encodeSdfPath(Sdf.Path(prim_path_str))
+    except (ImportError, AttributeError):
+        return None
+
+
+def get_physics_scene_stats(stage, scene_path="/World/PhysicsScene"):
+    """Snapshot PhysicsSceneStats into a plain dict.
+
+    Returns a dict with selected PhysX scene statistics, or an empty dict
+    if the API is unavailable.
+    """
+    try:
+        import omni.usd
+        from omni.physx import get_physx_statistics_interface
+        from omni.physx.bindings._physx import PhysicsSceneStats
+        from pxr import PhysicsSchemaTools
+
+        stage_id = omni.usd.get_context().get_stage_id()
+        encoded_path = PhysicsSchemaTools.encodeSdfPath(Sdf.Path(scene_path))
+
+        stats = PhysicsSceneStats()
+        get_physx_statistics_interface().get_physx_scene_statistics(
+            stage_id, encoded_path, stats
+        )
+
+        return {
+            # Body counts
+            "nb_static_rigids": stats.nb_static_rigids,
+            "nb_dynamic_rigids": stats.nb_dynamic_rigids,
+            "nb_active_dynamic_rigids": stats.nb_active_dynamic_rigids,
+            "nb_kinematic_rigids": stats.nb_kinematic_rigids,
+            "nb_active_kinematic_rigids": stats.nb_active_kinematic_rigids,
+            "nb_articulations": stats.nb_articulations,
+            # Constraints
+            "nb_active_constraints": stats.nb_active_constraints,
+            "nb_axis_solver_constraints": stats.nb_axis_solver_constaints,
+            # Shape counts
+            "nb_box_shapes": stats.nb_box_shapes,
+            "nb_sphere_shapes": stats.nb_sphere_shapes,
+            "nb_capsule_shapes": stats.nb_capsule_shapes,
+            "nb_convex_shapes": stats.nb_convex_shapes,
+            "nb_trimesh_shapes": stats.nb_trimesh_shapes,
+            "nb_plane_shapes": stats.nb_plane_shapes,
+            # Broadphase / narrowphase
+            "nb_new_pairs": stats.nb_new_pairs,
+            "nb_lost_pairs": stats.nb_lost_pairs,
+            "nb_new_touches": stats.nb_new_touches,
+            "nb_lost_touches": stats.nb_lost_touches,
+            "nb_discrete_contact_pairs_total": stats.nb_discrete_contact_pairs_total,
+            "nb_discrete_contact_pairs_with_contacts": stats.nb_discrete_contact_pairs_with_contacts,
+            # Solver
+            "nb_partitions": stats.nb_partitions,
+            # Memory
+            "compressed_contact_size": stats.compressed_contact_size,
+            "required_contact_constraint_memory": stats.required_contact_constraint_memory,
+            "peak_constraint_memory": stats.peak_constraint_memory,
+            # GPU memory
+            "gpu_mem_heap": stats.gpu_mem_heap,
+            "gpu_mem_heap_broadphase": stats.gpu_mem_heap_broadphase,
+            "gpu_mem_heap_narrowphase": stats.gpu_mem_heap_narrowphase,
+            "gpu_mem_heap_solver": stats.gpu_mem_heap_solver,
+            "gpu_mem_heap_articulation": stats.gpu_mem_heap_articulation,
+            "gpu_mem_heap_simulation": stats.gpu_mem_heap_simulation,
+            "gpu_mem_heap_other": stats.gpu_mem_heap_other,
+        }
+    except Exception as e:
+        print(f"[building_physics] Warning: could not collect scene stats: {e}")
+        return {}
+
+
+def get_solver_residuals(stage, scene_path="/World/PhysicsScene"):
+    """Read solver residual values from the physics scene prim.
+
+    PhysxResidualReportingAPI must be applied and the carb setting
+    /physics/updateResidualsToUsd must be True BEFORE world.reset().
+    Call this AFTER at least one world.step().
+
+    Returns dict with rms/max position/velocity residuals, or empty dict.
+    """
+    try:
+        from pxr import PhysxSchema as _PhysxSchema
+
+        scene_prim = stage.GetPrimAtPath(scene_path)
+        if not scene_prim.IsValid():
+            return {}
+
+        residual_api = _PhysxSchema.PhysxResidualReportingAPI(scene_prim)
+
+        rms_pos = residual_api.GetPhysxResidualReportingRmsResidualPositionIterationAttr().Get()
+        max_pos = residual_api.GetPhysxResidualReportingMaxResidualPositionIterationAttr().Get()
+        rms_vel = residual_api.GetPhysxResidualReportingRmsResidualVelocityIterationAttr().Get()
+        max_vel = residual_api.GetPhysxResidualReportingMaxResidualVelocityIterationAttr().Get()
+
+        return {
+            "rms_position": float(rms_pos) if rms_pos is not None else None,
+            "max_position": float(max_pos) if max_pos is not None else None,
+            "rms_velocity": float(rms_vel) if rms_vel is not None else None,
+            "max_velocity": float(max_vel) if max_vel is not None else None,
+        }
+    except Exception as e:
+        print(f"[building_physics] Warning: could not read solver residuals: {e}")
+        return {}
+
+
+def get_compute_cost(stage, scene_path="/World/PhysicsScene"):
+    """Extract GPU memory breakdown and physics step timing.
+
+    GPU memory comes from PhysicsSceneStats (bytes → MB).
+    Physics step timing comes from PhysicsProfileStats if available.
+
+    Returns dict with cost metrics, or empty dict.
+    """
+    result = {}
+    try:
+        scene_stats = get_physics_scene_stats(stage, scene_path)
+        if scene_stats:
+            to_mb = 1.0 / (1024 * 1024)
+            result["gpu_mem_total_mb"] = round(scene_stats.get("gpu_mem_heap", 0) * to_mb, 2)
+            result["gpu_mem_solver_mb"] = round(scene_stats.get("gpu_mem_heap_solver", 0) * to_mb, 2)
+            result["gpu_mem_broadphase_mb"] = round(scene_stats.get("gpu_mem_heap_broadphase", 0) * to_mb, 2)
+            result["gpu_mem_narrowphase_mb"] = round(scene_stats.get("gpu_mem_heap_narrowphase", 0) * to_mb, 2)
+            result["gpu_mem_articulation_mb"] = round(scene_stats.get("gpu_mem_heap_articulation", 0) * to_mb, 2)
+            result["peak_constraint_memory_mb"] = round(scene_stats.get("peak_constraint_memory", 0) * to_mb, 2)
+    except Exception as e:
+        print(f"[building_physics] Warning: could not compute GPU cost: {e}")
+
+    # Physics step timing from profiler data
+    try:
+        import carb
+        carb.settings.get_settings().set("/physics/exposeProfilerData", True)
+        from omni.physx.bindings._physx import PhysicsProfileStats
+        # Profile stats may need a frame to populate after enabling
+    except Exception:
+        pass
+
+    return result
+
+
+def check_body_sleeping(stage, prim_path_str):
+    """Check if a rigid body is sleeping (has settled).
+
+    Returns True if sleeping, False if awake, None if query failed.
+    """
+    try:
+        import omni.usd
+        from omni.physx import get_physx_simulation_interface
+        from pxr import PhysicsSchemaTools
+
+        stage_id = omni.usd.get_context().get_stage_id()
+        encoded = PhysicsSchemaTools.encodeSdfPath(Sdf.Path(prim_path_str))
+        return get_physx_simulation_interface().is_sleeping(stage_id, encoded)
+    except Exception:
+        return None
+
+
+def raycast_down(origin, max_distance=100.0):
+    """Cast a ray straight down from origin and return hit info.
+
+    Args:
+        origin: (x, y, z) tuple or list in stage units
+        max_distance: maximum ray distance
+
+    Returns:
+        (hit: bool, distance: float or None, position: tuple or None)
+    """
+    try:
+        import carb
+        from omni.physx import get_physx_scene_query_interface
+
+        sq = get_physx_scene_query_interface()
+        hit = sq.raycast_closest(
+            carb.Float3(float(origin[0]), float(origin[1]), float(origin[2])),
+            carb.Float3(0.0, 0.0, -1.0),
+            float(max_distance),
+        )
+        if hit and "distance" in hit:
+            pos = hit.get("position", (0, 0, 0))
+            return (True, float(hit["distance"]), (float(pos[0]), float(pos[1]), float(pos[2])))
+        return (False, None, None)
+    except Exception:
+        return (False, None, None)
+
+
+def enable_residual_reporting(stage, scene_path="/World/PhysicsScene"):
+    """Apply PhysxResidualReportingAPI to the physics scene prim.
+
+    MUST be called BEFORE world.reset().
+    """
+    try:
+        import carb
+        from pxr import PhysxSchema as _PhysxSchema
+
+        scene_prim = stage.GetPrimAtPath(scene_path)
+        if scene_prim.IsValid():
+            _PhysxSchema.PhysxResidualReportingAPI.Apply(scene_prim)
+            carb.settings.get_settings().set("/physics/updateResidualsToUsd", True)
+            return True
+    except (ImportError, AttributeError) as e:
+        print(f"[building_physics] Warning: could not enable residual reporting: {e}")
+    return False

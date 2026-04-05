@@ -2,8 +2,8 @@
 """
 MSOE Innovation Center Physics Setup
 
-Loads the Revit-exported Innovation Center USD, applies physics collisions,
-materials, and joints, then exports innovation_center_physics.usd.
+Loads the Revit-exported Innovation Center (MSOEBuildingTake2) USD, applies physics
+collisions, materials, and joints, then exports innovation_center_physics.usd.
 
 Design:
   - Walls, floors, ceilings, columns, framing -> static colliders (triangle mesh)
@@ -49,15 +49,20 @@ sys.path.insert(0, _project_dir)
 
 from sim_utils.building_physics import (
     PrimCategory,
+    DoorMechanism,
     categorize_prim,
+    classify_door_mechanism,
     apply_static_collider,
     apply_dynamic_rigid_body,
     create_physics_materials,
     bind_physics_material,
     create_revolute_joint,
     estimate_door_hinge_offset,
+    setup_door_drive,
     setup_physics_scene,
+    add_door_collision_filters,
     CATEGORY_MATERIALS,
+    DOOR_DRIVE_PARAMS,
     iter_building_elements,
 )
 
@@ -142,9 +147,17 @@ def main():
             continue
 
         if category == PrimCategory.DYNAMIC_DOOR:
-            if apply_dynamic_rigid_body(stage, element, mass=15.0, deep_search=True):
+            mechanism = classify_door_mechanism(element)
+            # Only set up hinged doors (single and double)
+            if mechanism not in (DoorMechanism.HINGED_SINGLE, DoorMechanism.HINGED_DOUBLE):
+                counts[PrimCategory.SKIP] += 1
+                level_counts[level_name][PrimCategory.SKIP] = level_counts[level_name].get(PrimCategory.SKIP, 0) + 1
+                log(f"  Skipping non-hinged door ({mechanism.name}): {element.GetName()}")
+                continue
+            door_mass = 30.0 if mechanism == DoorMechanism.HINGED_DOUBLE else 15.0
+            if apply_dynamic_rigid_body(stage, element, mass=door_mass, deep_search=True):
                 applied_rigid_body += 1
-                door_prims.append((level_name, element))
+                door_prims.append((level_name, element, mechanism))
                 # Bind Wood physics material to door
                 mat_name = CATEGORY_MATERIALS.get(category)
                 if mat_name and mat_name in material_paths:
@@ -171,11 +184,13 @@ def main():
         _log_level_summary(current_level, level_counts.get(current_level, {}),
                            level_colliders.get(current_level, 0))
 
-    # --- Create revolute joints for doors ---
+    # --- Create revolute joints and drives for doors ---
     log(f"\nCreating revolute joints for {len(door_prims)} doors...")
     joints_created = 0
     joints_skipped = 0
-    for level_name, door in door_prims:
+    drives_created = 0
+    drives_skipped = 0
+    for level_name, door, mechanism in door_prims:
         door_path = str(door.GetPath())
         joint_path = door_path + "/HingeJoint"
 
@@ -185,22 +200,50 @@ def main():
             joints_skipped += 1
             continue
 
-        create_revolute_joint(
+        # Double doors get reduced angular limits since both leaves swing as unit
+        if mechanism == DoorMechanism.HINGED_DOUBLE:
+            lower_limit, upper_limit = -70.0, 70.0
+        else:
+            lower_limit, upper_limit = -100.0, 100.0
+
+        joint = create_revolute_joint(
             stage,
             joint_path=joint_path,
             body0_path="",          # world frame (static building)
             body1_path=door_path,
             axis="Z",               # vertical hinge axis
-            lower_limit=-100.0,
-            upper_limit=100.0,
+            lower_limit=lower_limit,
+            upper_limit=upper_limit,
             local_pos0=local_pos0,
             local_pos1=local_pos1,
         )
         joints_created += 1
+        log(f"  Joint ({mechanism.name}): {door_path}")
+
+        # Apply DriveAPI for hinged doors
+        drive_params = DOOR_DRIVE_PARAMS.get(mechanism)
+        if drive_params is not None:
+            stiffness, damping, max_force = drive_params
+            setup_door_drive(joint, stiffness=stiffness, damping=damping,
+                             max_force=max_force, target_position=0.0)
+            drives_created += 1
+        else:
+            drives_skipped += 1
+            log(f"  Drive skipped ({mechanism.name}): {door_path}")
 
     log(f"  Revolute joints created: {joints_created}")
     if joints_skipped > 0:
         log(f"  Joints skipped (no bbox): {joints_skipped}")
+    log(f"  Drives created:           {drives_created}")
+    log(f"  Drives skipped:           {drives_skipped}")
+
+    # --- Collision filtering for doors ---
+    # Inflate each door's bbox by 1.0m to catch nearby mullions/panels
+    # that the door sweeps into during the first degrees of rotation.
+    log(f"\nApplying collision filters for {len(door_prims)} doors (margin=1.0m)...")
+    door_prim_list = [door for _, door, _ in door_prims]
+    filtered = add_door_collision_filters(stage, door_prim_list, margin=1.0)
+    log(f"  Filtered {filtered} door-static collision pairs")
 
     # --- Summary ---
     t_physics = time.time()
@@ -232,6 +275,8 @@ def main():
     log(f"  Static colliders applied:     {applied_collider}")
     log(f"  Dynamic rigid bodies applied:  {applied_rigid_body}")
     log(f"  Revolute joints created:       {joints_created}")
+    log(f"  Drives created (hinged):       {drives_created}")
+    log(f"  Drives skipped (non-hinged):   {drives_skipped}")
     log(f"  Skipped (no mesh found):       {skipped_no_mesh}")
 
     # --- Export physics USD ---
