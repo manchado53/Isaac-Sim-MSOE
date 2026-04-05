@@ -42,43 +42,287 @@ from datetime import datetime
 import gymnasium as gym
 import numpy as np
 import torch
+from PIL import Image, ImageDraw, ImageFont
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback, CheckpointCallback
 from stable_baselines3.common.vec_env import VecNormalize
 
 
-class PanCameraCallback(BaseCallback):
-    """Moves the viewport camera across environments during video recording.
+class DebugOverlayWrapper(gym.Wrapper):
+    """Draws a debug overlay on rendered frames for training video diagnostics.
 
-    Stays on each environment for `steps_per_env` steps, then smoothly moves to the next.
+    Displays per-step info (step count, curriculum stage, distance to goal,
+    last reward) and flashes the termination reason for 30 frames whenever
+    an episode resets (TIMEOUT, BAD_ORIENTATION, GOAL_COMPLETE).
+
+    Insert between the Isaac Lab env and RecordVideo so the overlay is baked
+    into the recorded MP4.
     """
 
-    def __init__(self, env_origins: np.ndarray, steps_per_env: int = 300, verbose: int = 0):
-        super().__init__(verbose)
-        self.env_origins = env_origins  # (num_envs, 3)
-        self.steps_per_env = steps_per_env
-        self.num_envs_to_visit = min(16, len(env_origins))
-        self._sim = None
+    _TERM_DISPLAY_FRAMES = 30  # how long to flash the termination reason
 
-    def _on_training_start(self) -> None:
-        # Get sim context through the wrapper chain
-        venv = self.training_env
-        while hasattr(venv, "venv"):
-            venv = venv.venv
-        if hasattr(venv, "env"):
-            self._sim = venv.env.unwrapped.sim
+    def __init__(self, env: gym.Env):
+        super().__init__(env)
+        self._step_count = 0
+        self._last_reward = 0.0
+        self._ep_reward_sum = 0.0
+        self._last_dist = 0.0
+        self._term_reason: str | None = None
+        self._term_frames_left = 0
+        self._info_debug_str: str = ""
+        # Try to load a monospace font; fall back to PIL default
+        try:
+            self._font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 18)
+            self._font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 28)
+        except Exception:
+            self._font = ImageFont.load_default()
+            self._font_large = self._font
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def _get_curriculum_stage(self) -> int:
+        try:
+            isaac_env = self.env.unwrapped
+            curriculum_term = isaac_env.curriculum_manager.get_term("terrain_levels")
+            return int(curriculum_term.current_stage)
+        except Exception:
+            try:
+                # Access through curriculum manager terms dict
+                isaac_env = self.env.unwrapped
+                for term in isaac_env.curriculum_manager._terms.values():
+                    if hasattr(term, "current_stage"):
+                        return int(term.current_stage)
+            except Exception:
+                pass
+        return 0
+
+    def _get_contact_force(self) -> float:
+        try:
+            isaac_env = self.env.unwrapped
+            sensor = isaac_env.scene.sensors["contact_sensor"]
+            if not hasattr(self, "_contact_debug_logged"):
+                self._contact_debug_logged = True
+                print(
+                    f"[DEBUG] contact_sensor num_bodies={sensor._num_bodies}, "
+                    f"max_force_history={sensor.data.net_forces_w_history.max().item():.4f}N",
+                    flush=True,
+                )
+            # Use history to match undesired_contacts reward — net_forces_w alone misses
+            # contacts that resolved before the last physics sub-step of this RL step.
+            forces = sensor.data.net_forces_w_history  # (num_envs, history_length, num_bodies, 3)
+            return float(torch.norm(forces[0], dim=-1).max().item())
+        except Exception:
+            return -1.0
+
+    def _get_dist_to_goal(self) -> float:
+        try:
+            isaac_env = self.env.unwrapped
+            cmd = isaac_env.command_manager.get_command("pose_command")
+            return float(torch.norm(cmd[0, :2]).item())
+        except Exception:
+            return -1.0
+
+    def _parse_term_reason(self, info: dict) -> str | None:
+        """Extract termination reason from Isaac Lab info dict for env 0."""
+        try:
+            if info.get("time_outs", [False])[0]:
+                return "TIMEOUT"
+            terminated = info.get("terminated", None)
+            if terminated is not None and terminated[0]:
+                # Per-env flags are in termination_manager.get_term() — live (num_envs,) bool tensor.
+                # info["log"] entries are scalars (episode mean across all envs), not per-env arrays.
+                term_mgr = self.env.unwrapped.termination_manager
+                if term_mgr.get_term("bad_orientation")[0]:
+                    return "BAD_ORIENTATION"
+                if term_mgr.get_term("command_resample")[0]:
+                    return "GOAL_COMPLETE"
+                return "TERMINATED"
+        except Exception:
+            pass
+        return None
+
+    # ------------------------------------------------------------------
+    # Gym interface
+    # ------------------------------------------------------------------
+
+    def reset(self, **kwargs):
+        self._step_count = 0
+        self._ep_reward_sum = 0.0
+        return self.env.reset(**kwargs)
+
+    def step(self, action):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        self._step_count += 1
+        self._last_reward = float(reward) if np.isscalar(reward) else float(reward[0])
+        self._ep_reward_sum += self._last_reward
+        self._last_dist = self._get_dist_to_goal()
+
+        def to_bool(x):
+            import torch
+            if isinstance(x, torch.Tensor):
+                return x.cpu().numpy()
+            return x
+        done = np.logical_or(to_bool(terminated), to_bool(truncated))
+        # Only track env 0 (the one displayed in the video) — np.any(done) would fire on
+        # resets from other envs, flooding the overlay with false "RESET" banners and
+        # wiping _ep_reward_sum every step (with 256 envs, some env resets almost every step).
+        if bool(done[0]):
+            reason = self._parse_term_reason(info)
+            if reason is None:
+                reason = "RESET"
+            self._term_reason = reason
+            self._term_frames_left = self._TERM_DISPLAY_FRAMES
+            self._ep_reward_sum = 0.0  # reset for next episode
+            # Capture raw info keys/values for video display
+            lines = []
+            for k, v in info.items():
+                try:
+                    val = v[0] if hasattr(v, '__getitem__') else v
+                    lines.append(f"{k}: {val}")
+                except Exception:
+                    lines.append(f"{k}: ?")
+            self._info_debug_str = " | ".join(lines)
+
+        return obs, reward, terminated, truncated, info
+
+    def render(self):
+        frame = self.env.render()
+        if frame is None:
+            return frame
+
+        img = Image.fromarray(frame)
+        draw = ImageDraw.Draw(img)
+        h, w = frame.shape[:2]
+
+        # Semi-transparent dark band at top
+        overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        band = ImageDraw.Draw(overlay)
+        band.rectangle([(0, 0), (w, 100)], fill=(0, 0, 0, 140))
+        img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
+        draw = ImageDraw.Draw(img)
+
+        # --- Top-left info ---
+        stage = self._get_curriculum_stage()
+        stage_str = f"Stage {stage}" if stage > 0 else "Stage ?"
+        dist_str = f"{self._last_dist:.2f}m" if self._last_dist >= 0 else "?"
+        line1 = f"Step {self._step_count:4d}  |  {stage_str}  |  dist {dist_str}"
+        line2 = f"reward {self._last_reward:+.3f}"
+        line3 = f"ep_reward  {self._ep_reward_sum:+.1f}"
+        line4 = f"contact  {self._get_contact_force():.2f}N"
+        draw.text((8, 4), line1, font=self._font, fill=(220, 220, 220))
+        draw.text((8, 26), line2, font=self._font, fill=(180, 255, 180))
+        draw.text((8, 48), line3, font=self._font, fill=(180, 220, 255))
+        draw.text((8, 72), line4, font=self._font, fill=(255, 180, 80))
+
+        # --- Episode end banner ---
+        if self._term_frames_left > 0:
+            alpha = min(1.0, self._term_frames_left / 10.0)  # fade out over last 10 frames
+            color_map = {
+                "TIMEOUT":         (255, 200, 50),
+                "BAD_ORIENTATION": (255, 80, 80),
+                "GOAL_COMPLETE":   (80, 255, 120),
+                "TERMINATED":      (255, 140, 0),
+                "RESET":           (200, 200, 200),
+            }
+            color = color_map.get(self._term_reason, (255, 255, 255))
+            r, g, b = color
+
+            # Full-screen dark overlay
+            banner = Image.new("RGBA", img.size, (0, 0, 0, int(180 * alpha)))
+            img = Image.alpha_composite(img.convert("RGBA"), banner).convert("RGB")
+            draw = ImageDraw.Draw(img)
+
+            # Big "EPISODE END" header
+            header = "EPISODE END"
+            hbbox = draw.textbbox((0, 0), header, font=self._font_large)
+            hw = hbbox[2] - hbbox[0]
+            hx = (w - hw) // 2
+            hy = h // 2 - 50
+            draw.text((hx + 3, hy + 3), header, font=self._font_large, fill=(0, 0, 0))
+            draw.text((hx, hy), header, font=self._font_large, fill=(int(r * alpha), int(g * alpha), int(b * alpha)))
+
+            # Reason underneath
+            reason_text = f"[ {self._term_reason} ]"
+            rbbox = draw.textbbox((0, 0), reason_text, font=self._font_large)
+            rw = rbbox[2] - rbbox[0]
+            rx = (w - rw) // 2
+            ry = hy + 45
+            draw.text((rx + 2, ry + 2), reason_text, font=self._font_large, fill=(0, 0, 0))
+            draw.text((rx, ry), reason_text, font=self._font_large, fill=(int(r * alpha), int(g * alpha), int(b * alpha)))
+
+            # Raw info dict for debugging
+            if self._info_debug_str:
+                draw.text((8, h - 24), self._info_debug_str[:120], font=self._font, fill=(200, 200, 100))
+
+            self._term_frames_left -= 1
+
+        return np.array(img)
+
+
+
+class PatrolMetricsCallback(BaseCallback):
+    """Logs patrol-specific metrics to TensorBoard every rollout.
+
+    - patrol/goals_per_episode: mean goals reached per completed episode
+    - patrol/collision_rate: fraction of env-steps with contact force > 1N
+    """
+
+    def __init__(self, verbose: int = 0):
+        super().__init__(verbose)
+        self._completed_goals: list[float] = []
+        self._collision_steps = 0
+        self._total_steps = 0
+
+    def _get_isaac_env(self):
+        try:
+            return self.training_env.unwrapped
+        except Exception:
+            return None
 
     def _on_step(self) -> bool:
-        if self._sim is None:
+        isaac_env = self._get_isaac_env()
+        if isaac_env is None:
             return True
-        env_idx = (self.num_timesteps // self.steps_per_env) % self.num_envs_to_visit
-        ox = float(self.env_origins[env_idx, 0])
-        oy = float(self.env_origins[env_idx, 1])
-        self._sim.set_camera_view(
-            eye=(ox, oy - 8.0, 12.0),
-            target=(ox, oy, 0.0),
-        )
+
+        dones = self.locals.get("dones")
+        if dones is None:
+            return True
+
+        self._total_steps += len(dones)
+
+        # Collision rate: count env-steps where chassis contact force exceeds reward threshold
+        try:
+            sensor = isaac_env.scene.sensors["contact_sensor"]
+            # net_forces_w_history shape: (num_envs, history_length, num_bodies, 3)
+            # Take norm over xyz, max over history and bodies to get worst-case per env
+            forces = sensor.data.net_forces_w_history
+            max_force = torch.norm(forces, dim=-1).max(dim=-1).values.max(dim=-1).values  # (num_envs,)
+            self._collision_steps += int((max_force > 1.0).sum().item())
+        except Exception:
+            pass
+
+        # Goals per episode: snapshot command_counter at episode end before env auto-resets
+        try:
+            cmd_term = isaac_env.command_manager.get_term("pose_command")
+            for i, done in enumerate(dones):
+                if bool(done):
+                    self._completed_goals.append(float(cmd_term.command_counter[i].item()))
+        except Exception:
+            pass
+
         return True
+
+    def _on_rollout_end(self) -> None:
+        if self._completed_goals:
+            self.logger.record("patrol/goals_per_episode", float(np.mean(self._completed_goals)))
+            self._completed_goals.clear()
+
+        if self._total_steps > 0:
+            self.logger.record("patrol/collision_rate", self._collision_steps / self._total_steps)
+        self._collision_steps = 0
+        self._total_steps = 0
 
 
 class ETACallback(BaseCallback):
@@ -121,28 +365,58 @@ class ETACallback(BaseCallback):
 
 
 class BestModelCallback(BaseCallback):
-    """Saves the model with the highest ep_rew_mean as best_model.zip."""
+    """Saves best and latest model per curriculum stage.
+
+    Per stage:
+      - best_model_stage{N}.zip             — highest ep_rew_mean seen in this stage
+      - best_model_stage{N}_vecnormalize.pkl
+      - latest_model_stage{N}.zip           — overwritten every rollout (progress view)
+      - latest_model_stage{N}_vecnormalize.pkl
+    """
 
     def __init__(self, save_path: str, verbose: int = 0):
         super().__init__(verbose)
         self.save_path = save_path
-        self.best_reward = -float("inf")
+        self.best_reward_per_stage: dict[int, float] = {}
+        self._current_stage: int = 0
+
+    def _get_curriculum_stage(self) -> int:
+        try:
+            isaac_env = self.training_env.unwrapped
+            for term in isaac_env.curriculum_manager._terms.values():
+                if hasattr(term, "current_stage"):
+                    return int(term.current_stage)
+        except Exception:
+            pass
+        return 0
 
     def _on_step(self) -> bool:
         return True
 
+    def _save(self, name: str) -> None:
+        self.model.save(os.path.join(self.save_path, name))
+        if isinstance(self.training_env, VecNormalize):
+            self.training_env.save(os.path.join(self.save_path, f"{name}_vecnormalize.pkl"))
+
     def _on_rollout_end(self) -> None:
-        # SB3 stores latest episode stats in self.logger.name_to_value
-        reward = self.logger.name_to_value.get("rollout/ep_rew_mean")
-        if reward is None:
+        if len(self.model.ep_info_buffer) == 0:
             return
-        if reward > self.best_reward:
-            self.best_reward = reward
-            self.model.save(os.path.join(self.save_path, "best_model"))
-            # Also save VecNormalize stats alongside best model
-            if isinstance(self.training_env, VecNormalize):
-                self.training_env.save(os.path.join(self.save_path, "best_model_vecnormalize.pkl"))
-            print(f"[BEST] New best model! ep_rew_mean={reward:.2f} (iter {self.num_timesteps})")
+
+        stage = self._get_curriculum_stage()
+        reward = np.mean([ep["r"] for ep in self.model.ep_info_buffer])
+
+        if stage != self._current_stage:
+            print(f"[BEST] Curriculum stage {self._current_stage} -> {stage}, resetting reward threshold")
+            self._current_stage = stage
+
+        # Always save latest for this stage (overwritten each rollout)
+        self._save(f"latest_model_stage{stage}")
+
+        # Save best for this stage if improved
+        if reward > self.best_reward_per_stage.get(stage, -float("inf")):
+            self.best_reward_per_stage[stage] = reward
+            self._save(f"best_model_stage{stage}")
+            print(f"[BEST] Stage {stage} new best! ep_rew_mean={reward:.2f} (step {self.num_timesteps})")
 
 from isaaclab.utils.io import dump_yaml
 from isaaclab_rl.sb3 import Sb3VecEnvWrapper, process_sb3_cfg
@@ -194,7 +468,6 @@ def main():
     )
 
     # Wrap for video recording
-    pan_callback = None
     if args_cli.video:
         # Set initial camera view
         env_origins = env.unwrapped.scene.env_origins.cpu().numpy()
@@ -202,7 +475,8 @@ def main():
             eye=(float(env_origins[0, 0]), float(env_origins[0, 1]) - 8.0, 12.0),
             target=(float(env_origins[0, 0]), float(env_origins[0, 1]), 0.0),
         )
-        pan_callback = PanCameraCallback(env_origins, steps_per_env=300)
+        debug_overlay = DebugOverlayWrapper(env)
+        env = debug_overlay
 
         video_kwargs = {
             "video_folder": os.path.join(log_dir, "videos", "train"),
@@ -243,14 +517,13 @@ def main():
         # (otherwise SB3 sees num_timesteps >= total_timesteps from the checkpoint and exits)
         agent.num_timesteps = 0
 
+
     # Callbacks
     callbacks = [
-        CheckpointCallback(save_freq=1000, save_path=log_dir, name_prefix="model", verbose=2),
+        PatrolMetricsCallback(),
         ETACallback(num_envs=args_cli.num_envs, steps_per_rollout=n_steps_per_rollout),
         BestModelCallback(save_path=log_dir),
     ]
-    if pan_callback is not None:
-        callbacks.append(pan_callback)
 
     # Train
     print(f"[INFO] Training for {int(n_timesteps):,} timesteps ({args_cli.num_envs} envs)...")

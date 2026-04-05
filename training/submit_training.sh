@@ -2,7 +2,6 @@
 #SBATCH --job-name=rl-nova-carter
 #SBATCH --partition=teaching
 #SBATCH --gres=gpu:t4:1
-#SBATCH --time=08:00:00
 #SBATCH --mem=64G
 #SBATCH --output=/home/ad.msoe.edu/manchadoa/isaac-sim-msoe/training/logs/train_%j.out
 #SBATCH --error=/home/ad.msoe.edu/manchadoa/isaac-sim-msoe/training/logs/train_%j.err
@@ -100,7 +99,7 @@ if [ $TRAIN_EXIT -eq 0 ]; then
     CHECKPOINT="${LATEST_RUN}model.zip"
 
     if [ -f "$CHECKPOINT" ]; then
-        EVAL_CMD="$ISAAC_LAB_DIR/isaaclab.sh -p $PROJECT_DIR/training/eval_nova_carter.py --checkpoint $CHECKPOINT --headless --num_envs 16 --video_length 500 --num_videos 6"
+        EVAL_CMD="$ISAAC_LAB_DIR/isaaclab.sh -p $PROJECT_DIR/training/eval/eval_scenarios.py --checkpoint $CHECKPOINT --headless"
         echo "Checkpoint:   $CHECKPOINT"
         echo "Running: $EVAL_CMD"
         echo ""
