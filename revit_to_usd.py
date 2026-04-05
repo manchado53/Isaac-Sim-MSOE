@@ -3,8 +3,21 @@ Production-Ready IFC to USD Converter
 Fully headless, no GUI required
 
 Author: Steven Thomas
+Institution: Milwaukee School of Engineering (MSOE)
+Project: Robotics Research - Isaac Sim Navigation Training
 Date: 2026
-Purpose: Convert Revit buildings (via IFC) to USD for Isaac Sim robot training
+
+Purpose: 
+Convert Revit buildings (via IFC intermediate format) to USD format for 
+NVIDIA Isaac Sim robot training. Automatically filters MEP systems and 
+other non-navigation elements.
+
+Workflow:
+    Revit (.rvt) → [Manual IFC export] → IFC (.ifc) → [This script] → USD (.usd)
+
+Usage:
+    python revit_to_usd.py input.ifc output.usd
+    python revit_to_usd.py --batch input_folder/ output_folder/
 """
 
 import os
@@ -12,6 +25,7 @@ import sys
 import json
 import logging
 import argparse
+import re
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Any
@@ -44,18 +58,14 @@ class IFCtoUSDConverter:
         with open(config_path, 'r') as f:
             self.config = yaml.safe_load(f)
         
-        
-        
-        # Extract config values
+        # Extract config values FIRST (before using them)
         self.verbose = self.config['processing']['verbose_logging']
         self.skip_on_error = self.config['processing']['skip_on_error']
         self.exclude_types = self.config['filtering']['exclude_types']
         self.include_types = self.config['filtering']['include_types']
-
-        # Setup logging
+        
+        # Setup logging (now self.verbose is available)
         self._setup_logging()
-        
-        
         
         self.logger.info("IFC to USD Converter initialized")
         self.logger.info(f"Config loaded from: {config_path}")
@@ -171,19 +181,19 @@ class IFCtoUSDConverter:
     
     def _parse_ifc(self, ifc_path: str) -> Dict[str, Any]:
         """Parse IFC file and extract geometry"""
-    
+        
         try:
             # Open IFC file
             ifc_file = ifcopenshell.open(ifc_path)
-        
+            
             # Setup geometry settings
             settings = ifcopenshell.geom.settings()
             settings.set(settings.USE_WORLD_COORDS, True)
-        
+            
             # Extract metadata
             project = ifc_file.by_type('IfcProject')[0] if ifc_file.by_type('IfcProject') else None
             building = ifc_file.by_type('IfcBuilding')[0] if ifc_file.by_type('IfcBuilding') else None
-        
+            
             ifc_data = {
                 'file': ifc_file,
                 'settings': settings,
@@ -196,72 +206,61 @@ class IFCtoUSDConverter:
                 'total_elements': 0,
                 'counts': {}
             }
-        
+            
             # Get all products
             products = ifc_file.by_type('IfcProduct')
-        
+            
             self.logger.info(f"Found {len(products)} total IFC products")
-        
+            
             successful = 0
             failed = 0
-        
+            
             for idx, product in enumerate(products):
                 element_type = product.is_a()
-            
+                
                 # Progress indicator
                 if (idx + 1) % 100 == 0:
                     self.logger.info(f"  Processing {idx + 1}/{len(products)} products...")
-            
+                
                 try:
                     # Create shape
                     shape = ifcopenshell.geom.create_shape(settings, product)
-                
+                    
                     if not shape:
                         failed += 1
                         continue
-                
+                    
                     # Extract geometry
                     geometry = shape.geometry
-                
+                    
                     # Get vertices and faces
                     verts = geometry.verts  # Flat array: [x,y,z, x,y,z, ...]
                     faces = geometry.faces  # Flat array: [i,j,k, i,j,k, ...]
-                
+                    
                     # Skip if no geometry
                     if len(verts) == 0 or len(faces) == 0:
                         failed += 1
                         continue
-                
-                    # Get transformation matrix - FIXED: Remove the line before try/except!
-                    try:
-                        # Try .data attribute first (newer versions)
-                        if hasattr(shape.transformation.matrix, 'data'):
-                            matrix = shape.transformation.matrix.data
-                        else:
-                            # Older versions return tuple directly
-                            matrix = shape.transformation.matrix
-                    except:
-                        # Fallback to identity matrix if extraction fails
-                        matrix = (1.0, 0.0, 0.0, 0.0,
-                                0.0, 1.0, 0.0, 0.0,
-                                0.0, 0.0, 1.0, 0.0,
-                                0.0, 0.0, 0.0, 1.0)
-                
-                    # Get material
+                    
+                    # Use identity matrix (geometry already in world coords)
+                    # This avoids transformation matrix extraction issues
+                    matrix = (1.0, 0.0, 0.0, 0.0,
+                              0.0, 1.0, 0.0, 0.0,
+                              0.0, 0.0, 1.0, 0.0,
+                              0.0, 0.0, 0.0, 1.0)
+                    
+                    # Get material (optional)
                     material = None
                     try:
-                        if hasattr(geometry, 'material_ids') and geometry.material_ids:
-                            mat_id = geometry.material_ids[0]
-                            materials = geometry.materials
-                            if materials and len(materials) > mat_id:
-                                mat = materials[mat_id]
-                                material = {
-                                    'diffuse': mat.diffuse if hasattr(mat, 'diffuse') else (0.8, 0.8, 0.8),
-                                    'name': mat.name if hasattr(mat, 'name') else 'Material'
-                                }
+                        if hasattr(geometry, 'materials') and geometry.materials:
+                            mat = geometry.materials[0]
+                            material = {
+                                'diffuse': mat.diffuse if hasattr(mat, 'diffuse') else (0.8, 0.8, 0.8),
+                                'name': mat.name if hasattr(mat, 'name') else 'Material'
+                            }
                     except:
                         pass  # Material is optional
-                
+                    
                     # Store element
                     element = {
                         'guid': product.GlobalId,
@@ -272,14 +271,14 @@ class IFCtoUSDConverter:
                         'matrix': matrix,
                         'material': material
                     }
-                
+                    
                     ifc_data['elements'].append(element)
                     ifc_data['total_elements'] += 1
                     successful += 1
-                
+                    
                     # Count by type
                     ifc_data['counts'][element_type] = ifc_data['counts'].get(element_type, 0) + 1
-                
+                    
                 except Exception as e:
                     failed += 1
                     if self.skip_on_error:
@@ -287,11 +286,11 @@ class IFCtoUSDConverter:
                         continue
                     else:
                         raise
-        
+            
             self.logger.info(f"Geometry extraction: {successful} successful, {failed} failed")
-        
+            
             return ifc_data
-        
+            
         except Exception as e:
             self.logger.error(f"IFC parsing error: {str(e)}")
             return None
@@ -334,67 +333,67 @@ class IFCtoUSDConverter:
     
     def _categorize_element(self, ifc_type: str) -> str:
         """Map IFC type to simplified category"""
-    
+        
         category_map = {
-         # Walls
+            # Walls
             'IfcWall': 'walls',
-            'IfcWallStandardCase': 'walls',              # 192 elements
-            'IfcCurtainWall': 'curtain_walls',           # 19 elements
+            'IfcWallStandardCase': 'walls',
+            'IfcCurtainWall': 'curtain_walls',
             'IfcWallElementedCase': 'walls',
-        
+            
             # Curtain Wall Components (glass facades)
-            'IfcMember': 'curtain_wall_mullions',        # 1266 elements - mullions, framing
-            'IfcPlate': 'curtain_wall_panels',           # 507 elements - glass panels
-        
+            'IfcMember': 'curtain_wall_mullions',
+            'IfcPlate': 'curtain_wall_panels',
+            
             # Doors & Windows
-            'IfcDoor': 'doors',                          # 27 elements
+            'IfcDoor': 'doors',
             'IfcDoorStandardCase': 'doors',
             'IfcWindow': 'windows',
             'IfcWindowStandardCase': 'windows',
-        
+            
             # Floors, Roofs, Foundations
-            'IfcSlab': 'floors',                         # 48 elements
+            'IfcSlab': 'floors',
             'IfcSlabStandardCase': 'floors',
             'IfcSlabElementedCase': 'floors',
-            'IfcRoof': 'roofs',                          # 7 elements
-            'IfcFooting': 'foundations',                 # 45 elements
-        
+            'IfcRoof': 'roofs',
+            'IfcFooting': 'foundations',
+            
             # Stairs & Circulation
-            'IfcStair': 'stairs',                        # 4 elements
-            'IfcStairFlight': 'stairs',                  # 6 elements
+            'IfcStair': 'stairs',
+            'IfcStairFlight': 'stairs',
             'IfcRamp': 'ramps',
             'IfcRampFlight': 'ramps',
-            'IfcRailing': 'railings',                    # 6 elements
-        
+            'IfcRailing': 'railings',
+            
             # Structure
-            'IfcColumn': 'columns',                      # 52 elements
+            'IfcColumn': 'columns',
             'IfcColumnStandardCase': 'columns',
-            'IfcBeam': 'beams',                          # 134 elements
+            'IfcBeam': 'beams',
             'IfcBeamStandardCase': 'beams',
             'IfcBrace': 'bracing',
-        
+            
             # Ceilings & Coverings
-            'IfcCovering': 'ceilings',                   # 25 elements
-        
+            'IfcCovering': 'ceilings',
+            
             # Spaces & Furniture
-            'IfcSpace': 'rooms',                         # 28 elements
+            'IfcSpace': 'rooms',
             'IfcFurniture': 'furniture',
             'IfcFurnishingElement': 'furniture',
             'IfcSystemFurnitureElement': 'furniture',
-        
+            
             # Generic/Complex Elements
-            'IfcBuildingElementProxy': 'building_elements',  # 119 elements
+            'IfcBuildingElementProxy': 'building_elements',
             'IfcBuildingElementPart': 'building_elements',
             'IfcElementAssembly': 'building_elements',
             'IfcDiscreteAccessory': 'accessories',
-            'IfcTransportElement': 'transport',          # 1 element (elevator?)
-        
-            # Building Structure (don't render these)
-            'IfcBuildingStorey': 'structure_hierarchy',  # 5 elements
-            'IfcBuilding': 'structure_hierarchy',        # 1 element
-            'IfcSite': 'structure_hierarchy',            # 1 element
+            'IfcTransportElement': 'transport',
+            
+            # Building Structure (hierarchy elements)
+            'IfcBuildingStorey': 'structure_hierarchy',
+            'IfcBuilding': 'structure_hierarchy',
+            'IfcSite': 'structure_hierarchy',
         }
-    
+        
         return category_map.get(ifc_type, 'other')
     
     
@@ -404,18 +403,43 @@ class IFCtoUSDConverter:
         # Create stage
         stage = Usd.Stage.CreateNew(usd_path)
         
-
-        # Set metadata (only use supported keys)
+        # Set metadata (safe version - no 'creator' key)
         if self.config['output']['add_metadata']:
             try:
                 stage.SetMetadata('comment', f"Generated from IFC on {datetime.now().isoformat()}")
-            except:
-                pass  # Skip if metadata not supported
+            except Exception as e:
+                self.logger.debug(f"Could not set metadata: {e}")
         
         # Create root prim
+        # Create root prim
         root_name = self.config['output']['default_prim_name']
-        root_prim = UsdGeom.Xform.Define(stage, f'/{root_name}')
-        stage.SetDefaultPrim(root_prim.GetPrim())
+        root_xform = UsdGeom.Xform.Define(stage, f'/{root_name}')
+        stage.SetDefaultPrim(root_xform.GetPrim())
+
+        # Apply rotation if configured
+        if self.config['output'].get('apply_rotation', False):
+            rotation_axis = self.config['output'].get('rotation_axis', 'z')
+            rotation_degrees = self.config['output'].get('rotation_degrees', 180)
+    
+            # Map axis string to vector
+            axis_map = {
+                'x': Gf.Vec3d(1, 0, 0),
+                'y': Gf.Vec3d(0, 1, 0),
+                'z': Gf.Vec3d(0, 0, 1)
+            }
+    
+            axis_vector = axis_map.get(rotation_axis.lower(), Gf.Vec3d(0, 0, 1))
+    
+            # Create rotation matrix
+            import math
+            rotation_matrix = Gf.Matrix4d().SetRotate(
+                Gf.Rotation(axis_vector, rotation_degrees)
+            )
+    
+            # Apply transform
+            root_xform.AddTransformOp().Set(rotation_matrix)
+    
+            self.logger.info(f"Applied {rotation_degrees}° rotation around {rotation_axis.upper()}-axis")
         
         # Create category groups
         categories = {}
@@ -432,7 +456,7 @@ class IFCtoUSDConverter:
                 self._add_element_to_stage(stage, element, categories[element['category']])
                 
                 if (i + 1) % 100 == 0:
-                    self.logger.debug(f"  Added {i + 1}/{len(filtered_data['elements'])} elements...")
+                    self.logger.info(f"  Added {i + 1}/{len(filtered_data['elements'])} elements...")
                     
             except Exception as e:
                 if self.skip_on_error:
@@ -447,66 +471,64 @@ class IFCtoUSDConverter:
     
     
     def _add_element_to_stage(self, stage: Usd.Stage, element: Dict[str, Any], 
-                          parent_xform: UsdGeom.Xform):
+                              parent_xform: UsdGeom.Xform):
         """Add individual building element as USD mesh"""
-    
-        import re
-    
-        # Sanitize name for USD - remove all invalid characters
+        
+        # Sanitize name for USD - COMPREHENSIVE VERSION
         raw_name = element['name'].strip()
-    
+        
         # Replace all non-alphanumeric characters (except underscore) with underscore
         safe_name = re.sub(r'[^a-zA-Z0-9_]', '_', raw_name)
-    
+        
         # Remove multiple consecutive underscores
         safe_name = re.sub(r'_+', '_', safe_name)
-    
+        
         # Remove leading/trailing underscores
         safe_name = safe_name.strip('_')
-    
+        
         # Ensure doesn't start with number
         if safe_name and safe_name[0].isdigit():
             safe_name = 'elem_' + safe_name
-    
+        
         # Ensure not empty
         if not safe_name or len(safe_name) < 3:
             safe_name = f"element_{element['guid'][:8]}"
-    
+        
         # Limit length and add GUID for uniqueness
         if len(safe_name) > 180:
             safe_name = safe_name[:180]
-    
+        
         safe_name = f"{safe_name}_{element['guid'][-6:]}"
-    
+        
         # Create mesh path
         mesh_path = f"{parent_xform.GetPath()}/{safe_name}"
-    
+        
         try:
             mesh = UsdGeom.Mesh.Define(stage, mesh_path)
         except Exception as e:
             self.logger.warning(f"Failed to create mesh at {mesh_path}: {str(e)}")
             return  # Skip this element
-    
+        
         # Convert vertices
         verts_flat = element['vertices']
         vertices = []
         for i in range(0, len(verts_flat), 3):
             vertices.append(Gf.Vec3f(verts_flat[i], verts_flat[i+1], verts_flat[i+2]))
-    
+        
         # Convert faces
         faces_flat = element['faces']
         face_vertex_counts = []
         face_vertex_indices = []
-    
+        
         for i in range(0, len(faces_flat), 3):
             face_vertex_counts.append(3)
             face_vertex_indices.extend([faces_flat[i], faces_flat[i+1], faces_flat[i+2]])
-    
+        
         # Set mesh attributes
         mesh.CreatePointsAttr(vertices)
         mesh.CreateFaceVertexCountsAttr(face_vertex_counts)
         mesh.CreateFaceVertexIndicesAttr(face_vertex_indices)
-    
+        
         # Add material if available
         if self.config['output']['create_materials'] and element.get('material'):
             try:
@@ -554,16 +576,6 @@ class IFCtoUSDConverter:
             if root_prims:
                 stage.SetDefaultPrim(root_prims[0])
                 self.logger.info(f"Set default prim to: {root_prims[0].GetPath()}")
-        
-
-        # Add custom metadata (safer version)
-        default_prim = stage.GetDefaultPrim()
-        if default_prim:
-            try:
-                default_prim.SetCustomDataByKey('element_counts', str(element_counts))
-                default_prim.SetCustomDataByKey('conversion_date', datetime.now().isoformat())
-            except:
-                pass  # Skip if custom data not supported
         
         stage.Save()
     
