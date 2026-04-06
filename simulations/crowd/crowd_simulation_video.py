@@ -43,12 +43,7 @@ AGENT_SPEED_MS  = 1.2
 AGENT_RADIUS    = 0.25
 STEP_SIZE       = 1.0 / 30.0
 
-# Camera — node_21 position, looking north toward node_37/node_43
-# node_21: x=-7.4, y=62.3   node_43: x=-7.2, y=73.4   floor z=28.25m
-CAM_EYE    = np.array([-7.4,  60.0, 29.85])  # slightly south of node_21, eye height
-CAM_TARGET = np.array([-7.3,  74.0, 29.0 ])  # looking toward node_43, slight downward tilt
-
-# ── Nav graph ─────────────────────────────────────────────────────────────────
+#── Nav graph ─────────────────────────────────────────────────────────────────
 
 def load_graph(path):
     with open(path) as f:
@@ -156,14 +151,7 @@ def main():
     world = World(stage_units_in_meters=1.0)
     world.reset()
 
-    # Position the viewport camera inside the hallway
     from isaacsim.core.utils.viewports import set_camera_view
-    set_camera_view(
-        eye=CAM_EYE,
-        target=CAM_TARGET,
-        camera_prim_path="/OmniverseKit_Persp",
-    )
-    print(f"[INFO] Camera: eye={CAM_EYE}, target={CAM_TARGET}")
 
     print(f"[INFO] Spawning {NUM_AGENTS} agents...")
     agents = [PedestrianAgent(i, nodes, adj, world) for i in range(NUM_AGENTS)]
@@ -171,12 +159,41 @@ def main():
     total_steps = int(SIM_DURATION_S / STEP_SIZE)
     print(f"[INFO] Recording {total_steps} steps ({SIM_DURATION_S:.0f}s)...")
 
+    follow = agents[0]  # camera follows agent 0
+
     with VideoRecorder(video_name, fps=30) as recorder:
         for step in range(total_steps):
             world.step(render=True)
-            recorder.capture()
+
             for agent in agents:
                 agent.step(STEP_SIZE)
+
+            # Update camera to follow agent 0 from slightly behind and above
+            pos = follow.pos.copy()
+            # Look toward next waypoint if available, else look forward along Y
+            if follow.path and follow.path_idx < len(follow.path):
+                wp = follow.nodes[follow.path[follow.path_idx]]
+                look = wp[:2] - pos[:2]
+                norm = np.linalg.norm(look)
+                direction = look / norm if norm > 0.01 else np.array([0.0, 1.0])
+            else:
+                direction = np.array([0.0, 1.0])
+
+            cam_eye = np.array([
+                pos[0] - direction[0] * 1.5,   # 1.5m behind agent
+                pos[1] - direction[1] * 1.5,
+                pos[2] + 1.6,                  # eye height
+            ])
+            cam_target = np.array([
+                pos[0] + direction[0] * 3.0,   # look 3m ahead
+                pos[1] + direction[1] * 3.0,
+                pos[2] + 1.0,
+            ])
+            set_camera_view(eye=cam_eye, target=cam_target,
+                            camera_prim_path="/OmniverseKit_Persp")
+
+            recorder.capture()
+
             if step % 100 == 0:
                 print(f"[INFO] Step {step}/{total_steps}")
 
