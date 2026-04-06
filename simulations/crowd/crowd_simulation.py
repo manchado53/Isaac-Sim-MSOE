@@ -176,9 +176,11 @@ def main():
     nodes, adj = load_graph(GRAPH_PATH)
     print(f"[INFO] Loaded {len(nodes)} nodes, {sum(len(v) for v in adj.values())//2} edges")
 
+    # Open the USD stage BEFORE creating World — World attaches to the active stage.
+    # Calling open_stage() after World() replaces the stage and causes a crash.
     print(f"[INFO] Loading USD scene from: {USD_PATH}")
-    world = World(stage_units_in_meters=1.0)
     omni.usd.get_context().open_stage(USD_PATH)
+    world = World(stage_units_in_meters=1.0)
     world.reset()
 
     print(f"[INFO] Spawning {NUM_AGENTS} agents...")
