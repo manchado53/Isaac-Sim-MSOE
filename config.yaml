@@ -1,0 +1,53 @@
+# ============================================================================
+# Revit to USD Conversion Pipeline - Configuration
+# Author: Steven Thomas
+# MSOE Robotics Research - Isaac Sim Navigation Training
+# ============================================================================
+
+# Element Filtering
+filtering:
+  exclude_types:
+    # MEP Systems
+    - IfcDistributionPort
+    - IfcFlowTerminal
+    - IfcFlowFitting
+    - IfcFlowSegment
+    - IfcDuctSegment
+    - IfcDuctFitting
+    - IfcPipeSegment
+    - IfcPipeFitting
+    - IfcCableSegment
+    - IfcCableCarrierSegment
+    - IfcMechanicalEquipment
+    - IfcDistributionControlElement
+    - IfcAnnotation
+    - IfcGrid
+    - IfcOpeningElement
+  
+  include_types: []
+
+# USD Output Settings
+output:
+  default_prim_name: "Building"
+  add_metadata: false
+  optimize_mesh: false
+  create_materials: true
+  
+  # Coordinate system correction
+  apply_rotation: true       # Enable rotation to fix flipped orientation
+  rotation_axis: "z"         # Rotate around Z-axis (vertical)
+  rotation_degrees: 180      # 180° flip
+
+# Processing Options
+processing:
+  geometry_settings:
+    use_world_coords: true
+  
+  verbose_logging: true
+  skip_on_error: true
+
+# File Paths
+paths:
+  input_folder: "input_ifc"
+  output_folder: "output_usd"
+  log_folder: "logs"
