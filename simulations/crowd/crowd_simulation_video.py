@@ -1,13 +1,13 @@
-"""Crowd simulation video — hallway camera view.
+"""Crowd simulation video — third-person follow camera.
 
-Places a hallway-level camera at node_21 looking north toward the busiest
-corridor (node_37 → node_43) and records agents walking past.
+Follows agent 0 from behind using a Camera sensor + capture_rgba(),
+the same pattern used in simulations/robot/nova_carter_onboard_cam.py.
 
 Usage:
     sbatch simulations/crowd/submit_crowd_video.sh
 
 Output:
-    videos/crowd_hallway_<timestamp>.mp4
+    videos/crowd_follow_<timestamp>.mp4
 """
 
 import os
@@ -24,9 +24,12 @@ from isaacsim import SimulationApp
 simulation_app = SimulationApp({"headless": True, "width": 1280, "height": 720})
 
 import numpy as np
-from omni.isaac.core import World
+from scipy.spatial.transform import Rotation as R
+import isaacsim.core.utils.numpy.rotations as rot_utils
+from isaacsim.core.api import World
+from isaacsim.core.utils.stage import add_reference_to_stage
+from isaacsim.sensors.camera import Camera
 from omni.isaac.core.objects import DynamicSphere
-import omni.usd
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 from sim_utils.video_capture import VideoRecorder
@@ -37,13 +40,16 @@ PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 USD_PATH    = os.path.join(PROJECT_DIR, "assets/environments/msoe_building/innovation_center_finalV1.usd")
 GRAPH_PATH  = os.path.join(PROJECT_DIR, "assets/Graph/floor_4_nav_graph_world_xflipped.json")
 
-NUM_AGENTS      = 30       # fewer agents keeps rendering snappy
-SIM_DURATION_S  = 20.0     # 20s clip
-AGENT_SPEED_MS  = 1.2
-AGENT_RADIUS    = 0.25
-STEP_SIZE       = 1.0 / 30.0
+NUM_AGENTS     = 30
+SIM_DURATION_S = 20.0
+AGENT_SPEED_MS = 1.2
+AGENT_RADIUS   = 0.25
+STEP_SIZE      = 1.0 / 30.0
 
-#── Nav graph ─────────────────────────────────────────────────────────────────
+# Follow-cam offset from agent: 2m behind, 1.6m up
+FOLLOW_OFFSET = np.array([-2.0, 0.0, 1.6])   # rotated each frame by agent heading
+
+# ── Nav graph ─────────────────────────────────────────────────────────────────
 
 def load_graph(path):
     with open(path) as f:
@@ -51,9 +57,9 @@ def load_graph(path):
     z_m = data["z_height_cm"] / 100.0
     nodes = {}
     for n in data["nodes"]:
-        x_m = n["world_xy_cm"][0] / 100.0
-        y_m = n["world_xy_cm"][1] / 100.0
-        nodes[n["id"]] = np.array([x_m, y_m, z_m])
+        nodes[n["id"]] = np.array([n["world_xy_cm"][0] / 100.0,
+                                    n["world_xy_cm"][1] / 100.0,
+                                    z_m])
     adj = {nid: [] for nid in nodes}
     for e in data["edges"]:
         a, b = e["from"], e["to"]
@@ -92,11 +98,12 @@ def dijkstra(adj, start, goal):
 
 class PedestrianAgent:
     def __init__(self, agent_id, nodes, adj, world):
-        self.agent_id = agent_id
-        self.nodes = nodes
-        self.adj = adj
+        self.agent_id  = agent_id
+        self.nodes     = nodes
+        self.adj       = adj
         self.current_node = random.choice(list(nodes.keys()))
-        self.pos = nodes[self.current_node].copy().astype(float)
+        self.pos       = nodes[self.current_node].copy().astype(float)
+        self.heading   = np.array([1.0, 0.0])  # unit vector, updated each step
         color = np.array([random.random(), random.random(), random.random()])
         self.sphere = world.scene.add(
             DynamicSphere(
@@ -107,7 +114,7 @@ class PedestrianAgent:
                 color=color,
             )
         )
-        self.path = []
+        self.path     = []
         self.path_idx = 0
         self._pick_new_destination()
 
@@ -116,7 +123,7 @@ class PedestrianAgent:
         dest = random.choice(node_ids)
         while dest == self.current_node:
             dest = random.choice(node_ids)
-        self.path = dijkstra(self.adj, self.current_node, dest)
+        self.path     = dijkstra(self.adj, self.current_node, dest)
         self.path_idx = 1
 
     def step(self, dt):
@@ -124,80 +131,97 @@ class PedestrianAgent:
             self._pick_new_destination()
             return
         target_pos = self.nodes[self.path[self.path_idx]]
-        direction = target_pos[:2] - self.pos[:2]
-        dist = np.linalg.norm(direction)
+        direction  = target_pos[:2] - self.pos[:2]
+        dist       = np.linalg.norm(direction)
         if dist < 0.1:
             self.current_node = self.path[self.path_idx]
             self.path_idx += 1
             if self.path_idx >= len(self.path):
                 self._pick_new_destination()
         else:
-            self.pos[:2] += (direction / dist) * AGENT_SPEED_MS * dt
+            unit = direction / dist
+            self.heading = unit
+            self.pos[:2] += unit * AGENT_SPEED_MS * dt
             self.sphere.set_world_pose(position=self.pos)
+
+
+def heading_to_quat(heading_2d):
+    """Convert a 2D heading vector to an Isaac Sim [w,x,y,z] quaternion (yaw only)."""
+    yaw = float(np.arctan2(heading_2d[1], heading_2d[0]))
+    # scipy gives [x,y,z,w]; Isaac Sim wants [w,x,y,z]
+    q = R.from_euler("z", yaw).as_quat()
+    return np.array([q[3], q[0], q[1], q[2]])
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    video_name = f"crowd_hallway_{timestamp}"
+    timestamp  = datetime.now().strftime("%Y%m%d_%H%M%S")
+    video_name = f"crowd_follow_{timestamp}"
 
-    print(f"[INFO] Loading nav graph...")
+    print("[INFO] Loading nav graph...")
     nodes, adj = load_graph(GRAPH_PATH)
     print(f"[INFO] Loaded {len(nodes)} nodes")
 
-    print(f"[INFO] Loading USD scene...")
-    omni.usd.get_context().open_stage(USD_PATH)
+    # ── Load building USD via add_reference_to_stage (gonzalo's pattern) ──
+    print("[INFO] Loading USD scene...")
     world = World(stage_units_in_meters=1.0)
-    world.reset()
+    add_reference_to_stage(usd_path=USD_PATH, prim_path="/World/Building")
 
-    from isaacsim.core.utils.viewports import set_camera_view
-
+    # ── Spawn agents ──
     print(f"[INFO] Spawning {NUM_AGENTS} agents...")
     agents = [PedestrianAgent(i, nodes, adj, world) for i in range(NUM_AGENTS)]
 
-    total_steps = int(SIM_DURATION_S / STEP_SIZE)
-    print(f"[INFO] Recording {total_steps} steps ({SIM_DURATION_S:.0f}s)...")
+    # ── Follow camera — initialized at agent 0's start position ──
+    follow_agent = agents[0]
+    init_orient  = heading_to_quat(follow_agent.heading)
 
-    follow = agents[0]  # camera follows agent 0
+    follow_cam = Camera(
+        prim_path="/World/FollowCam",
+        position=follow_agent.pos + np.array([-2.0, 0.0, 1.6]),
+        orientation=init_orient,
+        frequency=30,
+        resolution=(1280, 720),
+    )
+
+    world.reset()
+    follow_cam.initialize()
+
+    total_steps = int(SIM_DURATION_S / STEP_SIZE)
+    print(f"[INFO] Recording {total_steps} steps ({SIM_DURATION_S:.0f}s) → {video_name}.mp4")
 
     with VideoRecorder(video_name, fps=30) as recorder:
         for step in range(total_steps):
+            # 1. Step physics + rendering
             world.step(render=True)
 
+            # 2. Move agents
             for agent in agents:
                 agent.step(STEP_SIZE)
 
-            # Update camera to follow agent 0 from slightly behind and above
-            pos = follow.pos.copy()
-            # Look toward next waypoint if available, else look forward along Y
-            if follow.path and follow.path_idx < len(follow.path):
-                wp = follow.nodes[follow.path[follow.path_idx]]
-                look = wp[:2] - pos[:2]
-                norm = np.linalg.norm(look)
-                direction = look / norm if norm > 0.01 else np.array([0.0, 1.0])
-            else:
-                direction = np.array([0.0, 1.0])
+            # 3. Update camera pose to follow agent 0
+            pos     = follow_agent.pos.copy()
+            heading = follow_agent.heading          # 2D unit vector
+            orient  = heading_to_quat(heading)
 
-            cam_eye = np.array([
-                pos[0] - direction[0] * 1.5,   # 1.5m behind agent
-                pos[1] - direction[1] * 1.5,
-                pos[2] + 1.6,                  # eye height
-            ])
-            cam_target = np.array([
-                pos[0] + direction[0] * 3.0,   # look 3m ahead
-                pos[1] + direction[1] * 3.0,
-                pos[2] + 1.0,
-            ])
-            set_camera_view(eye=cam_eye, target=cam_target,
-                            camera_prim_path="/OmniverseKit_Persp")
+            # Rotate the behind-and-up offset by agent heading
+            rot            = R.from_euler("z", np.arctan2(heading[1], heading[0]))
+            rotated_offset = rot.apply(FOLLOW_OFFSET)
 
-            recorder.capture()
+            follow_cam.set_world_pose(
+                position    = pos + rotated_offset,
+                orientation = orient,
+            )
+
+            # 4. Capture frame
+            rgba = follow_cam.get_rgba()
+            if rgba is not None:
+                recorder.capture_rgba(rgba)
 
             if step % 100 == 0:
                 print(f"[INFO] Step {step}/{total_steps}")
 
-    print(f"[INFO] Done.")
+    print("[INFO] Done.")
     simulation_app.close()
 
 
