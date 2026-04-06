@@ -26,7 +26,7 @@ from scipy.spatial.transform import Rotation as R
 import isaacsim.core.utils.numpy.rotations as rot_utils
 from isaacsim.core.api import World
 from isaacsim.sensors.camera import Camera
-from omni.isaac.core.objects import DynamicSphere
+from omni.isaac.core.objects import DynamicCapsule
 from pxr import UsdLux, Sdf
 import omni.usd
 
@@ -45,8 +45,11 @@ AGENT_SPEED_MS = 1.2
 AGENT_RADIUS   = 0.25
 STEP_SIZE      = 1.0 / 30.0
 
-# Follow-cam: 2m behind agent, 1.6m above — rotated by heading each frame
-FOLLOW_OFFSET = np.array([-2.0, 0.0, 1.6])
+# Follow-cam: 3m behind agent, 1.8m above — rotated by heading each frame
+FOLLOW_OFFSET = np.array([-3.0, 0.0, 1.8])
+
+# Camera heading smoothing — exponential moving average (lower = smoother, more lag)
+HEADING_ALPHA = 0.06  # ~0.06 gives a smooth ~0.5s ease into turns
 
 # ── Nav graph ─────────────────────────────────────────────────────────────────
 
@@ -102,13 +105,20 @@ class PedestrianAgent:
         self.current_node = random.choice(list(nodes.keys()))
         self.pos          = nodes[self.current_node].copy().astype(float)
         self.heading      = np.array([0.0, 1.0])  # updated each step
-        color = np.array([random.random(), random.random(), random.random()])
+        # Clothing-like colors — avoid pure white/black so agents are visible
+        color = np.array([
+            random.uniform(0.2, 0.9),
+            random.uniform(0.2, 0.9),
+            random.uniform(0.2, 0.9),
+        ])
+        # Tall capsule standing upright — looks like a person silhouette
         self.sphere = world.scene.add(
-            DynamicSphere(
+            DynamicCapsule(
                 prim_path=f"/World/Agents/agent_{agent_id}",
                 name=f"agent_{agent_id}",
-                position=self.pos,
-                radius=AGENT_RADIUS,
+                position=self.pos + np.array([0, 0, 0.9]),  # capsule center at waist height
+                radius=0.2,
+                height=1.4,   # ~1.8m total (height + 2*radius)
                 color=color,
             )
         )
@@ -140,7 +150,7 @@ class PedestrianAgent:
             unit         = direction / dist
             self.heading = unit
             self.pos[:2] += unit * AGENT_SPEED_MS * dt
-            self.sphere.set_world_pose(position=self.pos)
+            self.sphere.set_world_pose(position=self.pos + np.array([0, 0, 0.9]))
 
 
 def heading_to_quat(heading_2d):
@@ -167,16 +177,18 @@ def main():
 
     # Add lighting — building USD has no guaranteed interior lights
     stage = omni.usd.get_context().get_stage()
+    # Bright interior lighting — DistantLight alone is too dim inside buildings
     dl = UsdLux.DistantLight.Define(stage, Sdf.Path("/World/DistantLight"))
-    dl.CreateIntensityAttr(3000)
+    dl.CreateIntensityAttr(50000)
     dome = UsdLux.DomeLight.Define(stage, Sdf.Path("/World/DomeLight"))
-    dome.CreateIntensityAttr(1500)
+    dome.CreateIntensityAttr(10000)
     print("[INFO] Lighting added")
 
     # Spawn agents
     print(f"[INFO] Spawning {NUM_AGENTS} agents...")
     agents = [PedestrianAgent(i, nodes, adj, world) for i in range(NUM_AGENTS)]
-    follow_agent = agents[0]
+    follow_agent   = agents[0]
+    smooth_heading = follow_agent.heading.copy()  # smoothed camera heading
 
     # Follow camera — initial position doesn't matter, updated every frame
     follow_cam = Camera(
@@ -204,15 +216,23 @@ def main():
                     agent.step(STEP_SIZE)
 
                 # ── 2. Update camera BEFORE world.step (critical) ─────────
-                pos     = follow_agent.pos.copy()
-                heading = follow_agent.heading
-                yaw     = float(np.arctan2(heading[1], heading[0]))
-                rot     = R.from_euler("z", yaw)
+                pos = follow_agent.pos.copy()
 
+                # Smooth heading — exponential moving average to avoid
+                # jittery camera snapping at every nav node turn
+                raw = follow_agent.heading
+                smooth_heading = HEADING_ALPHA * raw + (1 - HEADING_ALPHA) * smooth_heading
+                n = np.linalg.norm(smooth_heading)
+                if n > 1e-6:
+                    smooth_heading /= n
+
+                yaw = float(np.arctan2(smooth_heading[1], smooth_heading[0]))
+                rot = R.from_euler("z", yaw)
                 rotated_offset = rot.apply(FOLLOW_OFFSET)
+
                 follow_cam.set_world_pose(
                     position    = pos + rotated_offset,
-                    orientation = heading_to_quat(heading),
+                    orientation = heading_to_quat(smooth_heading),
                 )
 
             # ── 3. Render step AFTER pose updates ─────────────────────────
