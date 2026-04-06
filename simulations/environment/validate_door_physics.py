@@ -286,28 +286,43 @@ def main():
     for path_str, joint_prim, drive, door_prim in all_doors:
         set_drive_target(drive, DRIVE_TARGET_ANGLE)
 
-    # Open all recorders (including showcase)
+    # Open all recorders (including showcase) — wrapped in try/except
+    # because Isaac Sim's Replicator/OmniGraph can intermittently crash
     recorders = {}
-    for cam_key in cameras:
-        vname = f"validation/validate_doors_cam_{cam_key}"
-        recorders[cam_key] = VideoRecorder(vname, fps=30)
-        recorders[cam_key].__enter__()
-
     showcase_rec = None
-    if showcase_cam is not None:
-        showcase_rec = VideoRecorder("validation/validate_doors_showcase", fps=30)
-        showcase_rec.__enter__()
+    recording = False
+    try:
+        for cam_key in cameras:
+            vname = f"validation/validate_doors_cam_{cam_key}"
+            recorders[cam_key] = VideoRecorder(vname, fps=30)
+            recorders[cam_key].__enter__()
+        if showcase_cam is not None:
+            showcase_rec = VideoRecorder("validation/validate_doors_showcase", fps=30)
+            showcase_rec.__enter__()
+        recording = True
+    except Exception as e:
+        print(f"[door_physics] WARNING: Video recording setup failed ({e}), "
+              f"running physics only", flush=True)
+        recorders = {}
+        showcase_rec = None
 
     for i in range(RECORD_FRAMES):
         world.step(render=True)
-        for cam_key, cam in cameras.items():
-            rgba = cam.get_rgba()
-            if rgba is not None and i > 0:
-                recorders[cam_key].capture_rgba(rgba)
-        if showcase_cam is not None and i > 0:
-            rgba = showcase_cam.get_rgba()
-            if rgba is not None:
-                showcase_rec.capture_rgba(rgba)
+        if recording:
+            for cam_key, cam in cameras.items():
+                try:
+                    rgba = cam.get_rgba()
+                    if rgba is not None and i > 0:
+                        recorders[cam_key].capture_rgba(rgba)
+                except Exception:
+                    pass
+            if showcase_cam is not None and showcase_rec is not None and i > 0:
+                try:
+                    rgba = showcase_cam.get_rgba()
+                    if rgba is not None:
+                        showcase_rec.capture_rgba(rgba)
+                except Exception:
+                    pass
 
         # --- Per-frame native metrics (every 5th frame to limit overhead) ---
         if i % 5 == 0:
@@ -362,10 +377,17 @@ def main():
         if i % 60 == 0:
             print(f"  Frame {i}/{RECORD_FRAMES}", flush=True)
 
-    for rec in recorders.values():
-        rec.__exit__(None, None, None)
-    if showcase_rec is not None:
-        showcase_rec.__exit__(None, None, None)
+    if recording:
+        for rec in recorders.values():
+            try:
+                rec.__exit__(None, None, None)
+            except Exception:
+                pass
+        if showcase_rec is not None:
+            try:
+                showcase_rec.__exit__(None, None, None)
+            except Exception:
+                pass
 
     # Measure final angles for ALL doors
     final_angles = {}
@@ -499,7 +521,8 @@ def main():
     print(f"[door_physics] Results -> {out_path}", flush=True)
     print(f"[door_physics] OVERALL: {'PASS' if overall_pass else 'FAIL'}", flush=True)
 
-    simulation_app.close()
+    # Skip simulation_app.close() — Isaac Sim's OmniGraph cleanup can segfault
+    os._exit(0)
 
 
 if __name__ == "__main__":

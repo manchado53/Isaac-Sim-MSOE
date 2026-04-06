@@ -241,7 +241,8 @@ def main():
     print(f"\n[building_stats] Results -> {out_path}", flush=True)
     print(f"[building_stats] OVERALL: {'PASS' if results['overall_passed'] else 'FAIL'}", flush=True)
 
-    simulation_app.close()
+    # Skip simulation_app.close() — Isaac Sim's OmniGraph cleanup can segfault
+    os._exit(0)
 
 
 if __name__ == "__main__":

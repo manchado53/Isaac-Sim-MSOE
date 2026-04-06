@@ -80,7 +80,8 @@ class VideoRecorder:
         self._ffmpeg_proc = None  # used in capture_rgba mode
 
     def __enter__(self):
-        self.temp_dir = tempfile.mkdtemp(prefix=f"isaac_sim_{self.video_name}_")
+        safe_prefix = self.video_name.replace("/", "_").replace("\\", "_")
+        self.temp_dir = tempfile.mkdtemp(prefix=f"isaac_sim_{safe_prefix}_")
         self.frame_count = 0
         self._ffmpeg_proc = None
         print(f"[VideoRecorder] Output: {self.output_dir / self.video_name}.mp4")
