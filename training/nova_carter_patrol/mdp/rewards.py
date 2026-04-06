@@ -78,13 +78,33 @@ def time_penalty(env: ManagerBasedRLEnv) -> torch.Tensor:
 
 
 def backward_motion_penalty(env: ManagerBasedRLEnv) -> torch.Tensor:
-    """Penalize rearward motion — robot should always move sensor-end (positive x) first.
+    """Penalize rearward motion — robot should prefer sensor-end (positive x) forward.
+
+    Kept low so the robot is willing to back up when stuck against an obstacle.
+    The stuck_penalty makes freezing more expensive than reversing.
 
     Returns the magnitude of negative forward velocity (0 when moving forward or stopped).
     Shape: (num_envs,)
     """
     forward_vel = env.scene["robot"].data.root_lin_vel_b[:, 0]
     return torch.relu(-forward_vel)
+
+
+def stuck_penalty(env: ManagerBasedRLEnv, min_speed: float) -> torch.Tensor:
+    """Penalize very low speed to prevent the robot from freezing in place.
+
+    When the robot is stuck against a wall, this makes standing still more
+    expensive than backing up, so the policy learns to try reversing instead
+    of doing nothing and waiting for the goal to resample.
+
+    Args:
+        min_speed: speed threshold (m/s) below which the penalty fires.
+
+    Shape: (num_envs,)
+    """
+    lin_vel = env.scene["robot"].data.root_lin_vel_b[:, :2]
+    speed = torch.norm(lin_vel, dim=-1)
+    return (speed < min_speed).float()
 
 
 def goal_progress(

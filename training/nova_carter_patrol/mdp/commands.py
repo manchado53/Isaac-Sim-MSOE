@@ -81,7 +81,7 @@ class GoalReachPose2dCommand(UniformPose2dCommand):
             bad_mask = self._is_in_collision(self.pos_command_w[remaining, :2], remaining)
             if not bad_mask.any():
                 break
-            print(f"[GOAL REJECTION] attempt {attempt + 1}: {bad_mask.sum().item()} goal(s) inside furniture, resampling", flush=True)
+            pass  # silenced — normal behavior, ~18% of goals need resampling
             remaining = remaining[bad_mask]
 
             # Re-sample XY only — no counter increment, no Z/heading reset

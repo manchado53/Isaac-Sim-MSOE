@@ -396,10 +396,18 @@ class RewardsCfg:
         func=rew_mdp.time_penalty,
         weight=-0.05,
     )
-    # Penalty for driving casters-first — encourages sensor end to lead
+    # Mild penalty for driving casters-first — kept low so backing up to escape
+    # an obstacle is always cheaper than freezing in place (see stuck_penalty).
     backward_motion = RewTerm(
         func=rew_mdp.backward_motion_penalty,
-        weight=-2.0,
+        weight=-0.5,
+    )
+    # Penalize near-zero speed — makes freezing against a wall more expensive
+    # than reversing, so the robot learns to back up instead of sitting there.
+    stuck_penalty = RewTerm(
+        func=rew_mdp.stuck_penalty,
+        weight=-1.0,
+        params={"min_speed": 0.05},
     )
     # Dominant arrival bonus
     goal_reached = RewTerm(
