@@ -31,8 +31,10 @@ cd "$PROJECT_DIR"
 
 echo "[INFO] Simulation done at $(date)"
 
-# ── Run analysis on the latest log (no GPU needed, but convenient to chain) ──
-"$ISAACSIM_DIR/python.sh" simulations/crowd/analyze_crowd.py
+# ── Run analysis on the latest log (uses system python3, not Isaac Sim) ──
+# analyze_crowd.py only needs numpy/pandas/matplotlib — no Isaac Sim required
+conda run -n base python simulations/crowd/analyze_crowd.py 2>/dev/null \
+  || python3 simulations/crowd/analyze_crowd.py
 
 echo "[INFO] Analysis done at $(date)"
 echo "[INFO] Figures in: $PROJECT_DIR/simulations/crowd/figures/"
