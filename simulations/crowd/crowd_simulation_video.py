@@ -1,9 +1,11 @@
 """Crowd simulation video — third-person follow camera.
 
-Mirrors gonzalo's nova_carter_onboard_cam.py pattern exactly:
-  1. Camera pose updated BEFORE world.step() (critical for async pipeline)
-  2. world.is_playing() guard before get_rgba()
-  3. Explicit lighting added to the stage
+Pattern copied from simulations/environment/msoe_building_tour.py (gonzalo-camera branch):
+  - add_reference_to_stage (not open_stage)
+  - simulation_app.update() after world.reset() before camera.initialize()
+  - 30 warm-up frames before recording
+  - Camera pose updated BEFORE world.step() (critical for async pipeline)
+  - Exponentially smoothed heading to prevent jittery camera
 
 Output: videos/crowd_follow_<timestamp>.mp4
 """
@@ -21,10 +23,12 @@ os.environ["PRIVACY_CONSENT"] = "Y"
 from isaacsim import SimulationApp
 simulation_app = SimulationApp({"headless": True, "width": 1280, "height": 720})
 
+import math
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 import isaacsim.core.utils.numpy.rotations as rot_utils
 from isaacsim.core.api import World
+from isaacsim.core.utils.stage import add_reference_to_stage
 from isaacsim.sensors.camera import Camera
 from omni.isaac.core.objects import DynamicCapsule
 from pxr import UsdLux, Sdf
@@ -42,14 +46,17 @@ GRAPH_PATH  = os.path.join(PROJECT_DIR, "assets/Graph/floor_4_nav_graph_world_xf
 NUM_AGENTS     = 30
 SIM_DURATION_S = 20.0
 AGENT_SPEED_MS = 1.2
-AGENT_RADIUS   = 0.25
+AGENT_RADIUS   = 0.2
+AGENT_HEIGHT   = 1.4    # ~1.8m total with 2*radius caps
 STEP_SIZE      = 1.0 / 30.0
+WARMUP_FRAMES  = 60     # let renderer stabilize before recording
 
-# Follow-cam: 3m behind agent, 1.8m above — rotated by heading each frame
-FOLLOW_OFFSET = np.array([-3.0, 0.0, 1.8])
+# Follow-cam: behind and above the followed agent
+FOLLOW_OFFSET  = np.array([-3.0, 0.0, 1.8])
 
-# Camera heading smoothing — exponential moving average (lower = smoother, more lag)
-HEADING_ALPHA = 0.06  # ~0.06 gives a smooth ~0.5s ease into turns
+# Heading smoothing — lower = smoother turns, more lag
+# 0.04 ≈ 1 second ease at 30fps
+HEADING_ALPHA  = 0.04
 
 # ── Nav graph ─────────────────────────────────────────────────────────────────
 
@@ -104,21 +111,20 @@ class PedestrianAgent:
         self.adj          = adj
         self.current_node = random.choice(list(nodes.keys()))
         self.pos          = nodes[self.current_node].copy().astype(float)
-        self.heading      = np.array([0.0, 1.0])  # updated each step
-        # Clothing-like colors — avoid pure white/black so agents are visible
+        self.heading      = np.array([0.0, 1.0])
         color = np.array([
-            random.uniform(0.2, 0.9),
-            random.uniform(0.2, 0.9),
-            random.uniform(0.2, 0.9),
+            random.uniform(0.2, 0.95),
+            random.uniform(0.2, 0.95),
+            random.uniform(0.2, 0.95),
         ])
-        # Tall capsule standing upright — looks like a person silhouette
-        self.sphere = world.scene.add(
+        # Capsule standing upright — center at waist height
+        self.prim = world.scene.add(
             DynamicCapsule(
                 prim_path=f"/World/Agents/agent_{agent_id}",
                 name=f"agent_{agent_id}",
-                position=self.pos + np.array([0, 0, 0.9]),  # capsule center at waist height
-                radius=0.2,
-                height=1.4,   # ~1.8m total (height + 2*radius)
+                position=self.pos + np.array([0, 0, 0.9]),
+                radius=AGENT_RADIUS,
+                height=AGENT_HEIGHT,
                 color=color,
             )
         )
@@ -150,13 +156,13 @@ class PedestrianAgent:
             unit         = direction / dist
             self.heading = unit
             self.pos[:2] += unit * AGENT_SPEED_MS * dt
-            self.sphere.set_world_pose(position=self.pos + np.array([0, 0, 0.9]))
+            self.prim.set_world_pose(position=self.pos + np.array([0, 0, 0.9]))
 
 
 def heading_to_quat(heading_2d):
-    """2D heading → Isaac Sim [w, x, y, z] quaternion (yaw only)."""
+    """2D unit vector → Isaac Sim [w, x, y, z] quaternion (yaw only)."""
     yaw = float(np.arctan2(heading_2d[1], heading_2d[0]))
-    q   = R.from_euler("z", yaw).as_quat()   # scipy: [x, y, z, w]
+    q   = R.from_euler("z", yaw).as_quat()  # scipy [x,y,z,w]
     return np.array([q[3], q[0], q[1], q[2]])
 
 
@@ -166,90 +172,99 @@ def main():
     timestamp  = datetime.now().strftime("%Y%m%d_%H%M%S")
     video_name = f"crowd_follow_{timestamp}"
 
-    print("[INFO] Loading nav graph...")
+    print("[INFO] Loading nav graph...", flush=True)
     nodes, adj = load_graph(GRAPH_PATH)
-    print(f"[INFO] Loaded {len(nodes)} nodes")
+    print(f"[INFO] Loaded {len(nodes)} nodes", flush=True)
 
-    # Open USD as root stage (same order that works in crowd_simulation.py)
-    print("[INFO] Opening USD stage...")
-    omni.usd.get_context().open_stage(USD_PATH)
+    # ── World + building ──────────────────────────────────────────────────────
+    print("[INFO] Creating world and loading USD...", flush=True)
     world = World(stage_units_in_meters=1.0)
+    add_reference_to_stage(usd_path=USD_PATH, prim_path="/World/Building")
 
-    # Add lighting — building USD has no guaranteed interior lights
+    # ── Lighting — copied from msoe_building_tour.py ─────────────────────────
     stage = omni.usd.get_context().get_stage()
-    # Bright interior lighting — DistantLight alone is too dim inside buildings
     dl = UsdLux.DistantLight.Define(stage, Sdf.Path("/World/DistantLight"))
-    dl.CreateIntensityAttr(50000)
+    dl.CreateIntensityAttr(500)
     dome = UsdLux.DomeLight.Define(stage, Sdf.Path("/World/DomeLight"))
-    dome.CreateIntensityAttr(10000)
-    print("[INFO] Lighting added")
+    dome.CreateIntensityAttr(200)
+    print("[INFO] Lighting added", flush=True)
 
-    # Spawn agents
-    print(f"[INFO] Spawning {NUM_AGENTS} agents...")
+    # ── Agents ────────────────────────────────────────────────────────────────
+    print(f"[INFO] Spawning {NUM_AGENTS} agents...", flush=True)
     agents = [PedestrianAgent(i, nodes, adj, world) for i in range(NUM_AGENTS)]
     follow_agent   = agents[0]
-    smooth_heading = follow_agent.heading.copy()  # smoothed camera heading
+    smooth_heading = follow_agent.heading.copy()
 
-    # Follow camera — initial position doesn't matter, updated every frame
+    # ── Camera ────────────────────────────────────────────────────────────────
+    init_pos = follow_agent.pos + np.array([-3.0, 0.0, 1.8])
     follow_cam = Camera(
         prim_path="/World/FollowCam",
-        position=np.array([follow_agent.pos[0], follow_agent.pos[1] - 2.0,
-                           follow_agent.pos[2] + 1.6]),
+        position=init_pos,
         orientation=rot_utils.euler_angles_to_quats(np.array([0, 0, 0]), degrees=True),
         frequency=30,
         resolution=(1280, 720),
     )
 
+    # ── Reset + init — exact order from msoe_building_tour.py ────────────────
     world.reset()
+    simulation_app.update()   # flush stage after reset (critical)
     follow_cam.initialize()
+    print("[INFO] Camera initialized", flush=True)
+
+    # ── Warm-up frames — let renderer fully initialize before capturing ────────
+    print(f"[INFO] Warming up ({WARMUP_FRAMES} frames)...", flush=True)
+    for _ in range(WARMUP_FRAMES):
+        world.step(render=True)
+
+    # Diagnose first frame
+    test_rgba = follow_cam.get_rgba()
+    if test_rgba is not None:
+        print(f"[INFO] Warm-up check — RGBA shape={test_rgba.shape} mean={test_rgba.mean():.1f}", flush=True)
+    else:
+        print("[WARN] Warm-up check — get_rgba() returned None", flush=True)
 
     total_steps = int(SIM_DURATION_S / STEP_SIZE)
-    print(f"[INFO] Recording {total_steps} steps ({SIM_DURATION_S:.0f}s) → {video_name}.mp4")
+    print(f"[INFO] Recording {total_steps} steps ({SIM_DURATION_S:.0f}s)...", flush=True)
 
     frame = 0
     with VideoRecorder(video_name, fps=30) as recorder:
         while frame < total_steps:
 
-            if world.is_playing():
-                # ── 1. Move agents ────────────────────────────────────────
-                for agent in agents:
-                    agent.step(STEP_SIZE)
+            # ── 1. Move agents ────────────────────────────────────────────────
+            for agent in agents:
+                agent.step(STEP_SIZE)
 
-                # ── 2. Update camera BEFORE world.step (critical) ─────────
-                pos = follow_agent.pos.copy()
+            # ── 2. Smooth heading + update camera BEFORE world.step ───────────
+            raw = follow_agent.heading
+            smooth_heading = HEADING_ALPHA * raw + (1 - HEADING_ALPHA) * smooth_heading
+            n = np.linalg.norm(smooth_heading)
+            if n > 1e-6:
+                smooth_heading /= n
 
-                # Smooth heading — exponential moving average to avoid
-                # jittery camera snapping at every nav node turn
-                raw = follow_agent.heading
-                smooth_heading = HEADING_ALPHA * raw + (1 - HEADING_ALPHA) * smooth_heading
-                n = np.linalg.norm(smooth_heading)
-                if n > 1e-6:
-                    smooth_heading /= n
+            yaw = float(np.arctan2(smooth_heading[1], smooth_heading[0]))
+            rot = R.from_euler("z", yaw)
+            cam_pos = follow_agent.pos + rot.apply(FOLLOW_OFFSET)
 
-                yaw = float(np.arctan2(smooth_heading[1], smooth_heading[0]))
-                rot = R.from_euler("z", yaw)
-                rotated_offset = rot.apply(FOLLOW_OFFSET)
+            follow_cam.set_world_pose(
+                position    = cam_pos,
+                orientation = heading_to_quat(smooth_heading),
+            )
 
-                follow_cam.set_world_pose(
-                    position    = pos + rotated_offset,
-                    orientation = heading_to_quat(smooth_heading),
-                )
-
-            # ── 3. Render step AFTER pose updates ─────────────────────────
+            # ── 3. Render ─────────────────────────────────────────────────────
             world.step(render=True)
 
-            # ── 4. Capture (skip frame 0 like gonzalo) ────────────────────
-            if world.is_playing() and frame > 0 and frame % 2 == 0:
-                rgba = follow_cam.get_rgba()
-                if rgba is not None:
-                    recorder.capture_rgba(rgba)
+            # ── 4. Capture ────────────────────────────────────────────────────
+            rgba = follow_cam.get_rgba()
+            if rgba is not None:
+                recorder.capture_rgba(rgba)
 
             if frame % 100 == 0:
-                print(f"[INFO] Frame {frame}/{total_steps}  playing={world.is_playing()}")
+                mean_px = rgba.mean() if rgba is not None else -1
+                print(f"[INFO] Frame {frame}/{total_steps}  px_mean={mean_px:.1f}", flush=True)
 
             frame += 1
 
-    print("[INFO] Done.")
+    print(f"[INFO] Done. Video: videos/{video_name}.mp4", flush=True)
     simulation_app.close()
 
 
