@@ -30,7 +30,7 @@ import isaacsim.core.utils.numpy.rotations as rot_utils
 from isaacsim.core.api import World
 from isaacsim.sensors.camera import Camera
 from omni.isaac.core.objects import VisualCapsule
-from pxr import UsdLux, Sdf
+from pxr import UsdLux, UsdGeom, Sdf, Gf
 import omni.usd
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
@@ -189,8 +189,13 @@ def main():
     # which gets blocked by the roof. No RectLights needed.
     stage = omni.usd.get_context().get_stage()
     dome = UsdLux.DomeLight.Define(stage, Sdf.Path("/World/DomeLight"))
-    dome.CreateIntensityAttr(8000)
-    print("[INFO] Lighting added (DomeLight 8000)", flush=True)
+    dome.CreateIntensityAttr(100000)
+    # SphereLight at agent level for additional fill inside enclosed spaces
+    sphere = UsdLux.SphereLight.Define(stage, Sdf.Path("/World/FillLight"))
+    sphere.CreateIntensityAttr(500000)
+    sphere.CreateRadiusAttr(1.0)
+    UsdGeom.XformCommonAPI(sphere).SetTranslate(Gf.Vec3d(-7.0, 67.0, 29.5))
+    print("[INFO] Lighting added (DomeLight 100k + SphereLight 500k)", flush=True)
 
     # ── Agents ────────────────────────────────────────────────────────────────
     print(f"[INFO] Spawning {NUM_AGENTS} agents...", flush=True)
