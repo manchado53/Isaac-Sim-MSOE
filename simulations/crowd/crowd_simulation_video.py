@@ -29,8 +29,8 @@ from scipy.spatial.transform import Rotation as R
 import isaacsim.core.utils.numpy.rotations as rot_utils
 from isaacsim.core.api import World
 from isaacsim.sensors.camera import Camera
-from omni.isaac.core.objects import DynamicCapsule
-from pxr import UsdLux, Sdf, Gf
+from omni.isaac.core.objects import VisualCapsule
+from pxr import UsdLux, Sdf
 import omni.usd
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
@@ -118,7 +118,7 @@ class PedestrianAgent:
         ])
         # Capsule standing upright — center at waist height
         self.prim = world.scene.add(
-            DynamicCapsule(
+            VisualCapsule(
                 prim_path=f"/World/Agents/agent_{agent_id}",
                 name=f"agent_{agent_id}",
                 position=self.pos + np.array([0, 0, 0.9]),
@@ -185,31 +185,12 @@ def main():
     # DistantLight + DomeLight for global fill (50000/10000 confirmed visible)
     # RectLights at floor 4 ceiling height (z≈31m) for interior illumination
     # since the roof blocks DistantLight inside the building
+    # DomeLight is omnidirectional — penetrates through geometry unlike DistantLight
+    # which gets blocked by the roof. No RectLights needed.
     stage = omni.usd.get_context().get_stage()
-    dl = UsdLux.DistantLight.Define(stage, Sdf.Path("/World/DistantLight"))
-    dl.CreateIntensityAttr(50000)
     dome = UsdLux.DomeLight.Define(stage, Sdf.Path("/World/DomeLight"))
-    dome.CreateIntensityAttr(10000)
-
-    # Floor 4 center: x≈-17.6, y≈67.7, ceiling z≈31.5m (floor z=28.25 + ~3.3m ceiling)
-    # Spread 4 rect lights across the floor area to evenly light the corridors
-    floor4_lights = [
-        ((-7.0,  67.0), "Light_Center"),   # main corridor cluster
-        ((-30.0, 67.0), "Light_West"),
-        ((-7.0,  54.0), "Light_South"),
-        ((-7.0,  80.0), "Light_North"),
-    ]
-    for (lx, ly), lname in floor4_lights:
-        rl = UsdLux.RectLight.Define(stage, Sdf.Path(f"/World/{lname}"))
-        rl.CreateIntensityAttr(80000)
-        rl.CreateWidthAttr(20.0)
-        rl.CreateHeightAttr(20.0)
-        xform = rl.AddTranslateOp()
-        xform.Set(Gf.Vec3d(lx, ly, 31.5))
-        # Rotate to face downward (-Z)
-        rot_op = rl.AddRotateXYZOp()
-        rot_op.Set(Gf.Vec3f(90, 0, 0))
-    print("[INFO] Lighting added (DistantLight + DomeLight + 4x RectLight at floor 4)", flush=True)
+    dome.CreateIntensityAttr(8000)
+    print("[INFO] Lighting added (DomeLight 8000)", flush=True)
 
     # ── Agents ────────────────────────────────────────────────────────────────
     print(f"[INFO] Spawning {NUM_AGENTS} agents...", flush=True)
