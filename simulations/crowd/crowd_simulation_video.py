@@ -66,7 +66,7 @@ CAM_PITCH_DEG  = -8.0
 HEADING_ALPHA  = 0.04
 
 # Floor z correction — nav graph says 28.25m but actual floor mesh may differ
-FLOOR_Z_OFFSET = -0.1  # shift capsules down slightly so feet touch mesh
+FLOOR_Z_OFFSET = -0.3  # shift capsules down so feet touch the floor mesh
 
 # ── Nav graph ─────────────────────────────────────────────────────────────────
 
@@ -234,8 +234,10 @@ def composite_minimap(frame_rgba, minimap_rgb, margin=10):
 def heading_to_quat(heading_2d, pitch_deg=0.0):
     """2D unit vector + optional pitch → Isaac Sim [w, x, y, z] quaternion."""
     yaw = float(np.arctan2(heading_2d[1], heading_2d[0]))
-    # Apply yaw first, then pitch around local Y axis
-    q = R.from_euler("zy", [yaw, math.radians(pitch_deg)]).as_quat()  # scipy [x,y,z,w]
+    # Intrinsic ZY: yaw around world-Z, then pitch around camera's own Y.
+    # Lowercase "zy" = extrinsic (world-frame Y pitch), causing roll when yaw≠0.
+    # Uppercase "ZY" = intrinsic (local Y pitch) — no roll regardless of heading.
+    q = R.from_euler("ZY", [yaw, math.radians(pitch_deg)]).as_quat()  # scipy [x,y,z,w]
     return np.array([q[3], q[0], q[1], q[2]])
 
 
@@ -266,13 +268,22 @@ def main():
     # which gets blocked by the roof. No RectLights needed.
     stage = omni.usd.get_context().get_stage()
     dome = UsdLux.DomeLight.Define(stage, Sdf.Path("/World/DomeLight"))
-    dome.CreateIntensityAttr(5000)
-    # SphereLight at corridor level for interior fill
-    sphere = UsdLux.SphereLight.Define(stage, Sdf.Path("/World/FillLight"))
-    sphere.CreateIntensityAttr(20000)
-    sphere.CreateRadiusAttr(1.0)
-    UsdGeom.XformCommonAPI(sphere).SetTranslate(Gf.Vec3d(-7.0, 67.0, 29.5))
-    print("[INFO] Lighting added (DomeLight 100k + SphereLight 500k)", flush=True)
+    dome.CreateIntensityAttr(3000)
+    # SphereLights at corridor ceiling height (~30m) spread along the busiest nav area.
+    # node_21 y=62.3, mid y=67, node_37 y=70.5, node_43 y=73.4 — all x≈-7m.
+    # 4 lights at 80k each give ~320k total interior fill with minimal hot-spots.
+    _fill_lights = [
+        ("/World/Fill0", (-7.2, 62.3, 30.0)),
+        ("/World/Fill1", (-7.2, 67.0, 30.0)),
+        ("/World/Fill2", (-7.3, 70.5, 30.0)),
+        ("/World/Fill3", (-7.2, 73.4, 30.0)),
+    ]
+    for _path, (_x, _y, _z) in _fill_lights:
+        _s = UsdLux.SphereLight.Define(stage, Sdf.Path(_path))
+        _s.CreateIntensityAttr(80000)
+        _s.CreateRadiusAttr(1.5)
+        UsdGeom.XformCommonAPI(_s).SetTranslate(Gf.Vec3d(_x, _y, _z))
+    print("[INFO] Lighting added (DomeLight 3k + 4×SphereLight 80k along corridor)", flush=True)
 
     # ── Agents ────────────────────────────────────────────────────────────────
     print(f"[INFO] Spawning {NUM_AGENTS} agents...", flush=True)
