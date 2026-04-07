@@ -54,11 +54,11 @@ AGENT_HEIGHT   = 1.4    # ~1.8m total with 2*radius caps
 STEP_SIZE      = 1.0 / 30.0
 WARMUP_FRAMES  = 60     # let renderer stabilize before recording
 
-# Behind-follow camera — 2m behind agent, 1.5m above center (~shoulder height)
-# Short enough offset to stay inside the building corridor
-FOLLOW_OFFSET  = np.array([-2.0, 0.0, 1.5])
+# First-person camera — at agent eye level, looking forward
+# followed agent capsule is hidden so it doesn't block the view
+FOLLOW_OFFSET  = np.array([0.0, 0.0, 0.7])  # eye height above agent center
 
-# Tilt down slightly so we see the agent and floor ahead
+# Tilt down slightly so we see floor and other agents ahead
 CAM_PITCH_DEG  = -10.0
 
 # Heading smoothing — lower = smoother turns, more lag
@@ -308,6 +308,12 @@ def main():
     simulation_app.update()   # flush stage after reset (critical)
     follow_cam.initialize()
     print("[INFO] Camera initialized", flush=True)
+
+    # Hide the followed agent's capsule — first-person camera lives inside it,
+    # so without hiding it the capsule mesh blocks the entire view.
+    _follow_prim = omni.usd.get_context().get_stage().GetPrimAtPath("/World/Agents/agent_0")
+    UsdGeom.Imageable(_follow_prim).MakeInvisible()
+    print("[INFO] Followed agent capsule hidden (first-person mode)", flush=True)
 
     # ── Warm-up frames — let renderer fully initialize before capturing ────────
     print(f"[INFO] Warming up ({WARMUP_FRAMES} frames)...", flush=True)
