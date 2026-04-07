@@ -267,10 +267,10 @@ def main():
     # which gets blocked by the roof. No RectLights needed.
     stage = omni.usd.get_context().get_stage()
     dome = UsdLux.DomeLight.Define(stage, Sdf.Path("/World/DomeLight"))
-    dome.CreateIntensityAttr(500000)
+    dome.CreateIntensityAttr(5000)
     # SphereLight at corridor level for interior fill
     sphere = UsdLux.SphereLight.Define(stage, Sdf.Path("/World/FillLight"))
-    sphere.CreateIntensityAttr(2000000)
+    sphere.CreateIntensityAttr(20000)
     sphere.CreateRadiusAttr(1.0)
     UsdGeom.XformCommonAPI(sphere).SetTranslate(Gf.Vec3d(-7.0, 67.0, 29.5))
     print("[INFO] Lighting added (DomeLight 100k + SphereLight 500k)", flush=True)
