@@ -25,6 +25,10 @@ simulation_app = SimulationApp({"headless": True, "width": 1280, "height": 720})
 
 import math
 import numpy as np
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 from scipy.spatial.transform import Rotation as R
 import isaacsim.core.utils.numpy.rotations as rot_utils
 from isaacsim.core.api import World
@@ -158,6 +162,60 @@ class PedestrianAgent:
             self.prim.set_world_pose(position=self.pos + np.array([0, 0, 0.9]))
 
 
+def build_minimap(nodes, edges, agents, follow_agent, size=280):
+    """Render nav graph + live agent positions → RGB numpy array (size×size×3)."""
+    fig, ax = plt.subplots(figsize=(size/100, size/100), dpi=100)
+    fig.patch.set_facecolor("#111111")
+    ax.set_facecolor("#111111")
+
+    # Draw edges
+    for src, dst in edges:
+        xs = [nodes[src][0], nodes[dst][0]]
+        ys = [nodes[src][1], nodes[dst][1]]
+        ax.plot(xs, ys, color="#444444", linewidth=0.8, zorder=1)
+
+    # Draw nodes
+    nxs = [v[0] for v in nodes.values()]
+    nys = [v[1] for v in nodes.values()]
+    ax.scatter(nxs, nys, c="#888888", s=6, zorder=2)
+
+    # Draw all agents as white dots
+    for ag in agents:
+        ax.scatter(ag.pos[0], ag.pos[1], c="white", s=10, zorder=3)
+
+    # Highlight followed agent in yellow
+    ax.scatter(follow_agent.pos[0], follow_agent.pos[1],
+               c="#FFD700", s=30, zorder=4, edgecolors="white", linewidths=0.5)
+
+    ax.set_xlim(min(nxs) - 2, max(nxs) + 2)
+    ax.set_ylim(min(nys) - 2, max(nys) + 2)
+    ax.set_aspect("equal")
+    ax.axis("off")
+    fig.tight_layout(pad=0)
+
+    canvas = FigureCanvasAgg(fig)
+    canvas.draw()
+    buf = canvas.buffer_rgba()
+    img = np.frombuffer(buf, dtype=np.uint8).reshape(size, size, 4)
+    plt.close(fig)
+    return img[:, :, :3]  # drop alpha
+
+
+def composite_minimap(frame_rgba, minimap_rgb, margin=10):
+    """Paste minimap into bottom-right corner of frame (in-place)."""
+    if frame_rgba is None:
+        return frame_rgba
+    h, w = frame_rgba.shape[:2]
+    mh, mw = minimap_rgb.shape[:2]
+    y0 = h - mh - margin
+    x0 = w - mw - margin
+
+    # Semi-transparent dark border
+    frame_rgba[y0-2:y0+mh+2, x0-2:x0+mw+2, :3] = 20
+    frame_rgba[y0:y0+mh, x0:x0+mw, :3] = minimap_rgb
+    return frame_rgba
+
+
 def heading_to_quat(heading_2d):
     """2D unit vector → Isaac Sim [w, x, y, z] quaternion (yaw only)."""
     yaw = float(np.arctan2(heading_2d[1], heading_2d[0]))
@@ -173,7 +231,10 @@ def main():
 
     print("[INFO] Loading nav graph...", flush=True)
     nodes, adj = load_graph(GRAPH_PATH)
-    print(f"[INFO] Loaded {len(nodes)} nodes", flush=True)
+    with open(GRAPH_PATH) as f:
+        _gdata = __import__("json").load(f)
+    edges = [(_e["from"], _e["to"]) for _e in _gdata["edges"]]
+    print(f"[INFO] Loaded {len(nodes)} nodes, {len(edges)} edges", flush=True)
 
     # ── World + building ──────────────────────────────────────────────────────
     # open_stage shows the building geometry (confirmed working in fbd2b58)
@@ -261,9 +322,12 @@ def main():
             # ── 3. Render ─────────────────────────────────────────────────────
             world.step(render=True)
 
-            # ── 4. Capture ────────────────────────────────────────────────────
+            # ── 4. Capture + minimap overlay ──────────────────────────────────
             rgba = follow_cam.get_rgba()
             if rgba is not None:
+                rgba = rgba.copy()
+                minimap = build_minimap(nodes, edges, agents, follow_agent)
+                composite_minimap(rgba, minimap)
                 recorder.capture_rgba(rgba)
 
             if frame % 100 == 0:
