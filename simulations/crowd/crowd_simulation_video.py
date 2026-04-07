@@ -54,13 +54,12 @@ AGENT_HEIGHT   = 1.4    # ~1.8m total with 2*radius caps
 STEP_SIZE      = 1.0 / 30.0
 WARMUP_FRAMES  = 60     # let renderer stabilize before recording
 
-# Follow-cam: behind and above the followed agent
-# Raised higher (3.5m) and further back (5m) so camera stays above walls
-# when agent walks through narrow doorways, reducing wall clipping
-FOLLOW_OFFSET  = np.array([-5.0, 0.0, 3.5])
+# POV camera — at agent head height, slightly forward
+# Always inside the building since the agent is always inside
+FOLLOW_OFFSET  = np.array([0.3, 0.0, 0.8])  # 0.3m ahead, 0.8m above agent center (~head)
 
-# Downward pitch on camera so we see agent + floor, not just ceiling
-CAM_PITCH_DEG  = -20.0  # negative = tilt down
+# Slight downward pitch so we see floor and other agents ahead
+CAM_PITCH_DEG  = -8.0
 
 # Heading smoothing — lower = smoother turns, more lag
 # 0.04 ≈ 1 second ease at 30fps
