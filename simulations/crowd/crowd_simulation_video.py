@@ -53,12 +53,7 @@ AGENT_HEIGHT   = 1.4    # ~1.8m total with 2*radius caps
 STEP_SIZE      = 1.0 / 30.0
 WARMUP_FRAMES  = 60     # let renderer stabilize before recording
 
-# First-person camera — 0.5m ahead of agent, at eye height
-# Offset forward clears the capsule (radius=0.2m) so it doesn't block the view
-FOLLOW_OFFSET  = np.array([0.5, 0.0, 0.6])  # 0.5m ahead, 0.6m above center (~eye)
-
-# Tilt down slightly so we see floor and other agents ahead
-CAM_PITCH_DEG  = -10.0
+FOLLOW_OFFSET  = np.array([-3.0, 0.0, 1.8])  # 3m behind, 1.8m above (confirmed working)
 
 # Heading smoothing — lower = smoother turns, more lag
 # 0.04 ≈ 1 second ease at 30fps
@@ -230,10 +225,11 @@ def composite_minimap(frame_rgba, minimap_rgb, margin=10):
     return frame_rgba
 
 
-def heading_to_orient(heading_2d, pitch_deg=0.0):
-    """2D unit vector + pitch → Isaac Sim quaternion via rot_utils (confirmed working pattern)."""
-    yaw = float(np.degrees(np.arctan2(heading_2d[1], heading_2d[0])))
-    return rot_utils.euler_angles_to_quats(np.array([0.0, pitch_deg, yaw]), degrees=True)
+def heading_to_quat(heading_2d):
+    """2D unit vector → Isaac Sim [w, x, y, z] quaternion (yaw only)."""
+    yaw = float(np.arctan2(heading_2d[1], heading_2d[0]))
+    q   = R.from_euler("z", yaw).as_quat()  # scipy [x,y,z,w]
+    return np.array([q[3], q[0], q[1], q[2]])
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -334,13 +330,13 @@ def main():
             if n > 1e-6:
                 smooth_heading /= n
 
-            yaw_rad = float(np.arctan2(smooth_heading[1], smooth_heading[0]))
-            rot = R.from_euler("z", yaw_rad)
+            yaw = float(np.arctan2(smooth_heading[1], smooth_heading[0]))
+            rot = R.from_euler("z", yaw)
             cam_pos = follow_agent.pos + rot.apply(FOLLOW_OFFSET)
 
             follow_cam.set_world_pose(
                 position    = cam_pos,
-                orientation = heading_to_orient(smooth_heading, pitch_deg=CAM_PITCH_DEG),
+                orientation = heading_to_quat(smooth_heading),
             )
 
             # ── 3. Render ─────────────────────────────────────────────────────
