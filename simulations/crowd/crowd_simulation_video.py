@@ -23,7 +23,6 @@ os.environ["PRIVACY_CONSENT"] = "Y"
 from isaacsim import SimulationApp
 simulation_app = SimulationApp({"headless": True, "width": 1280, "height": 720})
 
-import math
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
@@ -54,9 +53,9 @@ AGENT_HEIGHT   = 1.4    # ~1.8m total with 2*radius caps
 STEP_SIZE      = 1.0 / 30.0
 WARMUP_FRAMES  = 60     # let renderer stabilize before recording
 
-# First-person camera — at agent eye level, looking forward
-# followed agent capsule is hidden so it doesn't block the view
-FOLLOW_OFFSET  = np.array([0.0, 0.0, 0.7])  # eye height above agent center
+# First-person camera — 0.5m ahead of agent, at eye height
+# Offset forward clears the capsule (radius=0.2m) so it doesn't block the view
+FOLLOW_OFFSET  = np.array([0.5, 0.0, 0.6])  # 0.5m ahead, 0.6m above center (~eye)
 
 # Tilt down slightly so we see floor and other agents ahead
 CAM_PITCH_DEG  = -10.0
@@ -231,14 +230,10 @@ def composite_minimap(frame_rgba, minimap_rgb, margin=10):
     return frame_rgba
 
 
-def heading_to_quat(heading_2d, pitch_deg=0.0):
-    """2D unit vector + optional pitch → Isaac Sim [w, x, y, z] quaternion."""
-    yaw = float(np.arctan2(heading_2d[1], heading_2d[0]))
-    # Intrinsic ZY: yaw around world-Z, then pitch around camera's own Y.
-    # Lowercase "zy" = extrinsic (world-frame Y pitch), causing roll when yaw≠0.
-    # Uppercase "ZY" = intrinsic (local Y pitch) — no roll regardless of heading.
-    q = R.from_euler("ZY", [yaw, math.radians(pitch_deg)]).as_quat()  # scipy [x,y,z,w]
-    return np.array([q[3], q[0], q[1], q[2]])
+def heading_to_orient(heading_2d, pitch_deg=0.0):
+    """2D unit vector + pitch → Isaac Sim quaternion via rot_utils (confirmed working pattern)."""
+    yaw = float(np.degrees(np.arctan2(heading_2d[1], heading_2d[0])))
+    return rot_utils.euler_angles_to_quats(np.array([0.0, pitch_deg, yaw]), degrees=True)
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -309,12 +304,6 @@ def main():
     follow_cam.initialize()
     print("[INFO] Camera initialized", flush=True)
 
-    # Hide the followed agent's capsule — first-person camera lives inside it,
-    # so without hiding it the capsule mesh blocks the entire view.
-    _follow_prim = omni.usd.get_context().get_stage().GetPrimAtPath("/World/Agents/agent_0")
-    UsdGeom.Imageable(_follow_prim).MakeInvisible()
-    print("[INFO] Followed agent capsule hidden (first-person mode)", flush=True)
-
     # ── Warm-up frames — let renderer fully initialize before capturing ────────
     print(f"[INFO] Warming up ({WARMUP_FRAMES} frames)...", flush=True)
     for _ in range(WARMUP_FRAMES):
@@ -345,13 +334,13 @@ def main():
             if n > 1e-6:
                 smooth_heading /= n
 
-            yaw = float(np.arctan2(smooth_heading[1], smooth_heading[0]))
-            rot = R.from_euler("z", yaw)
+            yaw_rad = float(np.arctan2(smooth_heading[1], smooth_heading[0]))
+            rot = R.from_euler("z", yaw_rad)
             cam_pos = follow_agent.pos + rot.apply(FOLLOW_OFFSET)
 
             follow_cam.set_world_pose(
                 position    = cam_pos,
-                orientation = heading_to_quat(smooth_heading, pitch_deg=CAM_PITCH_DEG),
+                orientation = heading_to_orient(smooth_heading, pitch_deg=CAM_PITCH_DEG),
             )
 
             # ── 3. Render ─────────────────────────────────────────────────────
