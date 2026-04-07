@@ -162,43 +162,50 @@ class PedestrianAgent:
             self.prim.set_world_pose(position=self.pos + np.array([0, 0, 0.9]))
 
 
-def build_minimap(nodes, edges, agents, follow_agent, size=280):
-    """Render nav graph + live agent positions → RGB numpy array (size×size×3)."""
-    fig, ax = plt.subplots(figsize=(size/100, size/100), dpi=100)
-    fig.patch.set_facecolor("#111111")
-    ax.set_facecolor("#111111")
+class Minimap:
+    """Pre-renders static nav graph once; updates only agent dots each frame."""
 
-    # Draw edges
-    for src, dst in edges:
-        xs = [nodes[src][0], nodes[dst][0]]
-        ys = [nodes[src][1], nodes[dst][1]]
-        ax.plot(xs, ys, color="#444444", linewidth=0.8, zorder=1)
+    def __init__(self, nodes, edges, size=280):
+        self.size = size
+        self.fig, self.ax = plt.subplots(figsize=(size/100, size/100), dpi=100)
+        self.fig.patch.set_facecolor("#111111")
+        self.ax.set_facecolor("#111111")
 
-    # Draw nodes
-    nxs = [v[0] for v in nodes.values()]
-    nys = [v[1] for v in nodes.values()]
-    ax.scatter(nxs, nys, c="#888888", s=6, zorder=2)
+        nxs = [v[0] for v in nodes.values()]
+        nys = [v[1] for v in nodes.values()]
 
-    # Draw all agents as white dots
-    for ag in agents:
-        ax.scatter(ag.pos[0], ag.pos[1], c="white", s=10, zorder=3)
+        # Static: edges + nodes (drawn once)
+        for src, dst in edges:
+            self.ax.plot([nodes[src][0], nodes[dst][0]],
+                         [nodes[src][1], nodes[dst][1]],
+                         color="#444444", linewidth=0.8, zorder=1)
+        self.ax.scatter(nxs, nys, c="#888888", s=6, zorder=2)
 
-    # Highlight followed agent in yellow
-    ax.scatter(follow_agent.pos[0], follow_agent.pos[1],
-               c="#FFD700", s=30, zorder=4, edgecolors="white", linewidths=0.5)
+        self.ax.set_xlim(min(nxs) - 2, max(nxs) + 2)
+        self.ax.set_ylim(min(nys) - 2, max(nys) + 2)
+        self.ax.set_aspect("equal")
+        self.ax.axis("off")
+        self.fig.tight_layout(pad=0)
 
-    ax.set_xlim(min(nxs) - 2, max(nxs) + 2)
-    ax.set_ylim(min(nys) - 2, max(nys) + 2)
-    ax.set_aspect("equal")
-    ax.axis("off")
-    fig.tight_layout(pad=0)
+        # Dynamic: agent scatter objects (updated each frame, not recreated)
+        self._agents_sc  = self.ax.scatter([], [], c="white",  s=10, zorder=3)
+        self._follow_sc  = self.ax.scatter([], [], c="#FFD700", s=30, zorder=4,
+                                            edgecolors="white", linewidths=0.5)
+        self._canvas = FigureCanvasAgg(self.fig)
 
-    canvas = FigureCanvasAgg(fig)
-    canvas.draw()
-    buf = canvas.buffer_rgba()
-    img = np.frombuffer(buf, dtype=np.uint8).reshape(size, size, 4)
-    plt.close(fig)
-    return img[:, :, :3]  # drop alpha
+    def render(self, agents, follow_agent):
+        """Update agent positions and return RGB numpy array."""
+        xs = np.array([a.pos[0] for a in agents])
+        ys = np.array([a.pos[1] for a in agents])
+        self._agents_sc.set_offsets(np.c_[xs, ys])
+        self._follow_sc.set_offsets([[follow_agent.pos[0], follow_agent.pos[1]]])
+        self._canvas.draw()
+        buf = self._canvas.buffer_rgba()
+        img = np.frombuffer(buf, dtype=np.uint8).reshape(self.size, self.size, 4)
+        return img[:, :, :3].copy()
+
+    def close(self):
+        plt.close(self.fig)
 
 
 def composite_minimap(frame_rgba, minimap_rgb, margin=10):
@@ -263,6 +270,8 @@ def main():
     agents = [PedestrianAgent(i, nodes, adj, world) for i in range(NUM_AGENTS)]
     follow_agent   = agents[0]
     smooth_heading = follow_agent.heading.copy()
+    minimap = Minimap(nodes, edges, size=280)
+    print("[INFO] Minimap initialized", flush=True)
 
     # ── Camera ────────────────────────────────────────────────────────────────
     init_pos = follow_agent.pos + np.array([-3.0, 0.0, 1.8])
@@ -326,8 +335,7 @@ def main():
             rgba = follow_cam.get_rgba()
             if rgba is not None:
                 rgba = rgba.copy()
-                minimap = build_minimap(nodes, edges, agents, follow_agent)
-                composite_minimap(rgba, minimap)
+                composite_minimap(rgba, minimap.render(agents, follow_agent))
                 recorder.capture_rgba(rgba)
 
             if frame % 100 == 0:
@@ -336,6 +344,7 @@ def main():
 
             frame += 1
 
+    minimap.close()
     print(f"[INFO] Done. Video: videos/{video_name}.mp4", flush=True)
     simulation_app.close()
 
