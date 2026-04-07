@@ -55,11 +55,19 @@ STEP_SIZE      = 1.0 / 30.0
 WARMUP_FRAMES  = 60     # let renderer stabilize before recording
 
 # Follow-cam: behind and above the followed agent
-FOLLOW_OFFSET  = np.array([-3.0, 0.0, 1.8])
+# Raised higher (3.5m) and further back (5m) so camera stays above walls
+# when agent walks through narrow doorways, reducing wall clipping
+FOLLOW_OFFSET  = np.array([-5.0, 0.0, 3.5])
+
+# Downward pitch on camera so we see agent + floor, not just ceiling
+CAM_PITCH_DEG  = -20.0  # negative = tilt down
 
 # Heading smoothing — lower = smoother turns, more lag
 # 0.04 ≈ 1 second ease at 30fps
 HEADING_ALPHA  = 0.04
+
+# Floor z correction — nav graph says 28.25m but actual floor mesh may differ
+FLOOR_Z_OFFSET = -0.1  # shift capsules down slightly so feet touch mesh
 
 # ── Nav graph ─────────────────────────────────────────────────────────────────
 
@@ -120,12 +128,13 @@ class PedestrianAgent:
             random.uniform(0.2, 0.95),
             random.uniform(0.2, 0.95),
         ])
-        # Capsule standing upright — center at waist height
+        # Capsule center = floor + 0.9m (half of 1.8m total height) + floor correction
+        self._z_offset = np.array([0, 0, 0.9 + FLOOR_Z_OFFSET])
         self.prim = world.scene.add(
             VisualCapsule(
                 prim_path=f"/World/Agents/agent_{agent_id}",
                 name=f"agent_{agent_id}",
-                position=self.pos + np.array([0, 0, 0.9]),
+                position=self.pos + self._z_offset,
                 radius=AGENT_RADIUS,
                 height=AGENT_HEIGHT,
                 color=color,
@@ -159,7 +168,7 @@ class PedestrianAgent:
             unit         = direction / dist
             self.heading = unit
             self.pos[:2] += unit * AGENT_SPEED_MS * dt
-            self.prim.set_world_pose(position=self.pos + np.array([0, 0, 0.9]))
+            self.prim.set_world_pose(position=self.pos + self._z_offset)
 
 
 class Minimap:
@@ -223,10 +232,11 @@ def composite_minimap(frame_rgba, minimap_rgb, margin=10):
     return frame_rgba
 
 
-def heading_to_quat(heading_2d):
-    """2D unit vector → Isaac Sim [w, x, y, z] quaternion (yaw only)."""
+def heading_to_quat(heading_2d, pitch_deg=0.0):
+    """2D unit vector + optional pitch → Isaac Sim [w, x, y, z] quaternion."""
     yaw = float(np.arctan2(heading_2d[1], heading_2d[0]))
-    q   = R.from_euler("z", yaw).as_quat()  # scipy [x,y,z,w]
+    # Apply yaw first, then pitch around local Y axis
+    q = R.from_euler("zy", [yaw, math.radians(pitch_deg)]).as_quat()  # scipy [x,y,z,w]
     return np.array([q[3], q[0], q[1], q[2]])
 
 
@@ -257,10 +267,10 @@ def main():
     # which gets blocked by the roof. No RectLights needed.
     stage = omni.usd.get_context().get_stage()
     dome = UsdLux.DomeLight.Define(stage, Sdf.Path("/World/DomeLight"))
-    dome.CreateIntensityAttr(100000)
-    # SphereLight at agent level for additional fill inside enclosed spaces
+    dome.CreateIntensityAttr(500000)
+    # SphereLight at corridor level for interior fill
     sphere = UsdLux.SphereLight.Define(stage, Sdf.Path("/World/FillLight"))
-    sphere.CreateIntensityAttr(500000)
+    sphere.CreateIntensityAttr(2000000)
     sphere.CreateRadiusAttr(1.0)
     UsdGeom.XformCommonAPI(sphere).SetTranslate(Gf.Vec3d(-7.0, 67.0, 29.5))
     print("[INFO] Lighting added (DomeLight 100k + SphereLight 500k)", flush=True)
@@ -325,7 +335,7 @@ def main():
 
             follow_cam.set_world_pose(
                 position    = cam_pos,
-                orientation = heading_to_quat(smooth_heading),
+                orientation = heading_to_quat(smooth_heading, pitch_deg=CAM_PITCH_DEG),
             )
 
             # ── 3. Render ─────────────────────────────────────────────────────

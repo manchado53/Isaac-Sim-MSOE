@@ -7,6 +7,8 @@
 #SBATCH --output=%x_%j.out
 #SBATCH --error=%x_%j.err
 #SBATCH --account=students
+#SBATCH --mail-user=somed@msoe.edu
+#SBATCH --mail-type=END,FAIL
 
 # Records a 20-second hallway-camera crowd video
 # Submit with: cd ~/isaac-sim-msoe && sbatch simulations/crowd/submit_crowd_video.sh
