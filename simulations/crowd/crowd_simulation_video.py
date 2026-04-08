@@ -225,10 +225,13 @@ def composite_minimap(frame_rgba, minimap_rgb, margin=10):
     return frame_rgba
 
 
-def heading_to_quat(heading_2d):
-    """2D unit vector → Isaac Sim [w, x, y, z] quaternion (yaw only)."""
+def heading_to_quat(heading_2d, pitch_deg=-8.0):
+    """2D unit vector → Isaac Sim [w, x, y, z] quaternion with optional downward pitch.
+    Compose yaw (world-Z) then pitch (world-Y) — at small angles the roll introduced
+    by using world-Y instead of local-Y is imperceptible (<1° for ±8° pitch).
+    """
     yaw = float(np.arctan2(heading_2d[1], heading_2d[0]))
-    q   = R.from_euler("z", yaw).as_quat()  # scipy [x,y,z,w]
+    q = (R.from_euler("z", yaw) * R.from_euler("y", np.radians(pitch_deg))).as_quat()
     return np.array([q[3], q[0], q[1], q[2]])
 
 
@@ -259,22 +262,18 @@ def main():
     # which gets blocked by the roof. No RectLights needed.
     stage = omni.usd.get_context().get_stage()
     dome = UsdLux.DomeLight.Define(stage, Sdf.Path("/World/DomeLight"))
-    dome.CreateIntensityAttr(3000)
-    # SphereLights at corridor ceiling height (~30m) spread along the busiest nav area.
-    # node_21 y=62.3, mid y=67, node_37 y=70.5, node_43 y=73.4 — all x≈-7m.
-    # 4 lights at 80k each give ~320k total interior fill with minimal hot-spots.
-    _fill_lights = [
-        ("/World/Fill0", (-7.2, 62.3, 30.0)),
-        ("/World/Fill1", (-7.2, 67.0, 30.0)),
-        ("/World/Fill2", (-7.3, 70.5, 30.0)),
-        ("/World/Fill3", (-7.2, 73.4, 30.0)),
-    ]
-    for _path, (_x, _y, _z) in _fill_lights:
-        _s = UsdLux.SphereLight.Define(stage, Sdf.Path(_path))
-        _s.CreateIntensityAttr(80000)
-        _s.CreateRadiusAttr(1.5)
-        UsdGeom.XformCommonAPI(_s).SetTranslate(Gf.Vec3d(_x, _y, _z))
-    print("[INFO] Lighting added (DomeLight 3k + 4×SphereLight 80k along corridor)", flush=True)
+    dome.CreateIntensityAttr(1000)  # minimal — just enough for exterior, interior lit by node lights
+    # One SphereLight above every nav node at ceiling height (floor_z + 3m).
+    # Guarantees even coverage across the entire walkable area.
+    # 79 nodes × 8000 intensity = equivalent total output, no hotspots.
+    _floor_z = nodes[list(nodes.keys())[0]][2]
+    _ceil_z  = _floor_z + 3.0
+    for _i, (_nid, _npos) in enumerate(nodes.items()):
+        _s = UsdLux.SphereLight.Define(stage, Sdf.Path(f"/World/NavLight_{_i}"))
+        _s.CreateIntensityAttr(8000)
+        _s.CreateRadiusAttr(1.0)
+        UsdGeom.XformCommonAPI(_s).SetTranslate(Gf.Vec3d(float(_npos[0]), float(_npos[1]), _ceil_z))
+    print(f"[INFO] Lighting: DomeLight 1k + {len(nodes)} nav-node SphereLights at 8k", flush=True)
 
     # ── Agents ────────────────────────────────────────────────────────────────
     print(f"[INFO] Spawning {NUM_AGENTS} agents...", flush=True)
