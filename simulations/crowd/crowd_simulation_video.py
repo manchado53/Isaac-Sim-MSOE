@@ -1,11 +1,7 @@
-"""Crowd simulation video — third-person follow camera.
+"""Crowd simulation video — third-person follow camera with humanoid agents.
 
-Pattern copied from simulations/environment/msoe_building_tour.py (gonzalo-camera branch):
-  - add_reference_to_stage (not open_stage)
-  - simulation_app.update() after world.reset() before camera.initialize()
-  - 30 warm-up frames before recording
-  - Camera pose updated BEFORE world.step() (critical for async pipeline)
-  - Exponentially smoothed heading to prevent jittery camera
+Camera locks to current edge direction (no EMA drift).
+Humanoid characters use human_skeleton.usd + walk.skelanim.usd from Isaac Sim.
 
 Output: videos/crowd_follow_<timestamp>.mp4
 """
@@ -32,8 +28,8 @@ from scipy.spatial.transform import Rotation as R
 import isaacsim.core.utils.numpy.rotations as rot_utils
 from isaacsim.core.api import World
 from isaacsim.sensors.camera import Camera
-from omni.isaac.core.objects import VisualCapsule
-from pxr import UsdLux, UsdGeom, Sdf, Gf
+from isaacsim.core.utils.stage import add_reference_to_stage
+from pxr import UsdLux, UsdGeom, UsdSkel, Sdf, Gf
 import omni.usd
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
@@ -41,26 +37,35 @@ from sim_utils.video_capture import VideoRecorder
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
-USD_PATH    = os.path.join(PROJECT_DIR, "assets/environments/msoe_building/innovation_center_finalV1.usd")
-GRAPH_PATH  = os.path.join(PROJECT_DIR, "assets/Graph/floor_4_nav_graph_world_xflipped.json")
+PROJECT_DIR   = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+USD_PATH      = os.path.join(PROJECT_DIR, "assets/environments/msoe_building/innovation_center_finalV1.usd")
+GRAPH_PATH    = os.path.join(PROJECT_DIR, "assets/Graph/floor_4_nav_graph_world_xflipped.json")
 
-NUM_AGENTS     = 30
+_EXT_BASE     = os.path.expanduser("~/isaacsim/extscache")
+SKELETON_USD  = os.path.join(_EXT_BASE,
+    "omni.anim.retarget.core-107.3.3+107.3.3.lx64.r.cp311.u353",
+    "data/rigs/Human/assets/human_skeleton.usd")
+WALK_USD      = os.path.join(_EXT_BASE,
+    "omni.anim.retarget.core-107.3.3+107.3.3.lx64.r.cp311.u353",
+    "data/rigs/Human/assets/walk.skelanim.usd")
+
+NUM_AGENTS     = 20          # reduced from 30 — humanoids are heavier than capsules
 SIM_DURATION_S = 20.0
 AGENT_SPEED_MS = 1.2
-AGENT_RADIUS   = 0.2
-AGENT_HEIGHT   = 1.4    # ~1.8m total with 2*radius caps
 STEP_SIZE      = 1.0 / 30.0
-WARMUP_FRAMES  = 60     # let renderer stabilize before recording
+WARMUP_FRAMES  = 60
 
-FOLLOW_OFFSET  = np.array([-3.0, 0.0, 1.8])  # 3m behind, 1.8m above (confirmed working)
+FOLLOW_OFFSET  = np.array([-3.0, 0.0, 1.8])  # confirmed working
 
-# Heading smoothing — lower = smoother turns, more lag
-# 0.04 ≈ 1 second ease at 30fps
-HEADING_ALPHA  = 0.04
+# Walk animation: 81 time samples, assumed 24 fps → advance 1 code/frame at 30 sim fps
+WALK_FRAMES    = 81
 
-# Floor z correction — nav graph says 28.25m but actual floor mesh may differ
-FLOOR_Z_OFFSET = -0.3  # shift capsules down so feet touch the floor mesh
+# Character default facing direction offset (radians).
+# human_skeleton.usd faces +X by default — set to 0. Tune if characters walk sideways.
+CHAR_YAW_OFFSET = 0.0
+
+# Character scale — human_skeleton.usd is in meters, ~1.8m tall. Set to 1.0.
+CHAR_SCALE      = 1.0
 
 # ── Nav graph ─────────────────────────────────────────────────────────────────
 
@@ -75,6 +80,8 @@ def load_graph(path):
     adj = {nid: [] for nid in nodes}
     for e in data["edges"]:
         a, b = e["from"], e["to"]
+        if a not in nodes or b not in nodes:
+            continue
         dist = np.linalg.norm(nodes[a][:2] - nodes[b][:2])
         adj[a].append((b, dist))
         adj[b].append((a, dist))
@@ -109,33 +116,55 @@ def dijkstra(adj, start, goal):
 # ── Agent ─────────────────────────────────────────────────────────────────────
 
 class PedestrianAgent:
-    def __init__(self, agent_id, nodes, adj, world):
-        self.agent_id     = agent_id
-        self.nodes        = nodes
-        self.adj          = adj
+    """Humanoid agent using human_skeleton.usd + walk.skelanim.usd."""
+
+    def __init__(self, agent_id, nodes, adj, stage, anim_offset=0):
+        self.agent_id    = agent_id
+        self.nodes       = nodes
+        self.adj         = adj
+        self.anim_offset = anim_offset   # phase offset so agents aren't in sync
         self.current_node = random.choice(list(nodes.keys()))
         self.pos          = nodes[self.current_node].copy().astype(float)
-        self.heading      = np.array([0.0, 1.0])
-        color = np.array([
-            random.uniform(0.2, 0.95),
-            random.uniform(0.2, 0.95),
-            random.uniform(0.2, 0.95),
-        ])
-        # Capsule center = floor + 0.9m (half of 1.8m total height) + floor correction
-        self._z_offset = np.array([0, 0, 0.9 + FLOOR_Z_OFFSET])
-        self.prim = world.scene.add(
-            VisualCapsule(
-                prim_path=f"/World/Agents/agent_{agent_id}",
-                name=f"agent_{agent_id}",
-                position=self.pos + self._z_offset,
-                radius=AGENT_RADIUS,
-                height=AGENT_HEIGHT,
-                color=color,
+        self.heading      = np.array([1.0, 0.0])
+        self._stage       = stage
+        self._prim_path   = f"/World/Agents/agent_{agent_id}"
+
+        # Load humanoid USD reference
+        add_reference_to_stage(SKELETON_USD, self._prim_path)
+
+        # Reference walk animation at a sibling path
+        _walk_ref_path = f"{self._prim_path}/WalkAnim"
+        _walk_prim = stage.DefinePrim(_walk_ref_path)
+        _walk_prim.GetReferences().AddReference(WALK_USD)
+
+        # Bind walk animation to the SkelRoot
+        _skel_root_path = f"{self._prim_path}/__RETARGETING_TEMPLATE__/Biped_Demo"
+        _skel_root_prim = stage.GetPrimAtPath(_skel_root_path)
+        if _skel_root_prim.IsValid():
+            _binding = UsdSkel.BindingAPI.Apply(_skel_root_prim)
+            _binding.CreateAnimationSourceRel().SetTargets(
+                [Sdf.Path(f"{_walk_ref_path}/__RETARGETING_WALK_PREVIEW__")]
             )
-        )
+
+        # XformCommonAPI on root prim for position/rotation updates
+        _root_prim = stage.GetPrimAtPath(self._prim_path)
+        self._xform_api = UsdGeom.XformCommonAPI(_root_prim)
+        if CHAR_SCALE != 1.0:
+            self._xform_api.SetScale(Gf.Vec3f(CHAR_SCALE, CHAR_SCALE, CHAR_SCALE))
+
+        # Set initial pose
+        self._update_prim_pose()
+
         self.path = []
         self.path_idx = 0
         self._pick_new_destination()
+
+    def _update_prim_pose(self):
+        floor_z = float(self.pos[2])
+        self._xform_api.SetTranslate(Gf.Vec3d(float(self.pos[0]), float(self.pos[1]), floor_z))
+        yaw_deg = float(np.degrees(np.arctan2(self.heading[1], self.heading[0]))) + np.degrees(CHAR_YAW_OFFSET)
+        self._xform_api.SetRotate(Gf.Vec3f(0.0, 0.0, yaw_deg),
+                                   UsdGeom.XformCommonAPI.RotationOrderXYZ)
 
     def _pick_new_destination(self):
         node_ids = list(self.nodes.keys())
@@ -159,9 +188,9 @@ class PedestrianAgent:
                 self._pick_new_destination()
         else:
             unit         = direction / dist
-            self.heading = unit
+            self.heading = unit          # locked to current edge direction
             self.pos[:2] += unit * AGENT_SPEED_MS * dt
-            self.prim.set_world_pose(position=self.pos + self._z_offset)
+            self._update_prim_pose()
 
 
 class Minimap:
@@ -176,11 +205,11 @@ class Minimap:
         nxs = [v[0] for v in nodes.values()]
         nys = [v[1] for v in nodes.values()]
 
-        # Static: edges + nodes (drawn once)
         for src, dst in edges:
-            self.ax.plot([nodes[src][0], nodes[dst][0]],
-                         [nodes[src][1], nodes[dst][1]],
-                         color="#444444", linewidth=0.8, zorder=1)
+            if src in nodes and dst in nodes:
+                self.ax.plot([nodes[src][0], nodes[dst][0]],
+                             [nodes[src][1], nodes[dst][1]],
+                             color="#444444", linewidth=0.8, zorder=1)
         self.ax.scatter(nxs, nys, c="#888888", s=6, zorder=2)
 
         self.ax.set_xlim(min(nxs) - 2, max(nxs) + 2)
@@ -189,14 +218,12 @@ class Minimap:
         self.ax.axis("off")
         self.fig.tight_layout(pad=0)
 
-        # Dynamic: agent scatter objects (updated each frame, not recreated)
-        self._agents_sc  = self.ax.scatter([], [], c="white",  s=10, zorder=3)
-        self._follow_sc  = self.ax.scatter([], [], c="#FFD700", s=30, zorder=4,
-                                            edgecolors="white", linewidths=0.5)
+        self._agents_sc = self.ax.scatter([], [], c="white",  s=10, zorder=3)
+        self._follow_sc = self.ax.scatter([], [], c="#FFD700", s=30, zorder=4,
+                                           edgecolors="white", linewidths=0.5)
         self._canvas = FigureCanvasAgg(self.fig)
 
     def render(self, agents, follow_agent):
-        """Update agent positions and return RGB numpy array."""
         xs = np.array([a.pos[0] for a in agents])
         ys = np.array([a.pos[1] for a in agents])
         self._agents_sc.set_offsets(np.c_[xs, ys])
@@ -211,15 +238,12 @@ class Minimap:
 
 
 def composite_minimap(frame_rgba, minimap_rgb, margin=10):
-    """Paste minimap into bottom-right corner of frame (in-place)."""
     if frame_rgba is None:
         return frame_rgba
     h, w = frame_rgba.shape[:2]
     mh, mw = minimap_rgb.shape[:2]
     y0 = h - mh - margin
     x0 = w - mw - margin
-
-    # Semi-transparent dark border
     frame_rgba[y0-2:y0+mh+2, x0-2:x0+mw+2, :3] = 20
     frame_rgba[y0:y0+mh, x0:x0+mw, :3] = minimap_rgb
     return frame_rgba
@@ -228,7 +252,7 @@ def composite_minimap(frame_rgba, minimap_rgb, margin=10):
 def heading_to_quat(heading_2d):
     """2D unit vector → Isaac Sim [w, x, y, z] quaternion (yaw only)."""
     yaw = float(np.arctan2(heading_2d[1], heading_2d[0]))
-    q   = R.from_euler("z", yaw).as_quat()  # scipy [x,y,z,w]
+    q   = R.from_euler("z", yaw).as_quat()
     return np.array([q[3], q[0], q[1], q[2]])
 
 
@@ -241,28 +265,20 @@ def main():
     print("[INFO] Loading nav graph...", flush=True)
     nodes, adj = load_graph(GRAPH_PATH)
     with open(GRAPH_PATH) as f:
-        _gdata = __import__("json").load(f)
-    edges = [(_e["from"], _e["to"]) for _e in _gdata["edges"]]
+        _gdata = json.load(f)
+    edges = [(_e["from"], _e["to"]) for _e in _gdata["edges"]
+             if _e["from"] in nodes and _e["to"] in nodes]
     print(f"[INFO] Loaded {len(nodes)} nodes, {len(edges)} edges", flush=True)
 
     # ── World + building ──────────────────────────────────────────────────────
-    # open_stage shows the building geometry (confirmed working in fbd2b58)
     print("[INFO] Opening USD stage...", flush=True)
     omni.usd.get_context().open_stage(USD_PATH)
     world = World(stage_units_in_meters=1.0)
+    stage = omni.usd.get_context().get_stage()
 
     # ── Lighting ──────────────────────────────────────────────────────────────
-    # DistantLight + DomeLight for global fill (50000/10000 confirmed visible)
-    # RectLights at floor 4 ceiling height (z≈31m) for interior illumination
-    # since the roof blocks DistantLight inside the building
-    # DomeLight is omnidirectional — penetrates through geometry unlike DistantLight
-    # which gets blocked by the roof. No RectLights needed.
-    stage = omni.usd.get_context().get_stage()
     dome = UsdLux.DomeLight.Define(stage, Sdf.Path("/World/DomeLight"))
-    dome.CreateIntensityAttr(1000)  # minimal — just enough for exterior, interior lit by node lights
-    # One SphereLight above every nav node at ceiling height (floor_z + 3m).
-    # Guarantees even coverage across the entire walkable area.
-    # 79 nodes × 8000 intensity = equivalent total output, no hotspots.
+    dome.CreateIntensityAttr(1000)
     _floor_z = nodes[list(nodes.keys())[0]][2]
     _ceil_z  = _floor_z + 3.0
     for _i, (_nid, _npos) in enumerate(nodes.items()):
@@ -270,15 +286,17 @@ def main():
         _s.CreateIntensityAttr(8000)
         _s.CreateRadiusAttr(1.0)
         UsdGeom.XformCommonAPI(_s).SetTranslate(Gf.Vec3d(float(_npos[0]), float(_npos[1]), _ceil_z))
-    print(f"[INFO] Lighting: DomeLight 1k + {len(nodes)} nav-node SphereLights at 8k", flush=True)
+    print(f"[INFO] Lighting: DomeLight 1k + {len(nodes)} nav-node SphereLights", flush=True)
 
     # ── Agents ────────────────────────────────────────────────────────────────
-    print(f"[INFO] Spawning {NUM_AGENTS} agents...", flush=True)
-    agents = [PedestrianAgent(i, nodes, adj, world) for i in range(NUM_AGENTS)]
-    follow_agent   = agents[0]
-    smooth_heading = follow_agent.heading.copy()
+    print(f"[INFO] Spawning {NUM_AGENTS} humanoid agents...", flush=True)
+    agents = [
+        PedestrianAgent(i, nodes, adj, stage, anim_offset=random.randint(0, WALK_FRAMES - 1))
+        for i in range(NUM_AGENTS)
+    ]
+    follow_agent = agents[0]
     minimap = Minimap(nodes, edges, size=280)
-    print("[INFO] Minimap initialized", flush=True)
+    print("[INFO] Agents and minimap ready", flush=True)
 
     # ── Camera ────────────────────────────────────────────────────────────────
     init_pos = follow_agent.pos + np.array([-3.0, 0.0, 1.8])
@@ -290,23 +308,20 @@ def main():
         resolution=(1280, 720),
     )
 
-    # ── Reset + init — exact order from msoe_building_tour.py ────────────────
     world.reset()
-    simulation_app.update()   # flush stage after reset (critical)
+    simulation_app.update()
     follow_cam.initialize()
     print("[INFO] Camera initialized", flush=True)
 
-    # ── Warm-up frames — let renderer fully initialize before capturing ────────
     print(f"[INFO] Warming up ({WARMUP_FRAMES} frames)...", flush=True)
     for _ in range(WARMUP_FRAMES):
         world.step(render=True)
 
-    # Diagnose first frame
     test_rgba = follow_cam.get_rgba()
     if test_rgba is not None:
-        print(f"[INFO] Warm-up check — RGBA shape={test_rgba.shape} mean={test_rgba.mean():.1f}", flush=True)
+        print(f"[INFO] Warm-up RGBA shape={test_rgba.shape} mean={test_rgba.mean():.1f}", flush=True)
     else:
-        print("[WARN] Warm-up check — get_rgba() returned None", flush=True)
+        print("[WARN] Warm-up get_rgba() returned None", flush=True)
 
     total_steps = int(SIM_DURATION_S / STEP_SIZE)
     print(f"[INFO] Recording {total_steps} steps ({SIM_DURATION_S:.0f}s)...", flush=True)
@@ -319,26 +334,25 @@ def main():
             for agent in agents:
                 agent.step(STEP_SIZE)
 
-            # ── 2. Smooth heading + update camera BEFORE world.step ───────────
-            raw = follow_agent.heading
-            smooth_heading = HEADING_ALPHA * raw + (1 - HEADING_ALPHA) * smooth_heading
-            n = np.linalg.norm(smooth_heading)
-            if n > 1e-6:
-                smooth_heading /= n
+            # ── 2. Advance walk animation (cycle through WALK_FRAMES) ─────────
+            anim_time = float(frame % WALK_FRAMES)
+            stage.SetCurrentTime(anim_time)
 
-            yaw = float(np.arctan2(smooth_heading[1], smooth_heading[0]))
-            rot = R.from_euler("z", yaw)
+            # ── 3. Camera locked to current edge heading (no EMA) ─────────────
+            heading = follow_agent.heading
+            yaw     = float(np.arctan2(heading[1], heading[0]))
+            rot     = R.from_euler("z", yaw)
             cam_pos = follow_agent.pos + rot.apply(FOLLOW_OFFSET)
 
             follow_cam.set_world_pose(
                 position    = cam_pos,
-                orientation = heading_to_quat(smooth_heading),
+                orientation = heading_to_quat(heading),
             )
 
-            # ── 3. Render ─────────────────────────────────────────────────────
+            # ── 4. Render ─────────────────────────────────────────────────────
             world.step(render=True)
 
-            # ── 4. Capture + minimap overlay ──────────────────────────────────
+            # ── 5. Capture + minimap overlay ──────────────────────────────────
             rgba = follow_cam.get_rgba()
             if rgba is not None:
                 rgba = rgba.copy()
