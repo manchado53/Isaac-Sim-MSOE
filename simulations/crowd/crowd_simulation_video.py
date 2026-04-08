@@ -50,7 +50,7 @@ WARMUP_FRAMES  = 60
 FOLLOW_OFFSET  = np.array([-3.0, 0.0, 1.8])  # confirmed working
 AGENT_RADIUS   = 0.2
 AGENT_HEIGHT   = 1.4
-FLOOR_Z_OFFSET = -0.3
+FLOOR_Z_OFFSET = 2.789  # nav_z=28.25m, actual floor=31.039m, delta=+2.789m
 
 # ── Nav graph ─────────────────────────────────────────────────────────────────
 

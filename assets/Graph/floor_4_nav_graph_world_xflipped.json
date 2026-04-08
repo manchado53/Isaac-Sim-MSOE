@@ -72,15 +72,6 @@
       ]
     },
     {
-      "id": "node_9",
-      "grid_col": 2431,
-      "grid_row": 2127,
-      "world_xy_cm": [
-        -2994.0449389754176,
-        5331.556011199951
-      ]
-    },
-    {
       "id": "node_10",
       "grid_col": 2009,
       "grid_row": 2142,
@@ -96,15 +87,6 @@
       "world_xy_cm": [
         -2208.0449389754176,
         5367.556011199951
-      ]
-    },
-    {
-      "id": "node_12",
-      "grid_col": 2305,
-      "grid_row": 2121,
-      "world_xy_cm": [
-        -2616.0449389754176,
-        5313.556011199951
       ]
     },
     {
@@ -819,20 +801,6 @@
       "distance_cm": 139.94
     },
     {
-      "from": "node_11",
-      "to": "node_12",
-      "distance_cm": 411.56
-    },
-    {
-      "from": "node_12",
-      "to": "node_9",
-      "distance_cm": 378.43
-    },
-    {
-      "from": "node_9",
-      "to": "node_8",
-      "distance_cm": 360.0
-    },
     {
       "from": "node_8",
       "to": "node_7",
