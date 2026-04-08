@@ -71,4 +71,28 @@ if hit_offsets:
     no_hits = sum(1 for _, _, _, hz, _ in results if hz is None)
     print(f"  no-hit nodes   = {no_hits}/{len(nodes)}")
 
+# Write results to file (stdout is swallowed by Isaac Sim in headless mode)
+out_path = os.path.join(PROJECT_DIR, "videos/floor_z_results.txt")
+os.makedirs(os.path.dirname(out_path), exist_ok=True)
+with open(out_path, "w") as f:
+    f.write(f"nav_z = {nav_z:.3f}m\n\n")
+    f.write(f"{'Node':<12} {'X':>8} {'Y':>8} {'Hit Z':>8} {'Offset':>8}\n")
+    f.write("-" * 50 + "\n")
+    for nid, x, y, hz, off in results:
+        if hz is not None:
+            flag = " <<<" if abs(off) > 1.0 else ""
+            f.write(f"{nid:<12} {x:>8.2f} {y:>8.2f} {hz:>8.3f} {off:>+8.3f}{flag}\n")
+        else:
+            f.write(f"{nid:<12} {x:>8.2f} {y:>8.2f} {'NO HIT':>8} {'':>8}\n")
+    if hit_offsets:
+        f.write(f"\nSummary:\n")
+        f.write(f"  nav_z          = {nav_z:.3f}m\n")
+        f.write(f"  median floor Z = {np.median([nav_z + o for _, _, _, hz, o in results if hz is not None]):.3f}m\n")
+        f.write(f"  median offset  = {np.median(hit_offsets):+.3f}m\n")
+        f.write(f"  mean offset    = {np.mean(hit_offsets):+.3f}m\n")
+        f.write(f"  min/max offset = {min(hit_offsets):+.3f} / {max(hit_offsets):+.3f}m\n")
+        no_hits = sum(1 for _, _, _, hz, _ in results if hz is None)
+        f.write(f"  no-hit nodes   = {no_hits}/{len(nodes)}\n")
+print(f"[INFO] Results written to {out_path}", flush=True)
+
 app.close()
