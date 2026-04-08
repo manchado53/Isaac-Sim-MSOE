@@ -225,13 +225,10 @@ def composite_minimap(frame_rgba, minimap_rgb, margin=10):
     return frame_rgba
 
 
-def heading_to_quat(heading_2d, pitch_deg=-8.0):
-    """2D unit vector → Isaac Sim [w, x, y, z] quaternion with optional downward pitch.
-    Compose yaw (world-Z) then pitch (world-Y) — at small angles the roll introduced
-    by using world-Y instead of local-Y is imperceptible (<1° for ±8° pitch).
-    """
+def heading_to_quat(heading_2d):
+    """2D unit vector → Isaac Sim [w, x, y, z] quaternion (yaw only)."""
     yaw = float(np.arctan2(heading_2d[1], heading_2d[0]))
-    q = (R.from_euler("z", yaw) * R.from_euler("y", np.radians(pitch_deg))).as_quat()
+    q   = R.from_euler("z", yaw).as_quat()  # scipy [x,y,z,w]
     return np.array([q[3], q[0], q[1], q[2]])
 
 
