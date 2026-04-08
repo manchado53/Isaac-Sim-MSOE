@@ -18,24 +18,6 @@
   "total_edges": 82,
   "nodes": [
     {
-      "id": "node_1",
-      "grid_col": 3060,
-      "grid_row": 2016,
-      "world_xy_cm": [
-        -4881.044938975418,
-        4998.556011199951
-      ]
-    },
-    {
-      "id": "node_2",
-      "grid_col": 3180,
-      "grid_row": 2028,
-      "world_xy_cm": [
-        -5241.044938975418,
-        5034.556011199951
-      ]
-    },
-    {
       "id": "node_3",
       "grid_col": 2209,
       "grid_row": 2115,
@@ -249,15 +231,6 @@
       "world_xy_cm": [
         -4611.044938975418,
         6450.556011199951
-      ]
-    },
-    {
-      "id": "node_27",
-      "grid_col": 3340,
-      "grid_row": 2491,
-      "world_xy_cm": [
-        -5721.044938975418,
-        6423.556011199951
       ]
     },
     {
@@ -777,11 +750,6 @@
     },
     {
       "from": "node_26",
-      "to": "node_27",
-      "distance_cm": 1110.33
-    },
-    {
-      "from": "node_26",
       "to": "node_25",
       "distance_cm": 204.79
     },
@@ -794,16 +762,6 @@
       "from": "node_20",
       "to": "node_19",
       "distance_cm": 501.0
-    },
-    {
-      "from": "node_19",
-      "to": "node_2",
-      "distance_cm": 873.46
-    },
-    {
-      "from": "node_2",
-      "to": "node_1",
-      "distance_cm": 361.8
     },
     {
       "from": "node_6",
@@ -839,11 +797,6 @@
       "from": "node_32",
       "to": "node_34",
       "distance_cm": 419.75
-    },
-    {
-      "from": "node_32",
-      "to": "node_29",
-      "distance_cm": 445.1
     },
     {
       "from": "node_32",
@@ -929,11 +882,6 @@
       "from": "node_21",
       "to": "node_24",
       "distance_cm": 411.96
-    },
-    {
-      "from": "node_24",
-      "to": "node_22",
-      "distance_cm": 507.43
     },
     {
       "from": "node_28",
