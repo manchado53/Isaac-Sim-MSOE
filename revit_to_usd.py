@@ -402,7 +402,13 @@ class IFCtoUSDConverter:
         
         # Create stage
         stage = Usd.Stage.CreateNew(usd_path)
-        
+
+        # Declare coordinate system: IFC is Z-up, set this so Isaac Sim interprets correctly
+        UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
+
+        # Set units to meters (IFC default unit)
+        UsdGeom.SetStageMetersPerUnit(stage, 1.0)
+
         # Set metadata (safe version - no 'creator' key)
         if self.config['output']['add_metadata']:
             try:

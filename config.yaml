@@ -23,6 +23,10 @@ filtering:
     - IfcAnnotation
     - IfcGrid
     - IfcOpeningElement
+    # Furniture
+    - IfcFurniture
+    - IfcFurnishingElement
+    - IfcSystemFurnitureElement
   
   include_types: []
 
@@ -34,9 +38,11 @@ output:
   create_materials: true
   
   # Coordinate system correction
-  apply_rotation: true       # Enable rotation to fix flipped orientation
-  rotation_axis: "z"         # Rotate around Z-axis (vertical)
-  rotation_degrees: 180      # 180° flip
+  # Rotation is disabled - up-axis is now declared via stage metadata (UsdGeom.SetStageUpAxis Z)
+  # which is the correct fix for IFC->Isaac Sim orientation. Enable only if still needed.
+  apply_rotation: false
+  rotation_axis: "x"
+  rotation_degrees: 180
 
 # Processing Options
 processing:
