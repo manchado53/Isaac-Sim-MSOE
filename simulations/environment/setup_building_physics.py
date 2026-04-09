@@ -20,6 +20,7 @@ SLURM resource requirements:
 """
 
 import argparse
+import json
 import os
 import sys
 import time
@@ -30,6 +31,8 @@ parser = argparse.ArgumentParser(description="Apply physics to a Revit-exported 
 parser.add_argument("--input", required=True, help="Path to raw building USD file")
 parser.add_argument("--output", default=None, help="Output physics USD path (default: <input_stem>_physics.usd)")
 parser.add_argument("--margin", type=float, default=1.0, help="Door collision filter margin in meters (default: 1.0)")
+parser.add_argument("--use-pairwise-filter", action="store_true",
+                    help="Use legacy pairwise collision filtering instead of collision groups")
 parser.add_argument("--report", default=None, help="Report log path (default: logs/<stem>_physics_setup.txt)")
 args, _unknown = parser.parse_known_args()
 
@@ -63,6 +66,7 @@ from sim_utils.building_physics import (
     setup_door_drive,
     setup_physics_scene,
     add_door_collision_filters,
+    setup_collision_groups,
     CATEGORY_MATERIALS,
     DOOR_DRIVE_PARAMS,
     iter_building_elements,
@@ -219,7 +223,10 @@ def main():
         door_path = str(door.GetPath())
         joint_path = door_path + "/HingeJoint"
 
-        local_pos0, local_pos1 = estimate_door_hinge_offset(stage, door)
+        hinge_result = estimate_door_hinge_offset(stage, door)
+        local_pos0, local_pos1 = hinge_result[0], hinge_result[1]
+        local_rot0 = hinge_result[2] if len(hinge_result) > 2 else None
+        local_rot1 = hinge_result[3] if len(hinge_result) > 3 else None
         if local_pos0 is None:
             log(f"  WARNING: Could not estimate hinge for {door_path} — skipping joint")
             joints_skipped += 1
@@ -240,6 +247,8 @@ def main():
             upper_limit=upper_limit,
             local_pos0=local_pos0,
             local_pos1=local_pos1,
+            local_rot0=local_rot0,
+            local_rot1=local_rot1,
         )
         joints_created += 1
         log(f"  Joint ({mechanism.name}): {door_path}")
@@ -261,10 +270,16 @@ def main():
     log(f"  Drives skipped:           {drives_skipped}")
 
     # --- Collision filtering for doors ---
-    log(f"\nApplying collision filters for {len(door_prims)} doors (margin={args.margin}m)...")
     door_prim_list = [door for _, door, _ in door_prims]
-    filtered = add_door_collision_filters(stage, door_prim_list, margin=args.margin)
-    log(f"  Filtered {filtered} door-static collision pairs")
+    if args.use_pairwise_filter:
+        log(f"\nApplying pairwise collision filters for {len(door_prims)} doors (margin={args.margin}m)...")
+        filtered = add_door_collision_filters(stage, door_prim_list, margin=args.margin)
+        log(f"  Filtered {filtered} door-static collision pairs")
+    else:
+        log(f"\nSetting up collision groups for {len(door_prims)} doors...")
+        doors_grp, static_grp = setup_collision_groups(stage, door_prim_list)
+        log(f"  Collision groups: {doors_grp}, {static_grp}")
+        filtered = 0
 
     # --- Summary ---
     t_physics = time.time()
@@ -300,6 +315,44 @@ def main():
     log(f"  Drives skipped (non-hinged):   {drives_skipped}")
     log(f"  Skipped (no mesh found):       {skipped_no_mesh}")
 
+    # --- Write manifest JSON (element counts for preservation verification) ---
+    mesh_count = sum(1 for p in stage.Traverse() if p.IsA(UsdGeom.Mesh))
+
+    building_prim_for_bbox = stage.GetPrimAtPath("/World/Building")
+    bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    bbox = bbox_cache.ComputeWorldBound(building_prim_for_bbox)
+    box_range = bbox.ComputeAlignedRange()
+    bb_min = box_range.GetMin()
+    bb_max = box_range.GetMax()
+
+    manifest = {
+        "source_usd": os.path.basename(input_usd),
+        "total_elements": sum(counts.values()),
+        "mesh_count": mesh_count,
+        "bounding_box": {
+            "min": [float(bb_min[i]) for i in range(3)],
+            "max": [float(bb_max[i]) for i in range(3)],
+        },
+        "categories": {cat.name: count for cat, count in counts.items()},
+        "per_level": {
+            lname: {cat.name: lc[cat] for cat in PrimCategory}
+            for lname, lc in level_counts.items()
+        },
+        "physics_applied": {
+            "static_colliders": applied_collider,
+            "dynamic_rigid_bodies": applied_rigid_body,
+            "revolute_joints": joints_created,
+            "drives": drives_created,
+            "collision_filter_pairs": filtered,
+            "skipped_no_mesh": skipped_no_mesh,
+        },
+    }
+
+    manifest_path = os.path.splitext(output_usd)[0] + "_manifest.json"
+    with open(manifest_path, "w") as mf:
+        json.dump(manifest, mf, indent=2)
+    log(f"\nManifest: {manifest_path}")
+
     # --- Export physics USD ---
     log(f"\nExporting: {output_usd}")
     stage.Export(output_usd)
@@ -317,8 +370,9 @@ def main():
 
     log(f"\n{'=' * 70}")
     log("Done!")
-    log(f"  Report  -> {report_path}")
-    log(f"  Physics -> {output_usd}")
+    log(f"  Report   -> {report_path}")
+    log(f"  Physics  -> {output_usd}")
+    log(f"  Manifest -> {manifest_path}")
     log("=" * 70)
 
     _report_file.close()
