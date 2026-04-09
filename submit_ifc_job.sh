@@ -15,7 +15,13 @@
 
 export PYTHONUNBUFFERED=1
 
-cd "$HOME/isaac-sim-msoe" || exit 1
+# Auto-detect project directory
+if [ -n "${SLURM_SUBMIT_DIR:-}" ]; then
+    PROJECT_DIR="$SLURM_SUBMIT_DIR"
+else
+    PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
+cd "$PROJECT_DIR" || exit 1
 
 echo "========================================="
 echo "IFC to USD Conversion"

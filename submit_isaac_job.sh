@@ -47,7 +47,13 @@ if [ -n "$CONDA_PREFIX" ]; then
 fi
 
 # Change to project directory
-cd "$HOME/isaac-sim-msoe" || exit 1
+# Auto-detect: use SLURM_SUBMIT_DIR (where sbatch was run), else derive from script location
+if [ -n "${SLURM_SUBMIT_DIR:-}" ]; then
+    PROJECT_DIR="$SLURM_SUBMIT_DIR"
+else
+    PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
+cd "$PROJECT_DIR" || exit 1
 
 # --- Phase 1: Isaac Sim simulation (saves frame_cache.npz) ---
 echo "--- Phase 1: Running Isaac Sim ---"
