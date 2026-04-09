@@ -60,6 +60,9 @@ done
 # Validate input
 if [ ! -f "$INPUT_FILE" ]; then
     echo "ERROR: Input file not found: $INPUT_FILE"
+    echo ""
+    echo "Run ./setup_shared_assets.sh to copy building files from shared storage."
+    echo "Shared assets are at: /data/ai_club/isaac-sim-msoe/"
     exit 1
 fi
 
