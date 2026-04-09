@@ -212,6 +212,161 @@ squeue -u <username>@ad.msoe.edu    # check the NODELIST column
 
 ---
 
+## Connecting to the Lab Server (rosita) via Tailscale
+
+The lab server **rosita** has an RTX 5090 GPU and runs Isaac Sim locally (not on Rosie). To connect from your personal machine, you need Tailscale (a VPN) and SSH access.
+
+### 1. Install Tailscale
+
+Download and install Tailscale on your machine:
+- **Windows**: https://tailscale.com/download/windows
+- **Mac**: https://tailscale.com/download/mac
+- **Linux**: https://tailscale.com/download/linux
+
+### 2. Log in to Tailscale
+
+Open Tailscale and sign in. After logging in, it may prompt you to pair/authenticate your device in a browser — complete that step.
+
+### 3. Join the shared network
+
+You'll receive a **share link** from the team admin. Open it in your browser and accept the invitation. This connects your machine to rosita's Tailscale network.
+
+Verify the connection:
+```
+tailscale ping 100.107.199.57
+```
+
+You should see `pong` responses.
+
+### 4. Set up SSH access
+
+#### Save your SSH key (one-time)
+
+Generate an SSH key if you don't already have one:
+```bash
+ssh-keygen -t ed25519
+```
+
+Press Enter for all prompts (default location, no passphrase is fine).
+
+Send your **public key** (`~/.ssh/id_ed25519.pub` on Mac/Linux, `C:\Users\<you>\.ssh\id_ed25519.pub` on Windows) to the admin so they can add it to rosita.
+
+#### Add the SSH config
+
+Add this to your SSH config file:
+- **Windows**: `C:\Users\<you>\.ssh\config`
+- **Mac/Linux**: `~/.ssh/config`
+
+```
+Host rosita
+    HostName 100.107.199.57
+    User thescript
+    ForwardX11 yes
+    ForwardX11Trusted yes
+    XAuthLocation /usr/bin/xauth
+```
+
+> **Note**: The `HostName` IP (`100.107.199.57`) is rosita's Tailscale IP. If it changes, update this value. On Windows, you can remove the `XAuthLocation` line.
+
+#### Get the login password
+
+Ask the team admin for the `thescript` account password on rosita.
+
+### 5. Connect
+
+```bash
+ssh rosita
+```
+
+Enter the password when prompted. You're now on the lab server.
+
+---
+
+## Option C: WebRTC Streaming from a Remote Machine (Non-Rosie)
+
+Stream Isaac Sim's GUI from a standalone server (not Rosie) to a remote computer over Tailscale or any network where both machines can reach each other.
+
+```
+[Your PC] <--Tailscale / VPN / LAN--> [Server + GPU]
+ Streaming Client                       Isaac Sim headless
+```
+
+### Requirements
+
+- Isaac Sim 5.1.0+ installed on the server at `~/isaacsim/`
+- NVIDIA GPU with NVENC support (RTX series)
+- Isaac Sim WebRTC Streaming Client on your local machine ([download here](https://docs.isaacsim.omniverse.nvidia.com/5.1.0/installation/download.html))
+- Network connectivity between the two machines (same LAN, VPN, or Tailscale)
+
+### Step C1: Find the server's IP address
+
+Use the IP that your local machine can reach:
+
+```bash
+# Same LAN:
+hostname -I | awk '{print $1}'
+
+# Tailscale:
+tailscale ip -4
+```
+
+### Step C2: Start Isaac Sim in streaming mode
+
+SSH into the server and run:
+
+```bash
+cd ~/isaacsim
+./isaac-sim.streaming.sh \
+  --/app/window/hideUi=false \
+  --/app/window/drawMouse=true \
+  --/app/livestream/allowResize=true \
+  --/app/livestream/nvcf/quitOnSessionEnded=false \
+  --/app/livestream/publicEndpointAddress=<SERVER_IP> \
+  --/app/livestream/port=49100 \
+  --/app/renderer/skipWhileMinimized=false \
+  --/app/renderer/sleepMsOutOfFocus=0
+```
+
+Replace `<SERVER_IP>` with the IP from Step C1.
+
+> **Important:** The `publicEndpointAddress` flag is required when the client is on a different network. Without it, Isaac Sim advertises its local LAN IP for the media stream, which remote clients can't reach.
+
+Wait until you see `Isaac Sim Full Streaming App is loaded` in the output, or verify with:
+
+```bash
+curl http://localhost:8011/v1/streaming/ready
+# Should return: {"statusMessage":"Status: Ready for connection"}
+```
+
+### Step C3: Connect with the Streaming Client
+
+1. Open the Isaac Sim WebRTC Streaming Client on your local machine
+2. Enter the server IP from Step C1
+3. Click **Connect**
+4. Isaac Sim's full GUI should appear within a few seconds
+
+### Required Ports
+
+| Port  | Protocol | Purpose              |
+|-------|----------|----------------------|
+| 49100 | TCP      | WebRTC signaling     |
+| 47998 | UDP      | WebRTC media stream  |
+| 8011  | TCP      | Health/status API    |
+
+These ports must be reachable from your local machine. Tailscale and most VPNs handle this automatically.
+
+### Troubleshooting
+
+**Black screen then disconnect** — You're missing `--/app/livestream/publicEndpointAddress=<SERVER_IP>`. This is the most common issue when connecting from a different network.
+
+**Client can't connect at all** — Check that port 49100 is reachable: `nc -z <SERVER_IP> 49100`. If using Tailscale, verify both machines are online with `tailscale status`.
+
+**App quits when client disconnects** — Add `--/app/livestream/nvcf/quitOnSessionEnded=false` to keep Isaac Sim running between sessions.
+
+**Health check returns "Rtx not ready"** — Isaac Sim is still starting up. Wait a few more seconds and try again.
+
+---
+
 ## Project Structure
 
 ```
