@@ -209,13 +209,10 @@ def composite_minimap(frame_rgba, minimap_rgb, margin=10):
     return frame_rgba
 
 
-CAMERA_PITCH = +0.18  # radians downward tilt (~10 deg) — positive = down in Isaac Sim
-
 def heading_to_quat(heading_2d):
-    """2D unit vector → Isaac Sim [w, x, y, z] quaternion (yaw + slight downward pitch)."""
+    """2D unit vector → Isaac Sim [w, x, y, z] quaternion (yaw only, no pitch)."""
     yaw = float(np.arctan2(heading_2d[1], heading_2d[0]))
-    # Intrinsic zy: first yaw around world-Z, then pitch around camera-local Y
-    q   = R.from_euler("zy", [yaw, CAMERA_PITCH]).as_quat()
+    q   = R.from_euler("z", yaw).as_quat()
     return np.array([q[3], q[0], q[1], q[2]])
 
 
@@ -287,9 +284,10 @@ def main():
     total_steps = int(SIM_DURATION_S / STEP_SIZE)
     print(f"[INFO] Recording {total_steps} steps ({SIM_DURATION_S:.0f}s)...", flush=True)
 
-    # EMA heading for smooth camera rotation (no snapping on edge transitions)
-    smooth_heading = np.array(follow_agent.heading, dtype=float)
-    HEADING_EMA    = 0.08  # lower = smoother (0.08 ≈ ~12 frame lag at 30fps)
+    # Corridor-locked heading: only rotate when agent makes a real turn (>20 deg)
+    cam_heading  = np.array(follow_agent.heading, dtype=float)
+    TURN_THRESH  = np.deg2rad(20)   # ignore micro-adjustments below this
+    TURN_SPEED   = 0.10             # EMA blend rate once a real turn is detected
 
     frame = 0
     with VideoRecorder(video_name, fps=30) as recorder:
@@ -299,18 +297,21 @@ def main():
             for agent in agents:
                 agent.step(STEP_SIZE)
 
-            # ── 2. Camera with smoothed heading ──────────────────────────────
-            raw_heading    = np.array(follow_agent.heading, dtype=float)
-            smooth_heading = HEADING_EMA * raw_heading + (1 - HEADING_EMA) * smooth_heading
-            smooth_heading /= np.linalg.norm(smooth_heading)
+            # ── 2. Camera: lock to corridor, smooth real turns ────────────────
+            raw_heading = np.array(follow_agent.heading, dtype=float)
+            dot = float(np.clip(np.dot(cam_heading, raw_heading), -1.0, 1.0))
+            if np.arccos(dot) > TURN_THRESH:
+                # blend toward new direction smoothly
+                cam_heading = TURN_SPEED * raw_heading + (1 - TURN_SPEED) * cam_heading
+                cam_heading /= np.linalg.norm(cam_heading)
 
-            yaw     = float(np.arctan2(smooth_heading[1], smooth_heading[0]))
+            yaw     = float(np.arctan2(cam_heading[1], cam_heading[0]))
             rot     = R.from_euler("z", yaw)
             cam_pos = follow_agent.pos + rot.apply(FOLLOW_OFFSET)
 
             follow_cam.set_world_pose(
                 position    = cam_pos,
-                orientation = heading_to_quat(smooth_heading),
+                orientation = heading_to_quat(cam_heading),
             )
 
             # ── 3. Render ─────────────────────────────────────────────────────
