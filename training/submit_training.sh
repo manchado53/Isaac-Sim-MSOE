@@ -5,6 +5,7 @@
 #SBATCH --mem=64G
 #SBATCH --output=/home/ad.msoe.edu/manchadoa/isaac-sim-msoe/training/logs/train_%j.out
 #SBATCH --error=/home/ad.msoe.edu/manchadoa/isaac-sim-msoe/training/logs/train_%j.err
+#SBATCH --time=7-00:00:00
 #SBATCH --account=undergrad_research
 
 # Nova Carter Patrol RL Training

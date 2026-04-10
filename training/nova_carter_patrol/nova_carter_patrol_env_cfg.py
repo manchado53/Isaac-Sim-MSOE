@@ -34,6 +34,9 @@ from nova_carter_patrol.mdp import rewards as rew_mdp
 from nova_carter_patrol.mdp.actions import DifferentialDriveActionCfg
 from nova_carter_patrol.mdp.commands import GoalReachPose2dCommandCfg
 from nova_carter_patrol.mdp import curriculums as curr_mdp
+from nova_carter_patrol.mdp import terminations as term_mdp
+from nova_carter_patrol.mdp import events as event_mdp
+from nova_carter_patrol.mdp import curriculum_utils as cu
 
 
 # Shared rigid body props for static objects (walls + furniture)
@@ -153,7 +156,7 @@ class NovaCarterPatrolSceneCfg(InteractiveSceneCfg):
     furniture_table = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/Furniture_table",
         spawn=sim_utils.CuboidCfg(
-            size=(1.2, 0.6, 0.75),
+            size=(2.0, 0.8, 0.75),
             rigid_props=_STATIC_RIGID_PROPS,
             mass_props=_STATIC_MASS_PROPS,
             collision_props=_STATIC_COLLISION_PROPS,
@@ -366,7 +369,7 @@ class ObservationsCfg:
 
 @configclass
 class RewardsCfg:
-    """6-term reward: delta progress + distance magnet + time penalty + arrival bonus + collision + backward motion.
+    """7-term reward: delta progress + distance magnet + time penalty + arrival bonus + collision + backward motion + obstacle proximity.
 
     delta_progress (+3.0): rewards net distance closed per step (d_prev - d_current).
         Cannot be gamed by oscillating; 10x stronger than time penalty per step of good movement.
@@ -376,7 +379,11 @@ class RewardsCfg:
         Robot still gains net reward by moving at ≥0.017 m/s toward goal (3.0×0.017 > 0.05).
     goal_reached (+100.0): dominant arrival bonus — large enough that reaching is always
         the best strategy over any finite horizon of hovering.
-    collision (-10.0): hard enough to matter, not so large it causes freezing.
+    collision (-20.0): strong deterrent without freezing behavior — -100.0 equaled goal reward per step, causing the robot to stand still.
+    obstacle_proximity (-0.5, safe_dist=1.0): continuous LiDAR-based penalty within 1m of any
+        obstacle. Bridges LiDAR observations → reward so PPO learns anticipatory avoidance
+        rather than crash-then-learn. At 0.5m: -0.021/step; goal_reached still 200× stronger
+        so the robot still threads narrow gaps when required.
     """
 
     # Net distance closed per step — anti-oscillation progress signal
@@ -410,8 +417,16 @@ class RewardsCfg:
     # Collision penalty via contact sensor
     collision = RewTerm(
         func=mdp.undesired_contacts,
-        weight=-10.0,
+        weight=-20.0,
         params={"sensor_cfg": SceneEntityCfg("contact_sensor", body_names="chassis_link"), "threshold": 1.0},
+    )
+    # Continuous LiDAR proximity penalty — fires before contact, bridges LiDAR obs → reward gap.
+    # Returns max(0, 1 - min_lidar/safe_dist): 0 outside 1m, rising to ~1 at contact.
+    # Teaches anticipatory avoidance (steer away at 1m) rather than reactive (crash then learn).
+    obstacle_proximity = RewTerm(
+        func=rew_mdp.obstacle_proximity,
+        weight=-0.5,
+        params={"sensor_cfg": SceneEntityCfg("lidar"), "safe_dist": 1.0},
     )
 
 
@@ -423,7 +438,7 @@ class RewardsCfg:
 class TerminationsCfg:
     """Termination conditions.
 
-    Uses command_resample to end episodes after 6 successful goal reaches,
+    Uses patrol_complete to end episodes after 6 successful goal reaches,
     teaching patrol behavior (goal -> goal -> goal). time_out remains as a
     safety fallback.
     """
@@ -433,9 +448,9 @@ class TerminationsCfg:
         func=mdp.bad_orientation,
         params={"limit_angle": 0.52},
     )
-    command_resample = DoneTerm(
-        func=mdp.command_resample,
-        params={"command_name": "pose_command", "num_resamples": 6},
+    patrol_complete = DoneTerm(
+        func=term_mdp.patrol_complete,
+        params={"command_name": "pose_command", "num_goals": 6},
     )
 
 
@@ -450,10 +465,13 @@ class EventCfg:
     # Robot resets near room center (±1.0m — reduced from ±2.0m to avoid
     # spawning on top of furniture, which caused instant collisions and NaN)
     reset_base = EventTerm(
-        func=mdp.reset_root_state_uniform,
+        func=event_mdp.reset_base_outer_ring,
         mode="reset",
         params={
             "asset_cfg": SceneEntityCfg("robot"),
+            "ring_mode": False,
+            "inner_radius": 2.5,
+            "outer_radius": 4.5,
             "pose_range": {"x": (-1.0, 1.0), "y": (-1.0, 1.0), "yaw": (-math.pi, math.pi)},
             "velocity_range": {},
         },
@@ -547,6 +565,20 @@ class EventCfg:
         },
     )
 
+    # Post-placement separation enforcement for the 3 scatter pieces (Stages 3+4).
+    # Runs last — after individual furniture resets — and resamples any pair whose
+    # centres are closer than SCATTER_MIN_SEP.  No-op in Stages 1+2 (pieces in corners).
+    enforce_scatter_sep = EventTerm(
+        func=event_mdp.enforce_scatter_separation,
+        mode="reset",
+        params={
+            "piece_names": ["furniture_table", "furniture_couch", "furniture_desk"],
+            "scatter_zone": cu.SCATTER_ZONE,
+            "min_separation": cu.SCATTER_MIN_SEP,
+            "enabled": False,   # disabled until Stage 3; curriculum sets True on transition
+        },
+    )
+
 
 ##
 # Curriculum
@@ -559,9 +591,9 @@ class CurriculumCfg:
     navigation_difficulty = CurrTerm(
         func=curr_mdp.NavigationCurriculum,
         params={
-            "stage1_steps": 25600,   # ~50 iters  → Stage 2 (center blocker)
-            "stage2_steps": 102400,  # ~200 iters → Stage 3 (corridor)
-            "stage3_steps": 179200,  # ~350 iters → Stage 4 (dense clutter)
+            "stage1_steps": 51200,    # ~100 iters → Stage 2 (center blocker)
+            "stage2_steps": 128000,   # ~250 iters → Stage 3 (scatter)
+            "stage3_steps": 230400,   # ~450 iters → Stage 4 (moving obstacles)
         },
     )
 

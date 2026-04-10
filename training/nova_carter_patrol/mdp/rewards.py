@@ -10,7 +10,7 @@ Reward terms:
 - heading_alignment: penalty for not facing the goal (unused)
 - velocity_near_goal: penalty for moving fast near the goal (unused)
 - collision_penalty: binary penalty when LiDAR detects contact (unused)
-- obstacle_proximity: smooth penalty near obstacles (unused)
+- obstacle_proximity: smooth penalty near obstacles
 """
 
 from __future__ import annotations
