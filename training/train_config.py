@@ -3,7 +3,7 @@
 # ─────────────────────────────────────────────
 
 # ── Training ──
-NUM_ENVS = 256              # reduced from 256 — Nova Carter USD is heavier than Ridgeback
+NUM_ENVS = 512              # 512 for RTX 5090 (32 GB VRAM)
 SEED = 42
 MAX_ITERATIONS = None         # run until SLURM time limit
 CHECKPOINT = None
