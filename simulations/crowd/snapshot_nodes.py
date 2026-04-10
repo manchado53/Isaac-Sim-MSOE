@@ -102,12 +102,17 @@ print(f"[INFO] {len(frames)} frames captured", flush=True)
 # ── Contact sheet ──────────────────────────────────────────────────────────────
 from PIL import Image, ImageDraw, ImageFont
 
-COLS   = 8
+COLS   = 6
 ROWS   = (len(frames) + COLS - 1) // COLS
 TW, TH = 320, 240
-LABEL  = 20
+LABEL  = 30
 sheet  = Image.new("RGB", (COLS * TW, ROWS * (TH + LABEL)), (30, 30, 30))
 draw   = ImageDraw.Draw(sheet)
+
+try:
+    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18)
+except Exception:
+    font = ImageFont.load_default()
 
 for idx, (nid, rgb) in enumerate(frames):
     col = idx % COLS
@@ -115,7 +120,9 @@ for idx, (nid, rgb) in enumerate(frames):
     x   = col * TW
     y   = row * (TH + LABEL)
     sheet.paste(Image.fromarray(rgb), (x, y))
-    draw.text((x + 4, y + TH + 2), nid, fill=(255, 220, 0))
+    # dark background behind label for readability
+    draw.rectangle([x, y + TH, x + TW, y + TH + LABEL], fill=(20, 20, 20))
+    draw.text((x + 6, y + TH + 5), f"#{idx+1} {nid}", fill=(255, 220, 0), font=font)
 
 sheet_path = os.path.join(OUT_DIR, "contact_sheet.png")
 sheet.save(sheet_path)
