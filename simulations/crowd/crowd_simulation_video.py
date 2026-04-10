@@ -209,12 +209,10 @@ def composite_minimap(frame_rgba, minimap_rgb, margin=10):
     return frame_rgba
 
 
-CAMERA_PITCH = +0.25  # radians down — validated: positive = down in Isaac Sim
-
 def heading_to_quat(heading_2d):
-    """2D unit vector → Isaac Sim [w, x, y, z] quaternion (yaw + validated downward pitch)."""
+    """2D unit vector → Isaac Sim [w, x, y, z] quaternion (yaw only)."""
     yaw = float(np.arctan2(heading_2d[1], heading_2d[0]))
-    q   = R.from_euler("zy", [yaw, CAMERA_PITCH]).as_quat()
+    q   = R.from_euler("z", yaw).as_quat()
     return np.array([q[3], q[0], q[1], q[2]])
 
 
@@ -309,12 +307,8 @@ def main():
 
             yaw     = float(np.arctan2(cam_heading[1], cam_heading[0]))
             rot     = R.from_euler("z", yaw)
-            # pos.z is nav_z (28.25m); camera must be at actual floor eye height
-            agent_eye_z = follow_agent.pos[2] + FLOOR_Z_OFFSET + 0.9 + 0.7  # nav_z + correction + capsule_half + eye_offset
-            xy_offset   = rot.apply(np.array([-3.0, 0.0, 0.0]))
-            cam_pos     = np.array([follow_agent.pos[0] + xy_offset[0],
-                                    follow_agent.pos[1] + xy_offset[1],
-                                    agent_eye_z])
+            # Same relative offset as original working camera; shift z up by floor correction
+            cam_pos = follow_agent.pos + rot.apply(FOLLOW_OFFSET) + np.array([0, 0, FLOOR_Z_OFFSET])
 
             follow_cam.set_world_pose(
                 position    = cam_pos,
