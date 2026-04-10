@@ -741,16 +741,6 @@
       "distance_cm": 351.0
     },
     {
-      "from": "node_20",
-      "to": "node_19",
-      "distance_cm": 501.0
-    },
-    {
-      "from": "node_6",
-      "to": "node_20",
-      "distance_cm": 546.3
-    },
-    {
       "from": "node_5",
       "to": "node_6",
       "distance_cm": 231.7
@@ -807,11 +797,6 @@
     },
     {
       "from": "node_10",
-      "to": "node_11",
-      "distance_cm": 480.08
-    },
-    {
-      "from": "node_10",
       "to": "node_13",
       "distance_cm": 361.25
     },
@@ -827,23 +812,8 @@
     },
     {
       "from": "node_18",
-      "to": "node_15",
-      "distance_cm": 388.67
-    },
-    {
-      "from": "node_18",
       "to": "node_21",
       "distance_cm": 390.0
-    },
-    {
-      "from": "node_13",
-      "to": "node_17",
-      "distance_cm": 396.41
-    },
-    {
-      "from": "node_10",
-      "to": "node_16",
-      "distance_cm": 426.1
     },
     {
       "from": "node_21",
