@@ -52,10 +52,11 @@ AGENT_HEIGHT = 1.4
 # capsule center = floor + bottom hemisphere + half cylinder
 AGENT_CZ     = FLOOR_Z + AGENT_RADIUS + AGENT_HEIGHT / 2.0   # ≈ 27.85 m
 
-# Camera: eye level ~1.7 m above floor, 3 m behind agent along heading
-EYE_Z        = FLOOR_Z + 1.7     # ≈ 28.6 m
-CAM_BACK     = 3.0               # m behind agent
-CAMERA_PITCH = +0.20             # rad; positive = tilt DOWN (validated empirically)
+# Camera: placed AHEAD of agent looking back (avoids clipping into walls behind agent).
+# Corridor ahead is open space — same strategy as nova_carter_vlm_demo.py FOLLOW_OFFSET.
+EYE_Z        = FLOOR_Z + 1.5     # ≈ 28.4 m  (matches robot script's 1.5 m above floor)
+CAM_AHEAD    = 4.0               # m ahead of agent along its heading
+CAMERA_PITCH = +0.15             # rad; positive = tilt DOWN (validated empirically)
 
 TURN_THRESH  = np.deg2rad(20)    # ignore heading jitter below this
 TURN_SPEED   = 0.10              # EMA blend rate once a real turn is detected
@@ -281,7 +282,7 @@ def main():
           flush=True)
 
     # ── Camera ────────────────────────────────────────────────────────────────
-    init_pos = np.array([follow_agent.xy[0] - CAM_BACK, follow_agent.xy[1], EYE_Z])
+    init_pos = np.array([follow_agent.xy[0] + CAM_AHEAD, follow_agent.xy[1], EYE_Z])
     follow_cam = Camera(
         prim_path="/World/FollowCam",
         position=init_pos,
@@ -289,11 +290,14 @@ def main():
         frequency=30,
         resolution=(1280, 720),
     )
-    follow_cam.set_focal_length(9.0)   # wide FOV (~110° horizontal)
-
     world.reset()
     simulation_app.update()
     follow_cam.initialize()
+
+    # Set focal length + clipping via USD API (same pattern as nova_carter_vlm_demo.py)
+    usd_cam = UsdGeom.Camera(stage.GetPrimAtPath("/World/FollowCam"))
+    usd_cam.GetFocalLengthAttr().Set(5.0)            # wide FOV (~90° horizontal)
+    usd_cam.GetClippingRangeAttr().Set((0.01, 10000.0))
     print(f"[INFO] Camera at Z={EYE_Z:.2f} m (floor {FLOOR_Z} + 1.7 m eye height)", flush=True)
 
     # Renderer warmup
@@ -328,18 +332,22 @@ def main():
                 cam_heading = TURN_SPEED * raw_heading + (1 - TURN_SPEED) * cam_heading
                 cam_heading /= np.linalg.norm(cam_heading)
 
-            # 3. Position camera: back off along heading, fixed eye height
-            yaw  = float(np.arctan2(cam_heading[1], cam_heading[0]))
-            back = R.from_euler("z", yaw).apply(np.array([-CAM_BACK, 0.0, 0.0]))
+            # 3. Camera: place AHEAD of agent along its heading, look BACK.
+            #    The corridor ahead is open space → no wall clipping.
+            #    (Same strategy as nova_carter_vlm_demo.py FOLLOW_OFFSET.)
+            yaw    = float(np.arctan2(cam_heading[1], cam_heading[0]))
+            ahead  = R.from_euler("z", yaw).apply(np.array([CAM_AHEAD, 0.0, 0.0]))
             cam_pos = np.array([
-                follow_agent.xy[0] + back[0],
-                follow_agent.xy[1] + back[1],
+                follow_agent.xy[0] + ahead[0],
+                follow_agent.xy[1] + ahead[1],
                 EYE_Z,
             ])
+            # Face back toward agent: yaw + π, with slight downward pitch
+            look_back_yaw = yaw + np.pi
 
             follow_cam.set_world_pose(
                 position    = cam_pos,
-                orientation = cam_quat(yaw),
+                orientation = cam_quat(look_back_yaw),
             )
 
             # 4. Step physics + render
