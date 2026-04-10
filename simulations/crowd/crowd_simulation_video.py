@@ -209,10 +209,12 @@ def composite_minimap(frame_rgba, minimap_rgb, margin=10):
     return frame_rgba
 
 
+CAMERA_PITCH = +0.25  # radians down — validated: positive = down in Isaac Sim
+
 def heading_to_quat(heading_2d):
-    """2D unit vector → Isaac Sim [w, x, y, z] quaternion (yaw only, no pitch)."""
+    """2D unit vector → Isaac Sim [w, x, y, z] quaternion (yaw + validated downward pitch)."""
     yaw = float(np.arctan2(heading_2d[1], heading_2d[0]))
-    q   = R.from_euler("z", yaw).as_quat()
+    q   = R.from_euler("zy", [yaw, CAMERA_PITCH]).as_quat()
     return np.array([q[3], q[0], q[1], q[2]])
 
 
