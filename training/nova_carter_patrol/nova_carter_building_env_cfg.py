@@ -35,6 +35,9 @@ from isaaclab.sensors.ray_caster import MultiMeshRayCasterCfg
 from isaaclab.sensors.ray_caster.patterns import LidarPatternCfg
 from isaaclab.utils import configclass
 
+from isaaclab.managers import TerminationTermCfg as DoneTerm
+import isaaclab.envs.mdp as mdp
+
 from .nova_carter_patrol_env_cfg import (
     NOVA_CARTER_CFG,
     ActionsCfg,
@@ -42,6 +45,19 @@ from .nova_carter_patrol_env_cfg import (
     RewardsCfg,
     TerminationsCfg,
 )
+import nova_carter_patrol.mdp.terminations as term_mdp
+
+
+@configclass
+class BuildingTerminationsCfg(TerminationsCfg):
+    """Building-specific terminations: patrol_complete at 4 goals (not 6).
+
+    Building waypoints are farther apart so fewer goals per episode is expected.
+    """
+    patrol_complete = DoneTerm(
+        func=term_mdp.patrol_complete,
+        params={"command_name": "pose_command", "num_goals": 4},
+    )
 import nova_carter_patrol.mdp.observations as obs_mdp
 import nova_carter_patrol.mdp.rewards as rew_mdp
 import nova_carter_patrol.mdp.terminations as term_mdp
@@ -221,7 +237,7 @@ class NovaCarterBuildingEnvCfg(ManagerBasedRLEnvCfg):
     commands: BuildingCommandsCfg = BuildingCommandsCfg()
     observations: ObservationsCfg = ObservationsCfg()
     rewards: RewardsCfg = RewardsCfg()
-    terminations: TerminationsCfg = TerminationsCfg()
+    terminations: BuildingTerminationsCfg = BuildingTerminationsCfg()
     events: BuildingEventCfg = BuildingEventCfg()
 
     def __post_init__(self):

@@ -23,6 +23,8 @@ parser.add_argument("--num_envs", type=int, default=1, help="Must be 1 for scena
 parser.add_argument("--scenarios", type=str, default=None, help="Comma-separated scenario indices (1-6). Default: all.")
 parser.add_argument("--seed", type=int, default=42, help="Random seed.")
 parser.add_argument("--video_length", type=int, default=500, help="Unused, kept for compatibility.")
+parser.add_argument("--task", type=str, default="Isaac-NovaCarter-Patrol-Flat-v0",
+                    help="Gym task ID. Use Isaac-NovaCarter-Building-v0 for building eval.")
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
 args_cli.enable_cameras = True
@@ -54,6 +56,7 @@ sys.path.insert(0, _training_dir)
 import nova_carter_patrol  # noqa: F401
 from nova_carter_patrol.nova_carter_patrol_env_cfg import NovaCarterPatrolFlatEnvCfg
 from scenario_definitions import SCENARIOS, ScenarioDefinition
+from scenario_definitions_building import BUILDING_SCENARIOS, BuildingScenarioDefinition  # noqa: F401
 
 
 # ---------------------------------------------------------------------------
