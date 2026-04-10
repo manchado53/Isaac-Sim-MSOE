@@ -47,7 +47,7 @@ AGENT_SPEED_MS = 1.2
 STEP_SIZE      = 1.0 / 30.0
 WARMUP_FRAMES  = 60
 
-FOLLOW_OFFSET  = np.array([-3.0, 0.0, 1.8])  # confirmed working
+FOLLOW_OFFSET  = np.array([-8.0, 0.0, 2.5])  # pulled back for wider view
 AGENT_RADIUS   = 0.2
 AGENT_HEIGHT   = 1.4
 FLOOR_Z_OFFSET = 2.789  # nav_z=28.25m, actual floor=31.039m, delta=+2.789m
@@ -286,6 +286,10 @@ def main():
     total_steps = int(SIM_DURATION_S / STEP_SIZE)
     print(f"[INFO] Recording {total_steps} steps ({SIM_DURATION_S:.0f}s)...", flush=True)
 
+    # EMA heading for smooth camera rotation (no snapping on edge transitions)
+    smooth_heading = np.array(follow_agent.heading, dtype=float)
+    HEADING_EMA    = 0.08  # lower = smoother (0.08 ≈ ~12 frame lag at 30fps)
+
     frame = 0
     with VideoRecorder(video_name, fps=30) as recorder:
         while frame < total_steps:
@@ -294,15 +298,18 @@ def main():
             for agent in agents:
                 agent.step(STEP_SIZE)
 
-            # ── 2. Camera locked to current edge heading (no EMA) ────────────
-            heading = follow_agent.heading
-            yaw     = float(np.arctan2(heading[1], heading[0]))
+            # ── 2. Camera with smoothed heading ──────────────────────────────
+            raw_heading    = np.array(follow_agent.heading, dtype=float)
+            smooth_heading = HEADING_EMA * raw_heading + (1 - HEADING_EMA) * smooth_heading
+            smooth_heading /= np.linalg.norm(smooth_heading)
+
+            yaw     = float(np.arctan2(smooth_heading[1], smooth_heading[0]))
             rot     = R.from_euler("z", yaw)
             cam_pos = follow_agent.pos + rot.apply(FOLLOW_OFFSET)
 
             follow_cam.set_world_pose(
                 position    = cam_pos,
-                orientation = heading_to_quat(heading),
+                orientation = heading_to_quat(smooth_heading),
             )
 
             # ── 3. Render ─────────────────────────────────────────────────────

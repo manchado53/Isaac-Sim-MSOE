@@ -7,7 +7,7 @@
 #SBATCH --output=%x_%j.out
 #SBATCH --error=%x_%j.err
 #SBATCH --account=students
-#SBATCH --mail-user=somed@msoe.edu
+#SBATCH --mail-user=somed@ad.msoe.edu
 #SBATCH --mail-type=END,FAIL
 
 # Records a 20-second hallway-camera crowd video
