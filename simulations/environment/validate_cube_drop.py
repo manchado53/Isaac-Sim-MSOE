@@ -210,17 +210,28 @@ def main():
     # This captures the cubes falling, bouncing, and coming to rest.
     print(f"[cube_drop] Recording drop + settle ({RECORD_FRAMES} frames)...", flush=True)
     recorders = {}
-    for cam_key in cameras:
-        vname = f"validation/validate_cubes_cam_{cam_key}"
-        recorders[cam_key] = VideoRecorder(vname, fps=30)
-        recorders[cam_key].__enter__()
+    recording = False
+    try:
+        for cam_key in cameras:
+            vname = f"validation/validate_cubes_cam_{cam_key}"
+            recorders[cam_key] = VideoRecorder(vname, fps=30)
+            recorders[cam_key].__enter__()
+        recording = True
+    except Exception as e:
+        print(f"[cube_drop] WARNING: Video recording setup failed ({e}), "
+              f"running physics only", flush=True)
+        recorders = {}
 
     for i in range(RECORD_FRAMES):
         world.step(render=True)
-        for cam_key, cam in cameras.items():
-            rgba = cam.get_rgba()
-            if rgba is not None and i > 0:
-                recorders[cam_key].capture_rgba(rgba)
+        if recording:
+            for cam_key, cam in cameras.items():
+                try:
+                    rgba = cam.get_rgba()
+                    if rgba is not None and i > 0:
+                        recorders[cam_key].capture_rgba(rgba)
+                except Exception:
+                    pass
         # Track velocity every 5th frame during drop
         if i % 5 == 0:
             for cam_key, cubes_for_cam in all_cubes.items():
@@ -236,8 +247,12 @@ def main():
         if i % 60 == 0:
             print(f"  Frame {i}/{RECORD_FRAMES}", flush=True)
 
-    for rec in recorders.values():
-        rec.__exit__(None, None, None)
+    if recording:
+        for rec in recorders.values():
+            try:
+                rec.__exit__(None, None, None)
+            except Exception:
+                pass
 
     # Additional settle frames (no recording) for final position check
     # Also track sleep state to detect when cubes have truly settled
@@ -343,7 +358,8 @@ def main():
     print(f"\n[cube_drop] Results -> {out_path}", flush=True)
     print(f"[cube_drop] OVERALL: {'PASS' if overall_pass else 'FAIL'}", flush=True)
 
-    simulation_app.close()
+    # Skip simulation_app.close() — Isaac Sim's OmniGraph cleanup can segfault
+    os._exit(0)
 
 
 if __name__ == "__main__":

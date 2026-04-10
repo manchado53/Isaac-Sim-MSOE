@@ -39,7 +39,13 @@ nvidia-smi
 echo ""
 
 # Change to project directory
-cd "$HOME/isaacsim/isaac-sim-msoe" || exit 1
+# Auto-detect: use SLURM_SUBMIT_DIR (where sbatch was run), else derive from script location
+if [ -n "${SLURM_SUBMIT_DIR:-}" ]; then
+    PROJECT_DIR="$SLURM_SUBMIT_DIR"
+else
+    PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
+cd "$PROJECT_DIR" || exit 1
 
 # Ensure output directories exist
 mkdir -p logs/validation videos
