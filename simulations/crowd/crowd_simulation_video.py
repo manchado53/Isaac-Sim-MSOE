@@ -42,7 +42,7 @@ USD_PATH      = os.path.join(PROJECT_DIR, "assets/environments/msoe_building/inn
 GRAPH_PATH    = os.path.join(PROJECT_DIR, "assets/Graph/floor_4_nav_graph_world_xflipped.json")
 
 NUM_AGENTS     = 30
-SIM_DURATION_S = 8.0   # short for debug; increase to 20+ for final
+SIM_DURATION_S = 5.0   # short for debug; increase to 20+ for final
 AGENT_SPEED_MS = 1.2
 STEP_SIZE      = 1.0 / 30.0
 WARMUP_FRAMES  = 30
@@ -209,7 +209,7 @@ def composite_minimap(frame_rgba, minimap_rgb, margin=10):
     return frame_rgba
 
 
-CAMERA_PITCH = -0.18  # radians downward tilt (~10 deg), for floor validation
+CAMERA_PITCH = +0.18  # radians downward tilt (~10 deg) — positive = down in Isaac Sim
 
 def heading_to_quat(heading_2d):
     """2D unit vector → Isaac Sim [w, x, y, z] quaternion (yaw + slight downward pitch)."""
