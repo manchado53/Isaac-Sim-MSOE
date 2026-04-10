@@ -521,10 +521,19 @@ def main():
 
 
     # Callbacks
+    # Bug 5 fix: CheckpointCallback was created but never added to the list,
+    # so no intermediate checkpoints were saved. Jobs that hit the time limit
+    # lost all progress. Now saves every 50 rollouts.
+    checkpoint_callback = CheckpointCallback(
+        save_freq=n_steps_per_rollout * 50,
+        save_path=log_dir,
+        name_prefix="checkpoint",
+    )
     callbacks = [
         PatrolMetricsCallback(),
         ETACallback(num_envs=args_cli.num_envs, steps_per_rollout=n_steps_per_rollout),
         BestModelCallback(save_path=log_dir),
+        checkpoint_callback,
     ]
 
     # Train

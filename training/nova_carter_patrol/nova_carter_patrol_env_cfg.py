@@ -579,6 +579,41 @@ class EventCfg:
         },
     )
 
+    # ── Physics Domain Randomization (sim-to-real gap closure) ──
+    # Randomize floor/wheel friction per episode. Real building floors
+    # (tile, carpet, concrete) span 0.6–1.2 static friction.
+    randomize_physics = EventTerm(
+        func=mdp.randomize_rigid_body_material,
+        mode="reset",
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "static_friction_range": (0.7, 1.3),
+            "dynamic_friction_range": (0.6, 1.1),
+            "restitution_range": (0.0, 0.1),
+        },
+    )
+
+    # Randomize robot mass ±10%: accounts for payload/sensor weight variation.
+    randomize_mass = EventTerm(
+        func=mdp.randomize_rigid_body_mass,
+        mode="reset",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names="chassis_link"),
+            "mass_distribution_params": (0.9, 1.1),
+            "operation": "scale",
+        },
+    )
+
+    # Randomize center-of-mass ±5cm: accounts for uneven payload distribution.
+    randomize_com = EventTerm(
+        func=mdp.randomize_rigid_body_coms,
+        mode="reset",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names="chassis_link"),
+            "com_distribution_params": ((-0.05, 0.05), (-0.05, 0.05), (-0.02, 0.02)),
+        },
+    )
+
 
 ##
 # Curriculum

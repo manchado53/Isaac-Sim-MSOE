@@ -31,7 +31,13 @@ def _sanitize(t: torch.Tensor, fill: float = 0.0) -> torch.Tensor:
 def lidar_scan_normalized(
     env: ManagerBasedEnv, sensor_cfg: SceneEntityCfg
 ) -> torch.Tensor:
-    """Normalized LiDAR distances in [0, 1]. Shape: (num_envs, num_rays)."""
+    """Normalized LiDAR distances in [0, 1]. Shape: (num_envs, num_rays).
+
+    Applies domain randomization for sim-to-real transfer:
+    - Gaussian range noise (σ=0.05m, matching RPLidar S2E at close range)
+    - 5% ray dropout (rays randomly set to max_range per step)
+    - Max-range sentinel: 0.0 = open space, 1.0 = obstacle at max range
+    """
     sensor: RayCaster = env.scene.sensors[sensor_cfg.name]
     hit_positions = sensor.data.ray_hits_w  # (N, B, 3)
     sensor_positions = sensor.data.pos_w  # (N, 3)
@@ -40,8 +46,20 @@ def lidar_scan_normalized(
     distances = torch.norm(diff, dim=-1)
 
     max_range = sensor.cfg.max_distance
+
+    # Add Gaussian noise (σ=0.05m; typical for RPLidar S2E at close range)
+    noise_std = 0.05
+    noise = torch.randn_like(distances) * noise_std
+    distances = torch.clamp(distances + noise, 0.0, max_range)
+
+    # 5% ray dropout: randomly set rays to max_range each step
+    dropout_mask = torch.rand_like(distances) < 0.05
+    distances = torch.where(dropout_mask, torch.full_like(distances, max_range), distances)
+
     normalized = distances / max_range
-    normalized = torch.where(torch.isfinite(normalized), normalized, torch.ones_like(normalized))
+    # Fix sentinel: 0.0 = open space (no hit), 1.0 = obstacle at max range.
+    # Previous code used 1.0 for missed rays — semantically inverted.
+    normalized = torch.where(torch.isfinite(normalized), normalized, torch.zeros_like(normalized))
     return torch.clamp(normalized, 0.0, 1.0)
 
 

@@ -7,6 +7,7 @@ wheel velocity targets using differential drive kinematics.
 from __future__ import annotations
 
 import logging
+from collections import deque
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
@@ -67,6 +68,10 @@ class DifferentialDriveAction(ActionTerm):
         self._scale = torch.tensor(self.cfg.scale, device=self.device).unsqueeze(0)
         self._offset = torch.tensor(self.cfg.offset, device=self.device).unsqueeze(0)
 
+        # Action latency buffer: 2-step FIFO (~166ms at 12 Hz) simulates real
+        # command-processing delay on the Nova Carter's onboard computer.
+        self._action_buffer: deque[torch.Tensor] = deque(maxlen=2)
+
     @property
     def action_dim(self) -> int:
         return 2
@@ -84,8 +89,13 @@ class DifferentialDriveAction(ActionTerm):
         self._processed_actions = self._raw_actions * self._scale + self._offset
 
     def apply_actions(self):
-        v = self._processed_actions[:, 0]  # linear velocity
-        omega = self._processed_actions[:, 1]  # angular velocity
+        # Push current command into the FIFO buffer; use the oldest buffered
+        # action so the robot feels a ~1-2 step (~83-166ms) command delay.
+        self._action_buffer.append(self._processed_actions.clone())
+        delayed_action = self._action_buffer[0]  # oldest entry (or current if buffer not full)
+
+        v = delayed_action[:, 0]  # linear velocity
+        omega = delayed_action[:, 1]  # angular velocity
 
         half_base = self.cfg.wheel_base / 2.0
         r = self.cfg.wheel_radius
