@@ -42,12 +42,12 @@ USD_PATH      = os.path.join(PROJECT_DIR, "assets/environments/msoe_building/inn
 GRAPH_PATH    = os.path.join(PROJECT_DIR, "assets/Graph/floor_4_nav_graph_world_xflipped.json")
 
 NUM_AGENTS     = 30
-SIM_DURATION_S = 20.0
+SIM_DURATION_S = 8.0   # short for debug; increase to 20+ for final
 AGENT_SPEED_MS = 1.2
 STEP_SIZE      = 1.0 / 30.0
-WARMUP_FRAMES  = 60
+WARMUP_FRAMES  = 30
 
-FOLLOW_OFFSET  = np.array([-8.0, 0.0, 2.5])  # pulled back for wider view
+FOLLOW_OFFSET  = np.array([0.2, 0.0, 0.7])   # POV: at agent eye level, slightly forward
 AGENT_RADIUS   = 0.2
 AGENT_HEIGHT   = 1.4
 FLOOR_Z_OFFSET = 2.789  # nav_z=28.25m, actual floor=31.039m, delta=+2.789m
@@ -267,6 +267,7 @@ def main():
         frequency=30,
         resolution=(1280, 720),
     )
+    follow_cam.set_focal_length(12.0)          # wide FOV (~90° horizontal)
 
     world.reset()
     simulation_app.update()
