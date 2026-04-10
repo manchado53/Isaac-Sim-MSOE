@@ -3,7 +3,7 @@
 # ─────────────────────────────────────────────
 
 # ── Training ──
-NUM_ENVS = 256              # reduced from 256 — Nova Carter USD is heavier than Ridgeback
+NUM_ENVS = 256
 SEED = 42
 MAX_ITERATIONS = None         # run until SLURM time limit
 CHECKPOINT = None
@@ -13,8 +13,3 @@ VIDEO = True               # disabled during training to save RAM; eval records 
 VIDEO_LENGTH = 900         # steps per recorded clip
 VIDEO_INTERVAL = 5000      # steps between recordings
 
-# ── SLURM ──
-PARTITION = "teaching"      # teaching (T4), batch (T4), dgx (V100), dgxh100 (H100)
-TIME = "12:00:00"
-MEMORY = "64G"              # increased from 32G — Nova Carter needs more RAM
-GPUS = 1

@@ -47,11 +47,53 @@ Tracks all Nova Carter Patrol training runs with their configurations, results, 
 | [EVAL: 2026-03-26_01-51-02 best_model (scenarios)](#eval-238831) | 238831 | — | — | best_model.zip | Running (scenario eval) |
 | [EVAL: 2026-03-27_01-05-35 best_model (scenarios)](#eval-238832) | 238832 | — | — | best_model.zip | Running (scenario eval) |
 | [EVAL: 2026-03-27_02-43-38 best_model (scenarios)](#eval-238833) | 238833 | — | — | best_model.zip | Running (scenario eval) |
-| [2026-03-29_22-59-11](#tbd-job-239123) | 239123 | — | — | — | Running |
+| [2026-03-29_22-59-11](#tbd-job-239123) | 239123 | 500 | — | model.zip | Completed |
+| [2026-04-05_03-21-31](#2026-04-05_03-21-31-job-240712) | 240712 | — | — | — | Running |
+| [EVAL: 2026-03-29_22-59-11 model.zip (scenarios)](#eval-240742) | 240742 | — | — | model.zip | Running (scenario eval) |
+| [EVAL: 2026-04-05_03-21-31 latest_model_stage0.zip (scenarios)](#eval-240743) | 240743 | — | — | latest_model_stage0.zip | Running (scenario eval) |
+| [TBD (Job 240766)](#tbd-job-240766) | 240766 | — | — | — | Running (broken termination) |
+| [TBD (Job 240773)](#tbd-job-240773) | 240773 | — | — | — | Running |
+| [TBD (Job 240780)](#tbd-job-240780) | 240780 | — | — | — | Running |
+| [TBD (Job 240869)](#tbd-job-240869) | 240869 | — | — | — | Running |
+| [EVAL: 2026-04-06_02-35-55 latest_model_stage3.zip (scenarios)](#eval-240875) | 240875 | — | — | latest_model_stage3.zip | Running (scenario eval) |
+| [TBD (Job 241387)](#tbd-job-241387) | 241387 | — | — | — | Running |
+| [TBD (Job 241962)](#tbd-job-241962) | 241962 | — | — | — | Running |
 
 ---
 
 ## Detailed Run Notes
+
+### TBD-Job-241962
+- **Job**: 241962 | **Logs**: `training/logs/train_241962.out/.err`
+- **Weights**: `training/logs/sb3/NovaCarter-Patrol/TBD (Job 241962)/`
+- **Partition**: teaching (T4, 7-day time limit)
+- **What changed**: All curriculum stage durations doubled (stage1: 51200→102400 steps, stage2: 128000→256000 steps, stage3: 230400→460800 steps). Time limit increased from 12h → 7 days.
+- **Why**: Previous 12h runs timed out before reaching Stage 3/4 with original stage lengths. Doubling stage lengths requires ~900 iters to complete all transitions; needed 7-day window to allow the robot to experience all 4 curriculum stages.
+- **Hypothesis**: Longer exposure per stage gives the robot more time to master each difficulty level before advancing, potentially leading to more robust navigation in later stages.
+- **Result**: TBD
+
+### EVAL-240875
+- **Job**: 240875 | **Logs**: `training/logs/eval_scenarios_240875.out/.err`
+- **Checkpoint**: `training/logs/sb3/NovaCarter-Patrol/2026-04-06_02-35-55/latest_model_stage3.zip`
+- **Script**: `training/eval/eval_scenarios.py` (6-scenario suite)
+- **Goal**: Evaluate latest_model_stage3 from run 2026-04-06_02-35-55
+- **Result**: TBD
+
+### TBD-Job-240869
+- **Job**: 240869 | **Logs**: `training/logs/train_240869.out/.err`
+- **Weights**: `training/logs/sb3/NovaCarter-Patrol/TBD (Job 240869)/`
+- **What changed**: Curriculum Stage 2 redesigned — table fixed at center (±0.3m jitter), robot + goals spawn anywhere in full room (±4.5m). Stage 3 goal range expanded ±3m → ±4.5m. Added `goal_stations` support to `GoalReachPose2dCommand` (unused this run).
+- **Why**: Stage 2 was nearly identical to Stage 1 (one table in north strip, full room). New design forces robot to always navigate around a central obstacle regardless of start/goal position.
+- **Hypothesis**: Central table obstacle provides consistent navigation challenge throughout Stage 2; wider Stage 3 goals push robot to explore full room with 3 obstacles
+- **Result**: TBD
+
+### 2026-04-05_03-21-31-Job-240712
+- **Job**: 240712 | **Logs**: `training/logs/train_240712.out/.err`
+- **Weights**: `training/logs/sb3/NovaCarter-Patrol/2026-04-05_03-21-31/`
+- **What changed**: Collision weight reduced from -100.0 → -30.0
+- **Why**: -100.0 equaled goal_reached reward per RL step (-8.33 vs +8.33 after dt scaling), risking "robot stands still" degenerate policy
+- **Hypothesis**: -30.0 (-2.50/step) is still a strong deterrent but leaves the robot a clear incentive to keep moving toward goals
+- **Result**: TBD
 
 ### EVAL-238721
 - **Job**: 238721 | **Logs**: `logs/eval_scenarios_238721.out/.err`
@@ -326,6 +368,43 @@ Tracks all Nova Carter Patrol training runs with their configurations, results, 
 - **Job**: 238832 | **Logs**: `logs/eval_scenarios_238832.out/.err`
 - **Checkpoint**: `logs/sb3/NovaCarter-Patrol/2026-03-27_01-05-35/best_model.zip`
 - **Result**: Running...
+
+### TBD (Job 240780)
+- **Job**: 240780 | **Logs**: `training/logs/train_240780.out/.err`
+- **Weights**: `training/logs/sb3/NovaCarter-Patrol/TBD/`
+- **Changes from 240773**: Collision weight reduced -30.0 → -20.0 (effective -1.67/step vs -2.50/step). Gives robot more latitude to nudge through tight gaps rather than freezing.
+- **Hypothesis**: Slightly more exploratory behavior near obstacles; robot less likely to stop in front of furniture.
+- **Result**: TBD
+
+### TBD (Job 240773)
+- **Job**: 240773 | **Logs**: `training/logs/train_240773.out/.err`
+- **Weights**: `training/logs/sb3/NovaCarter-Patrol/TBD/`
+- **Changes from 240766**: Fixed patrol termination — replaced `command_resample` (== exact match + 15s timer delay) with `patrol_complete` (>= num_goals, fires immediately). Episodes now correctly end at 6 goals instead of running to 83s timeout.
+- **Hypothesis**: `ep_len_mean` should drop significantly. "GOAL_COMPLETE" should appear in overlay videos. Training signal should be cleaner with consistent 6-goal episodes.
+- **Result**: TBD
+
+### TBD (Job 240766)
+- **Job**: 240766 | **Logs**: `training/logs/train_240766.out/.err`
+- **Weights**: `training/logs/sb3/NovaCarter-Patrol/TBD/`
+- **Changes from 240712**:
+  - Curriculum thresholds corrected (were 25600/102400/179200 — all hit in <1 iter due to 256x bug): stage1=51200 (~100 iters), stage2=128000 (~250 iters), stage3=230400 (~450 iters)
+  - New reward term: `obstacle_proximity` (weight=-0.5, LiDAR, safe_dist=1.0m) — anticipatory avoidance before contact
+  - Fixed `_get_curriculum_stage()` in both `BestModelCallback` and `DebugOverlayWrapper` — was using `_terms` (doesn't exist), now uses `_class_term_cfgs[].func.current_stage`; checkpoints now correctly labeled stage1/2/3/4
+  - SLURM time limit set to 12 hours (was missing from submit script entirely)
+- **Hypothesis**: With correct stage durations the robot should meaningfully train in each stage. Stage 1 empty room (100 iters) → Stage 2 blocker (150 iters) → Stage 3 corridor (200 iters) → Stage 4 full clutter (remaining ~425 iters)
+- **Result**: TBD
+
+### EVAL-240743
+- **Job**: 240743 | **Logs**: `training/logs/eval_scenarios_240743.out/.err`
+- **Checkpoint**: `training/logs/sb3/NovaCarter-Patrol/2026-04-05_03-21-31/latest_model_stage0.zip`
+- **Goal**: Evaluate mid-training snapshot of run 240712 (collision -30, ~440 iters in)
+- **Result**: TBD
+
+### EVAL-240742
+- **Job**: 240742 | **Logs**: `training/logs/eval_scenarios_240742.out/.err`
+- **Checkpoint**: `training/logs/sb3/NovaCarter-Patrol/2026-03-29_22-59-11/model.zip`
+- **Goal**: Evaluate final model from run 239123 (500 iters, per-stage checkpoint run)
+- **Result**: TBD
 
 ### EVAL-238833
 - **Job**: 238833 | **Logs**: `logs/eval_scenarios_238833.out/.err`
