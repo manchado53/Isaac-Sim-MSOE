@@ -1,0 +1,34 @@
+{
+  "_note": "Hand-placed waypoints in meters (converted from USD feet via ×0.3048). Each waypoint is ≥1.5m from any wall. Anchored using verified test camera positions from sim_utils/test_cameras.py. All waypoints validated free in occupancy map. Doorway thresholds avoided.",
+  "G": [
+    {"x": -12.9, "y": 20.9, "z": 4.47, "label": "lobby_event_floor_center"},
+    {"x": -10.5, "y": 21.5, "z": 4.47, "label": "lobby_north"},
+    {"x": -14.5, "y": 22.0, "z": 4.47, "label": "lobby_west"},
+    {"x": -11.0, "y": 18.5, "z": 4.47, "label": "lobby_south"},
+    {"x": -13.5, "y": 18.0, "z": 4.47, "label": "lobby_southwest"},
+    {"x": -9.5,  "y": 20.0, "z": 4.47, "label": "lobby_east"},
+    {"x": -15.0, "y": 19.5, "z": 4.47, "label": "corridor_west_g"},
+    {"x": -12.0, "y": 23.5, "z": 4.47, "label": "lobby_far_north"}
+  ],
+  "1": [
+    {"x": -17.1, "y": 19.0, "z": 7.62, "label": "robotics_lab_entrance"},
+    {"x": -15.0, "y": 19.5, "z": 7.62, "label": "robotics_lab_center"},
+    {"x": -18.5, "y": 21.0, "z": 7.62, "label": "corridor_north_1"},
+    {"x": -16.0, "y": 17.0, "z": 7.62, "label": "corridor_south_1"},
+    {"x": -13.5, "y": 20.0, "z": 7.62, "label": "open_area_east_1"}
+  ],
+  "2": [
+    {"x": -17.2, "y": 18.6, "z": 10.67, "label": "classroom_302_center"},
+    {"x": -15.0, "y": 20.0, "z": 10.67, "label": "corridor_north_2"},
+    {"x": -18.0, "y": 17.0, "z": 10.67, "label": "corridor_south_2"},
+    {"x": -14.0, "y": 18.5, "z": 10.67, "label": "open_area_2"},
+    {"x": -16.5, "y": 22.0, "z": 10.67, "label": "corridor_far_north_2"}
+  ],
+  "3": [
+    {"x": -12.7, "y": 20.6, "z": 13.72, "label": "capstone_studio_center"},
+    {"x": -14.5, "y": 22.0, "z": 13.72, "label": "studio_north"},
+    {"x": -11.0, "y": 19.5, "z": 13.72, "label": "studio_east"},
+    {"x": -14.0, "y": 18.5, "z": 13.72, "label": "corridor_south_3"},
+    {"x": -16.0, "y": 20.5, "z": 13.72, "label": "corridor_west_3"}
+  ]
+}

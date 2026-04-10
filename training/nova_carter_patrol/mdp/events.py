@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import math
+import os
 from typing import TYPE_CHECKING
 
 import torch
@@ -13,6 +15,70 @@ from isaaclab.utils import math as math_utils
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
+
+
+def reset_base_building(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor,
+    waypoints: list[dict],
+    min_spawn_goal_dist: float = 3.0,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+):
+    """Reset the robot to a random building waypoint with a minimum spawn–goal distance.
+
+    Selects a random spawn waypoint from `waypoints`, then picks a different
+    waypoint as the first goal, ensuring the two are at least `min_spawn_goal_dist`
+    meters apart (avoids trivial zero-effort episodes).
+
+    Args:
+        env: The RL environment.
+        env_ids: Environment indices to reset.
+        waypoints: List of dicts with keys "x", "y", "z" (meters, world frame).
+        min_spawn_goal_dist: Minimum XY distance between spawn and first goal (m).
+        asset_cfg: Scene entity config for the robot asset.
+    """
+    if len(env_ids) == 0:
+        return
+
+    asset: Articulation = env.scene[asset_cfg.name]
+    n = len(env_ids)
+    device = env.device
+
+    wp_tensor = torch.tensor(
+        [[w["x"], w["y"], w["z"]] for w in waypoints],
+        dtype=torch.float32,
+        device=device,
+    )  # (num_waypoints, 3)
+    num_wp = wp_tensor.shape[0]
+
+    spawn_idx = torch.randint(num_wp, (n,), device=device)
+    spawn_pos = wp_tensor[spawn_idx]  # (n, 3)
+
+    # Pick a goal waypoint that is ≥ min_spawn_goal_dist from spawn
+    goal_idx = torch.randint(num_wp, (n,), device=device)
+    for _ in range(20):  # max 20 resample attempts
+        goal_pos = wp_tensor[goal_idx]
+        dist = (spawn_pos[:, :2] - goal_pos[:, :2]).norm(dim=-1)  # (n,)
+        too_close = (dist < min_spawn_goal_dist) | (goal_idx == spawn_idx)
+        if not too_close.any():
+            break
+        new_samples = torch.randint(num_wp, (n,), device=device)
+        goal_idx = torch.where(too_close, new_samples, goal_idx)
+
+    root_states = asset.data.default_root_state[env_ids].clone()
+    positions = root_states[:, :3].clone()
+    positions[:, 0] = spawn_pos[:, 0]
+    positions[:, 1] = spawn_pos[:, 1]
+    positions[:, 2] = spawn_pos[:, 2]
+
+    yaw = torch.empty(n, device=device).uniform_(-math.pi, math.pi)
+    orientations = math_utils.quat_from_euler_xyz(
+        torch.zeros_like(yaw), torch.zeros_like(yaw), yaw
+    )
+    velocities = torch.zeros(n, 6, device=device)
+
+    asset.write_root_pose_to_sim(torch.cat([positions, orientations], dim=-1), env_ids=env_ids)
+    asset.write_root_velocity_to_sim(velocities, env_ids=env_ids)
 
 
 def reset_base_outer_ring(
