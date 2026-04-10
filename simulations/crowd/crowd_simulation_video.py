@@ -309,7 +309,12 @@ def main():
 
             yaw     = float(np.arctan2(cam_heading[1], cam_heading[0]))
             rot     = R.from_euler("z", yaw)
-            cam_pos = follow_agent.pos + rot.apply(FOLLOW_OFFSET)
+            # pos.z is nav_z (28.25m); camera must be at actual floor eye height
+            agent_eye_z = follow_agent.pos[2] + FLOOR_Z_OFFSET + 0.9 + 0.7  # nav_z + correction + capsule_half + eye_offset
+            xy_offset   = rot.apply(np.array([-3.0, 0.0, 0.0]))
+            cam_pos     = np.array([follow_agent.pos[0] + xy_offset[0],
+                                    follow_agent.pos[1] + xy_offset[1],
+                                    agent_eye_z])
 
             follow_cam.set_world_pose(
                 position    = cam_pos,
