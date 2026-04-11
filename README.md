@@ -300,7 +300,7 @@ Stream Isaac Sim's GUI from a standalone server (not Rosie) to a remote computer
 
 ### Step C1: Find the server's IP address
 
-Use the IP that your local machine can reach:
+The default team server is **100.107.199.57** (Tailscale). If using a different server, find its reachable IP:
 
 ```bash
 # Same LAN:
@@ -321,13 +321,13 @@ cd ~/isaacsim
   --/app/window/drawMouse=true \
   --/app/livestream/allowResize=true \
   --/app/livestream/nvcf/quitOnSessionEnded=false \
-  --/app/livestream/publicEndpointAddress=<SERVER_IP> \
+  --/app/livestream/publicEndpointAddress=100.107.199.57 \
   --/app/livestream/port=49100 \
   --/app/renderer/skipWhileMinimized=false \
   --/app/renderer/sleepMsOutOfFocus=0
 ```
 
-Replace `<SERVER_IP>` with the IP from Step C1.
+Replace `100.107.199.57` with your server's IP if using a different machine.
 
 > **Important:** The `publicEndpointAddress` flag is required when the client is on a different network. Without it, Isaac Sim advertises its local LAN IP for the media stream, which remote clients can't reach.
 
@@ -341,7 +341,7 @@ curl http://localhost:8011/v1/streaming/ready
 ### Step C3: Connect with the Streaming Client
 
 1. Open the Isaac Sim WebRTC Streaming Client on your local machine
-2. Enter the server IP from Step C1
+2. Enter the server IP (default: `100.107.199.57`)
 3. Click **Connect**
 4. Isaac Sim's full GUI should appear within a few seconds
 
@@ -359,7 +359,7 @@ These ports must be reachable from your local machine. Tailscale and most VPNs h
 
 **Black screen then disconnect** — You're missing `--/app/livestream/publicEndpointAddress=<SERVER_IP>`. This is the most common issue when connecting from a different network.
 
-**Client can't connect at all** — Check that port 49100 is reachable: `nc -z <SERVER_IP> 49100`. If using Tailscale, verify both machines are online with `tailscale status`.
+**Client can't connect at all** — Check that port 49100 is reachable: `nc -z 100.107.199.57 49100`. If using Tailscale, verify both machines are online with `tailscale status`.
 
 **App quits when client disconnects** — Add `--/app/livestream/nvcf/quitOnSessionEnded=false` to keep Isaac Sim running between sessions.
 
