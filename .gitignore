@@ -2,3 +2,8 @@ videos/
 logs/
 output/
 __pycache__/
+
+# Large binaries — exceed GitLab 100 MB limit
+*.usd
+*.npy
+Miniconda3-*.sh

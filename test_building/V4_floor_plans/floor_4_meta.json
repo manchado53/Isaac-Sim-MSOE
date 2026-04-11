@@ -1,0 +1,22 @@
+{
+  "floor_name": "floor_4",
+  "grid_width": 1702,
+  "grid_height": 989,
+  "cell_size_cm": 0.05,
+  "z_min": 27.5,
+  "z_max": 29.0,
+  "xy_min": [
+    -66.4999658203125,
+    39.14056011199952
+  ],
+  "xy_max": [
+    18.600034179687512,
+    88.59056011199952
+  ],
+  "total_scans": 125,
+  "occupied_count": 130832,
+  "free_count": 3954175,
+  "unknown_count": 35364,
+  "crop_row_offset": 993,
+  "crop_col_offset": 123
+}

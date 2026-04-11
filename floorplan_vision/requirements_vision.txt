@@ -1,0 +1,21 @@
+# requirements_vision.txt
+# Dependencies for auto_graph_generator.py
+# Install with: pip install -r floorplan_vision/requirements_vision.txt
+#
+# All of these are CPU-only and work on both login and compute nodes.
+# These packages are already present in the standard Rosie Python environment,
+# but are listed here for reproducibility.
+
+numpy>=1.21.0
+scipy>=1.11.0
+scikit-image>=0.19.0
+networkx>=3.0
+opencv-python>=4.8.0
+Pillow>=9.0.0
+
+# --- Optional: NVIDIA SWAGGER (GPU-accelerated skeletonization) ---
+# Requires a GPU node and CUDA 12.x. See swagger_node_placement_guide.md.
+# Install order matters — cupy must come before cucim:
+#
+#   pip install cupy-cuda12x cucim-cu12
+#   pip install -e ~/isaacsim/SWAGGER/

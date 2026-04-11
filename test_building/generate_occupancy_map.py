@@ -32,11 +32,10 @@ from pxr import Usd, UsdGeom, UsdPhysics, PhysxSchema, Sdf
 # Config
 # ---------------------------------------------------------------------------
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
-OUTPUT_DIR = os.path.join(PROJECT_DIR, "output")
-USD_PATH = os.path.join(os.path.dirname(PROJECT_DIR),
-                        "assets", "environments", "msoe_building", "MSOEBuildingTake2.usd")
+OUTPUT_DIR = os.path.join(PROJECT_DIR, "V4_floor_plans")
+USD_PATH = os.path.join(PROJECT_DIR, "MSOEBuildingV4_physics.usd")
 
-CELL_SIZE = 3.0  # 3 cm per cell (finer detail)
+CELL_SIZE = 0.05  # 5 cm per cell — V4 stage units are meters
 OCCUPIED = 1
 FREE = 0
 UNKNOWN = 2
@@ -305,12 +304,15 @@ def main():
     #
     # Scan at robot height (~50-150cm above each floor slab)
     # Keep Z ranges NARROW to avoid hitting ceiling/slab geometry
+    # V4 stage units are METERS (meters_per_unit=1.0).
+    # Z ranges derived from find_floor_levels analysis of MSOEBuildingV4_physics.usd:
+    #   Walls span Z 8.4–36.0 m, Doors 13.4–29.3 m, Ceiling 11.1–30.7 m
+    # Scan at robot walking height (~0.5–1.5 m above each floor slab).
     all_floor_slices = [
-        ("basement",      900.0, 1100.0),   # above ground slab (884), walking height, below floor 1 slab (1313)
-        ("floor_1",      1400.0, 1600.0),   # above floor 1 slab (1387), below ceiling (1600)
-        ("floor_2",      1950.0, 2050.0),   # walking height above floor 2 slab (1867), below ceiling (2113)
-        ("floor_3",      2350.0, 2450.0),   # ECBE rooms (Z 2250-2570), walking height
-        ("floor_4",      2750.0, 2900.0),   # CAECM rooms (Z 2677-2997), walking height above slab
+        ("floor_1",      14.0, 16.0),   # floor 1 slab ~13.5 m, scan 0.5–2.5 m above
+        ("floor_2",      19.5, 20.5),   # floor 2 slab ~19 m, walking height
+        ("floor_3",      23.5, 24.5),   # floor 3 slab ~23 m, walking height
+        ("floor_4",      27.5, 29.0),   # floor 4 slab ~27 m, walking height
     ]
 
     # Parse floor filter from OMAP_FLOOR env var or --floor command line arg
@@ -350,7 +352,7 @@ def main():
     physx = omni.physx.get_physx_interface()
     stage_id = omni.usd.get_context().get_stage_id()
 
-    padding = 100.0
+    padding = 1.0  # 1 m padding around building bounds (V4 units are meters)
     # World-space bounds (absolute) for the scan area
     world_min_x = bb_min[0] - padding
     world_min_y = bb_min[1] - padding
