@@ -1,18 +1,3 @@
-# Isaac Sim — Python Dependencies
-#
-# All core dependencies (isaacsim, carb, omni, pxr, numpy) are bundled
-# inside the Isaac Sim installation and accessed via ~/isaacsim/python.sh.
-# Do NOT install these via pip — they are not standard packages.
-#
-# The only external dependency is ffmpeg, installed as a static binary.
-# See the README for ffmpeg installation instructions.
-#
-# Packages provided by Isaac Sim 5.1.0 (no install needed):
-#   isaacsim
-#   numpy
-#   carb
-#   omni.usd
-#   pxr  (OpenUSD)
-#
-# External dependencies (install manually — see README):
-#   ffmpeg  (static binary at ~/bin/ffmpeg)
+ifcopenshell>=0.7.0
+usd-core>=23.11
+pyyaml>=6.0

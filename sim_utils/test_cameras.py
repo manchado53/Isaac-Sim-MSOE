@@ -127,21 +127,21 @@ def add_interior_lighting(stage):
       - RectLight at each camera target (floor center) for even coverage
     """
     distant = UsdLux.DistantLight.Define(stage, Sdf.Path("/World/Val_Sun"))
-    distant.CreateIntensityAttr(15000)
+    distant.CreateIntensityAttr(2000)
     distant.CreateAngleAttr(1.0)
     xform = UsdGeom.Xformable(distant.GetPrim())
     xform.AddRotateXYZOp().Set((-45, 30, 0))
 
     UsdLux.DomeLight.Define(
         stage, Sdf.Path("/World/Val_DomeLight")
-    ).CreateIntensityAttr(8000)
+    ).CreateIntensityAttr(1000)
 
     for key, cam in TEST_CAMERAS.items():
         # Sphere light at camera position (overhead fill)
         light = UsdLux.SphereLight.Define(
             stage, Sdf.Path(f"/World/Val_CamLight_{key}")
         )
-        light.CreateIntensityAttr(80000)
+        light.CreateIntensityAttr(10000)
         light.CreateRadiusAttr(1.0)
         UsdGeom.Xformable(light.GetPrim()).AddTranslateOp().Set(
             tuple(cam["pos"])
@@ -151,7 +151,7 @@ def add_interior_lighting(stage):
         rect = UsdLux.RectLight.Define(
             stage, Sdf.Path(f"/World/Val_FloorLight_{key}")
         )
-        rect.CreateIntensityAttr(50000)
+        rect.CreateIntensityAttr(5000)
         rect.CreateWidthAttr(15.0)
         rect.CreateHeightAttr(15.0)
         rx = UsdGeom.Xformable(rect.GetPrim())

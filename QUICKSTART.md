@@ -153,6 +153,49 @@ scp <username>@dh-ood.hpc.msoe.edu:~/isaacsim/isaac-sim-msoe/videos/*.mp4 .
 # Or use the Rosie web portal Files browser at https://dh-ood.hpc.msoe.edu/
 ```
 
+## Shared Building Assets
+
+Building USD and IFC files are stored on shared storage so the whole team can access them:
+
+```bash
+# First time setup — copy shared assets to your local repo
+./setup_shared_assets.sh
+
+# See what's available
+./setup_shared_assets.sh --list
+```
+
+**Shared location**: `/data/ai_club/isaac-sim-msoe/`
+
+| File | Size | Use |
+|------|------|-----|
+| `msoe-engineering-innovation-center.ifc` | 514MB | Full IFC-to-USD + physics pipeline |
+| `msoe-engineering-innovation-USD.usd` | 213MB | Physics pipeline only (skip IFC conversion) |
+| `innovation_center_physics.usd` | 35MB | Pre-built physics USD (ready to use in simulations) |
+
+### Running the Physics Pipeline
+
+```bash
+# After running setup_shared_assets.sh:
+
+# Option 1: From raw USD (physics pipeline only)
+./run_physics_pipeline.sh assets/environments/msoe-engineering-innovation-USD.usd
+
+# Option 2: From IFC (full conversion + physics)
+./run_physics_pipeline.sh assets/environments/msoe-engineering-innovation-center.ifc
+
+# Option 3: Use the pre-built physics USD directly in your scripts
+# (already at assets/environments/msoe_building/innovation_center_physics.usd)
+```
+
+### Sharing New Physics USD Files
+
+If you generate a new physics USD, share it back:
+```bash
+cp assets/environments/msoe_building/my_building_physics.usd /data/ai_club/isaac-sim-msoe/
+chmod 664 /data/ai_club/isaac-sim-msoe/my_building_physics.usd
+```
+
 ## Next Steps
 
 - Explore Isaac Sim examples: `~/isaacsim/standalone_examples/`

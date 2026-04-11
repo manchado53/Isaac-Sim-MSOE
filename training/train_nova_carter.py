@@ -85,17 +85,11 @@ class DebugOverlayWrapper(gym.Wrapper):
     def _get_curriculum_stage(self) -> int:
         try:
             isaac_env = self.env.unwrapped
-            curriculum_term = isaac_env.curriculum_manager.get_term("terrain_levels")
-            return int(curriculum_term.current_stage)
+            for term_cfg in isaac_env.curriculum_manager._class_term_cfgs:
+                if hasattr(term_cfg.func, "current_stage"):
+                    return int(term_cfg.func.current_stage)
         except Exception:
-            try:
-                # Access through curriculum manager terms dict
-                isaac_env = self.env.unwrapped
-                for term in isaac_env.curriculum_manager._terms.values():
-                    if hasattr(term, "current_stage"):
-                        return int(term.current_stage)
-            except Exception:
-                pass
+            pass
         return 0
 
     def _get_contact_force(self) -> float:
@@ -136,7 +130,7 @@ class DebugOverlayWrapper(gym.Wrapper):
                 term_mgr = self.env.unwrapped.termination_manager
                 if term_mgr.get_term("bad_orientation")[0]:
                     return "BAD_ORIENTATION"
-                if term_mgr.get_term("command_resample")[0]:
+                if term_mgr.get_term("patrol_complete")[0]:
                     return "GOAL_COMPLETE"
                 return "TERMINATED"
         except Exception:
@@ -382,10 +376,15 @@ class BestModelCallback(BaseCallback):
 
     def _get_curriculum_stage(self) -> int:
         try:
-            isaac_env = self.training_env.unwrapped
-            for term in isaac_env.curriculum_manager._terms.values():
-                if hasattr(term, "current_stage"):
-                    return int(term.current_stage)
+            # self.training_env is VecNormalize wrapping Sb3VecEnvWrapper.
+            # Sb3VecEnvWrapper.unwrapped traverses gym wrapper chain to ManagerBasedRLEnv.
+            vec_env = self.training_env
+            if hasattr(vec_env, "venv"):
+                vec_env = vec_env.venv          # VecNormalize -> Sb3VecEnvWrapper
+            isaac_env = vec_env.unwrapped       # Sb3VecEnvWrapper.unwrapped -> ManagerBasedRLEnv
+            for term_cfg in isaac_env.curriculum_manager._class_term_cfgs:
+                if hasattr(term_cfg.func, "current_stage"):
+                    return int(term_cfg.func.current_stage)
         except Exception:
             pass
         return 0
@@ -438,6 +437,9 @@ def main():
     env_cfg = NovaCarterPatrolFlatEnvCfg()
     env_cfg.scene.num_envs = args_cli.num_envs
     env_cfg.seed = args_cli.seed
+
+    # Sync SB3 agent seed with env seed (yaml default is overridden here)
+    agent_cfg["seed"] = args_cli.seed
 
     # Override max iterations if specified
     if args_cli.max_iterations is not None:

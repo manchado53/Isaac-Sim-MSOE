@@ -18,6 +18,20 @@ if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
 
 
+def patrol_complete(
+    env: ManagerBasedRLEnv, command_name: str, num_goals: int = 6
+) -> torch.Tensor:
+    """Terminate when the robot has reached num_goals goals this episode.
+
+    Uses >= instead of == so the episode ends correctly even if the robot
+    reaches an extra goal before the termination is processed.
+
+    Shape: (num_envs,) bool tensor.
+    """
+    command = env.command_manager.get_term(command_name)
+    return command.command_counter >= num_goals
+
+
 def goal_reached(
     env: ManagerBasedRLEnv, command_name: str, threshold: float
 ) -> torch.Tensor:
