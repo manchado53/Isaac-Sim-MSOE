@@ -10,59 +10,47 @@ stage = omni.usd.get_context().get_stage()
 app   = omni.kit.app.get_app()
 tl    = omni.timeline.get_timeline_interface()
 
-# ── Find SkelRoot and SkelAnimations ──────────────────────────────────────────
+# ── Find SkelRoot and all SkelAnimations ──────────────────────────────────────
 skel_roots = []
 skel_anims = []
 for prim in stage.Traverse():
     t = prim.GetTypeName()
     if t == "SkelRoot":
-        skel_roots.append(prim)
+        skel_roots.append(str(prim.GetPath()))
     elif t == "SkelAnimation":
-        skel_anims.append(prim)
+        skel_anims.append(str(prim.GetPath()))
 
-print(f"SkelRoots: {[str(p.GetPath()) for p in skel_roots]}")
-print(f"SkelAnims: {[str(p.GetPath()) for p in skel_anims]}")
+print(f"SkelRoots: {skel_roots}")
+print(f"SkelAnims: {skel_anims}")
 
-# ── Bind the first SkelAnimation to the first SkelRoot ───────────────────────
-if skel_roots and skel_anims:
-    binding = UsdSkel.BindingAPI.Apply(skel_roots[0])
-    binding.CreateAnimationSourceRel().SetTargets([skel_anims[0].GetPath()])
-    print(f"Bound {skel_anims[0].GetPath()} -> {skel_roots[0].GetPath()}")
+# ── Pick the walk animation — prefer anything with "walk" in path ─────────────
+walk_anim_path = None
+for p in skel_anims:
+    if "walk" in p.lower():
+        walk_anim_path = p
+        break
+
+# Fallback to first anim
+if walk_anim_path is None and skel_anims:
+    walk_anim_path = skel_anims[0]
+
+print(f"Using animation: {walk_anim_path}")
+
+# ── Bind to SkelRoot ──────────────────────────────────────────────────────────
+if skel_roots and walk_anim_path:
+    skel_root_prim = stage.GetPrimAtPath(skel_roots[0])
+    binding = UsdSkel.BindingAPI.Apply(skel_root_prim)
+    binding.CreateAnimationSourceRel().SetTargets([Sdf.Path(walk_anim_path)])
+    print(f"Bound: {walk_anim_path} -> {skel_roots[0]}")
     app.update()
     app.update()
-
-# ── Diagnostic: manually set time to frame 20 and check joint positions ───────
-# If the skeleton deformer is working, the pose should differ from T-pose at frame 20
-cache = UsdSkel.Cache()
-skel_query = None
-if skel_roots:
-    cache.Populate(UsdSkel.Root(skel_roots[0]), None)
-    bindings = cache.ComputeSkelBindings(UsdSkel.Root(skel_roots[0]), None)
-    print(f"SkelBindings found: {len(bindings)}")
-    if bindings:
-        skel_query = cache.GetSkelQuery(bindings[0].GetSkeleton())
-
-# Set time to frame 20 and read joint xforms
-tl.set_time_codes_per_second(24)
-tl.set_current_time(20.0 / 24.0)
-app.update()
-app.update()
-
-if skel_query and skel_query.IsValid():
-    import numpy as np
-    xforms = skel_query.ComputeJointLocalTransforms(20)
-    if xforms:
-        print(f"Joint xforms at frame 20: {len(xforms)} joints")
-        print(f"  Root xform: {xforms[0]}")
-    else:
-        print("No joint xforms returned at frame 20 — animation not evaluating")
 else:
-    print("SkelQuery not valid — cannot read joint transforms")
+    print("ERROR: missing SkelRoot or SkelAnimation")
 
-# ── Now just play and see ─────────────────────────────────────────────────────
+# ── Play timeline ─────────────────────────────────────────────────────────────
 tl.set_start_time(0)
 tl.set_end_time(200)
+tl.set_time_codes_per_second(24)
 tl.set_auto_update(True)
 tl.play()
-print("Timeline playing — watch viewport for movement")
-print("If still T-posing, UsdSkel deformation is not running in this session")
+print("Done — watch viewport for walk animation")
