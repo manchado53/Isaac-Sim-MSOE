@@ -3,8 +3,9 @@
 Isaac Sim + Nav2 orchestration for building navigation.
 
 Loads a building USD, spawns a Nova Carter at a configurable floor/spawn point,
-and (in a follow-up commit) sets up the ROS2 bridge action graph so Nav2 can
-drive the robot.
+and wires up the ROS2 bridge so the robot publishes odom/tf/lidar/clock and
+subscribes to /cmd_vel. This lets Nav2 (running in a separate process) drive
+the robot.
 
 Usage:
     ./python.sh simulations/robot/nav2_orchestrator.py
@@ -15,11 +16,8 @@ Usage:
     ./python.sh simulations/robot/nav2_orchestrator.py --stream
     ./python.sh simulations/robot/nav2_orchestrator.py --stream --stream-ip 192.168.1.42
 
-After the script reports "ready", launch Nav2 in another terminal:
+After the script reports "Scene ready", launch Nav2 in another terminal:
     ros2 launch kern_navigation kern_navigation.launch.py map:=<map_yaml_path>
-
-NOTE: This commit implements the spawn-only path. ROS2 bridge wiring is TODO —
-the robot will sit in place until that is added.
 """
 
 import argparse
@@ -134,10 +132,30 @@ if args.stream:
     print("[orchestrator] omni.services.livestream.nvcf enabled")
 
 # -----------------------------------------------------------------------------
+# Enable the ROS2 bridge extension BEFORE loading the robot USD. Nova_Carter_ROS
+# ships with baked-in action graphs whose nodes reference isaacsim.ros2.bridge.*
+# types — if the extension isn't registered yet, those graphs fail to
+# instantiate on USD load.
+# -----------------------------------------------------------------------------
+from isaacsim.core.utils.extensions import enable_extension  # noqa: E402
+enable_extension("isaacsim.ros2.bridge")
+simulation_app.update()  # let the extension finish loading
+
+# Publish topics even when no subscribers are listening yet. The default is
+# "verify subscribers first", which silently drops messages while Nav2 is
+# still booting in another terminal.
+import carb  # noqa: E402
+carb.settings.get_settings().set_bool(
+    "/exts/isaacsim.ros2.bridge/publish_without_verification", True
+)
+print("[orchestrator] isaacsim.ros2.bridge enabled")
+
+# -----------------------------------------------------------------------------
 # Isaac Sim API imports (only valid after SimulationApp)
 # -----------------------------------------------------------------------------
 import numpy as np  # noqa: E402
 import omni.usd  # noqa: E402
+import omni.graph.core as og  # noqa: E402
 from pxr import Sdf, UsdGeom  # noqa: E402
 from isaacsim.core.api import World  # noqa: E402
 from isaacsim.core.utils.viewports import set_camera_view  # noqa: E402
@@ -174,6 +192,10 @@ def main():
         np.array([0.0, 0.0, np.degrees(spawn_yaw)]), degrees=True
     )
 
+    # Use the Nova_Carter_ROS variant — same robot, same joint names, but
+    # ships with baked-in ROS2 action graphs for odom, TF, lidars, cmd_vel,
+    # and clock (see ~/isaacsim/standalone_examples/benchmarks/
+    # benchmark_robots_nova_carter_ros2.py for the reference pattern).
     spawn_pos = np.array([spawn_x, spawn_y, spawn_z + 0.1])  # 10 cm above deck
     carter = world.scene.add(
         WheeledRobot(
@@ -181,7 +203,7 @@ def main():
             name="nova_carter",
             wheel_dof_names=["joint_wheel_left", "joint_wheel_right"],
             create_robot=True,
-            usd_path=assets_root + "/Isaac/Robots/NVIDIA/NovaCarter/nova_carter.usd",
+            usd_path=assets_root + "/Isaac/Samples/ROS2/Robots/Nova_Carter_ROS.usd",
             position=spawn_pos,
             orientation=orientation,
         )
@@ -191,6 +213,25 @@ def main():
     # Re-apply pose after reset in case the default sample zeros it
     carter.set_world_pose(position=spawn_pos, orientation=orientation)
 
+    # Enable the 2D/3D lidars that Nav2's costmap layers need, and disable
+    # the four Hawk cameras (heavy, not needed for navigation). The action
+    # graph prim paths below come from Nova_Carter_ROS.usd's internal layout.
+    robot_prim = "/World/NovaCarter"
+    for lidar in ("front_2d_lidar_render_product",
+                  "back_2d_lidar_render_product",
+                  "front_3d_lidar_render_product"):
+        og.Controller.attribute(
+            f"{robot_prim}/ros_lidars/{lidar}.inputs:enabled"
+        ).set(True)
+    for hawk in ("front_hawk", "left_hawk", "right_hawk", "back_hawk"):
+        for cam in ("left_camera_render_product", "right_camera_render_product"):
+            try:
+                og.Controller.attribute(
+                    f"{robot_prim}/{hawk}/{cam}.inputs:enabled"
+                ).set(False)
+            except Exception:
+                pass  # hawk cameras may be optional in some variants
+
     # Aim the viewport Perspective camera at the robot so the streamed
     # view opens on the spawn instead of the USD's default position.
     # Isometric angle: offset in -x/-y, 10m above the deck.
@@ -198,11 +239,11 @@ def main():
     cam_target = np.array([spawn_x, spawn_y, spawn_z])
     set_camera_view(eye=cam_eye, target=cam_target)
 
-    # TODO: set up ROS2 bridge action graph here (odom, lidar, tf, clock, cmd_vel).
-    # Until that lands, the robot just sits on the floor.
-
-    print("[orchestrator] Scene ready. Robot spawned.")
-    print(f"[orchestrator] Launch Nav2 in another terminal once ROS2 bridge is wired:")
+    print("[orchestrator] Scene ready. Robot spawned with ROS2 bridge active.")
+    print("[orchestrator] Topics: /chassis/odom, /front_3d_lidar/lidar_points,")
+    print("[orchestrator]         /front_2d_lidar/scan, /back_2d_lidar/scan,")
+    print("[orchestrator]         /tf, /clock, /cmd_vel")
+    print("[orchestrator] Launch Nav2 in another terminal:")
     print(f"  ros2 launch kern_navigation kern_navigation.launch.py map:={floor['map_metadata_yaml']}")
 
     # Run until the window is closed / process is killed
