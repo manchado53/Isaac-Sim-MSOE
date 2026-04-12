@@ -15,8 +15,8 @@ export OMNI_KIT_ACCEPT_EULA=YES
 export PRIVACY_CONSENT=Y
 export PYTHONUNBUFFERED=1   # force Python print() to flush immediately to SLURM log
 
-# Isaac Sim installation path
-ISAAC_SIM_DIR="$HOME/isaacsim"
+# Isaac Sim installation path (override with ISAAC_SIM_DIR env var)
+ISAAC_SIM_DIR="${ISAAC_SIM_DIR:-$HOME/isaacsim}"
 ISAAC_PYTHON="$ISAAC_SIM_DIR/python.sh"
 
 # VLM demo uses two scripts (Phase 1 and Phase 2+3) because simulation_app.close()

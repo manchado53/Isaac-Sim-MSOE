@@ -15,8 +15,8 @@ export OMNI_KIT_ACCEPT_EULA=YES
 export PRIVACY_CONSENT=Y
 export PYTHONUNBUFFERED=1
 
-# Isaac Sim installation path
-ISAAC_SIM_DIR="$HOME/isaacsim"
+# Isaac Sim installation path (override with ISAAC_SIM_DIR env var)
+ISAAC_SIM_DIR="${ISAAC_SIM_DIR:-$HOME/isaacsim}"
 ISAAC_PYTHON="$ISAAC_SIM_DIR/python.sh"
 
 # Arguments

@@ -32,6 +32,7 @@ PROJECT_DIR = Path(__file__).parent.resolve()
 
 TEST_SCRIPTS = {
     "building_stats": "simulations/environment/validate_building_stats.py",
+    "element_preservation": "simulations/environment/validate_element_preservation.py",
     "cube_drop": "simulations/environment/validate_cube_drop.py",
     "robot_movement": "simulations/environment/validate_robot_movement.py",
     "door_physics": "simulations/environment/validate_door_physics.py",
@@ -39,6 +40,7 @@ TEST_SCRIPTS = {
 
 RESULT_FILES = {
     "building_stats": "logs/validation/building_stats_results.json",
+    "element_preservation": "logs/validation/element_preservation_results.json",
     "cube_drop": "logs/validation/cube_drop_results.json",
     "robot_movement": "logs/validation/robot_movement_results.json",
     "door_physics": "logs/validation/door_physics_results.json",
@@ -259,6 +261,7 @@ def generate_report(usd_path, test_results, job_exit_info, skip_list):
 
     test_labels = {
         "building_stats": "Building Stats",
+        "element_preservation": "Element Preservation",
         "cube_drop": "Cube Drop",
         "robot_movement": "Robot Movement",
         "door_physics": "Door Physics",
@@ -297,6 +300,18 @@ def generate_report(usd_path, test_results, job_exit_info, skip_list):
                 dims = stats.get("building_dimensions_ft", [])
                 if dims:
                     lines.append(f"    Building size: {dims[0]} x {dims[1]} x {dims[2]} ft")
+
+        # Add element preservation details
+        if test_name == "element_preservation":
+            result_data = test_results.get(test_name, {})
+            summary = result_data.get("summary", {})
+            if summary:
+                lines.append(f"    Elements: {summary.get('total_elements', '?')} "
+                             f"(manifest: {summary.get('manifest_total_elements', '?')})")
+                lines.append(f"    Meshes: {summary.get('mesh_count', '?')} "
+                             f"(manifest: {summary.get('manifest_mesh_count', '?')})")
+                lines.append(f"    Checks: {summary.get('checks_passed', '?')}/"
+                             f"{summary.get('checks_total', '?')} passed")
 
         # Add door global summary
         if test_name == "door_physics":

@@ -20,6 +20,7 @@ SLURM resource requirements:
 """
 
 import argparse
+import json
 import os
 import sys
 import time
@@ -30,6 +31,8 @@ parser = argparse.ArgumentParser(description="Apply physics to a Revit-exported 
 parser.add_argument("--input", required=True, help="Path to raw building USD file")
 parser.add_argument("--output", default=None, help="Output physics USD path (default: <input_stem>_physics.usd)")
 parser.add_argument("--margin", type=float, default=1.0, help="Door collision filter margin in meters (default: 1.0)")
+parser.add_argument("--use-pairwise-filter", action="store_true",
+                    help="Use legacy pairwise collision filtering instead of collision groups")
 parser.add_argument("--report", default=None, help="Report log path (default: logs/<stem>_physics_setup.txt)")
 args, _unknown = parser.parse_known_args()
 
@@ -63,6 +66,9 @@ from sim_utils.building_physics import (
     setup_door_drive,
     setup_physics_scene,
     add_door_collision_filters,
+    setup_collision_groups,
+    create_placeholder_door_mesh,
+    fix_absolute_asset_paths,
     CATEGORY_MATERIALS,
     DOOR_DRIVE_PARAMS,
     iter_building_elements,
@@ -175,13 +181,22 @@ def main():
             continue
 
         if category == PrimCategory.DYNAMIC_DOOR:
-            mechanism = classify_door_mechanism(element)
-            if mechanism not in (DoorMechanism.HINGED_SINGLE, DoorMechanism.HINGED_DOUBLE):
+            # Skip doors with geometry that prevents any rotation
+            if element.GetName() in ("Doors_13182085", "Doors_13606466"):
                 counts[PrimCategory.SKIP] += 1
                 level_counts[level_name][PrimCategory.SKIP] = level_counts[level_name].get(PrimCategory.SKIP, 0) + 1
-                log(f"  Skipping non-hinged door ({mechanism.name}): {element.GetName()}")
+                log(f"  Skipping jammed door: {element.GetName()}")
                 continue
-            door_mass = 30.0 if mechanism == DoorMechanism.HINGED_DOUBLE else 15.0
+            mechanism = classify_door_mechanism(element)
+            if mechanism != DoorMechanism.HINGED_SINGLE:
+                counts[PrimCategory.SKIP] += 1
+                level_counts[level_name][PrimCategory.SKIP] = level_counts[level_name].get(PrimCategory.SKIP, 0) + 1
+                if mechanism == DoorMechanism.HINGED_DOUBLE:
+                    log(f"  Skipping double door: {element.GetName()}")
+                else:
+                    log(f"  Skipping non-hinged door ({mechanism.name}): {element.GetName()}")
+                continue
+            door_mass = 15.0
             if apply_dynamic_rigid_body(stage, element, mass=door_mass, deep_search=True):
                 applied_rigid_body += 1
                 door_prims.append((level_name, element, mechanism))
@@ -219,7 +234,10 @@ def main():
         door_path = str(door.GetPath())
         joint_path = door_path + "/HingeJoint"
 
-        local_pos0, local_pos1 = estimate_door_hinge_offset(stage, door)
+        hinge_result = estimate_door_hinge_offset(stage, door)
+        local_pos0, local_pos1 = hinge_result[0], hinge_result[1]
+        local_rot0 = hinge_result[2] if len(hinge_result) > 2 else None
+        local_rot1 = hinge_result[3] if len(hinge_result) > 3 else None
         if local_pos0 is None:
             log(f"  WARNING: Could not estimate hinge for {door_path} — skipping joint")
             joints_skipped += 1
@@ -240,6 +258,8 @@ def main():
             upper_limit=upper_limit,
             local_pos0=local_pos0,
             local_pos1=local_pos1,
+            local_rot0=local_rot0,
+            local_rot1=local_rot1,
         )
         joints_created += 1
         log(f"  Joint ({mechanism.name}): {door_path}")
@@ -261,8 +281,11 @@ def main():
     log(f"  Drives skipped:           {drives_skipped}")
 
     # --- Collision filtering for doors ---
-    log(f"\nApplying collision filters for {len(door_prims)} doors (margin={args.margin}m)...")
+    # Use pairwise margin filtering — single doors in tight Revit frames need
+    # per-door collision disabling with nearby walls/mullions. Collision groups
+    # alone are too coarse (they disable ALL door-static pairs globally).
     door_prim_list = [door for _, door, _ in door_prims]
+    log(f"\nApplying collision filters for {len(door_prims)} doors (margin={args.margin}m)...")
     filtered = add_door_collision_filters(stage, door_prim_list, margin=args.margin)
     log(f"  Filtered {filtered} door-static collision pairs")
 
@@ -300,10 +323,65 @@ def main():
     log(f"  Drives skipped (non-hinged):   {drives_skipped}")
     log(f"  Skipped (no mesh found):       {skipped_no_mesh}")
 
+    # --- Write manifest JSON (element counts for preservation verification) ---
+    mesh_count = sum(1 for p in stage.Traverse() if p.IsA(UsdGeom.Mesh))
+
+    building_prim_for_bbox = stage.GetPrimAtPath("/World/Building")
+    bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    bbox = bbox_cache.ComputeWorldBound(building_prim_for_bbox)
+    box_range = bbox.ComputeAlignedRange()
+    bb_min = box_range.GetMin()
+    bb_max = box_range.GetMax()
+
+    manifest = {
+        "source_usd": os.path.basename(input_usd),
+        "total_elements": sum(counts.values()),
+        "mesh_count": mesh_count,
+        "bounding_box": {
+            "min": [float(bb_min[i]) for i in range(3)],
+            "max": [float(bb_max[i]) for i in range(3)],
+        },
+        "categories": {cat.name: count for cat, count in counts.items()},
+        "per_level": {
+            lname: {cat.name: lc[cat] for cat in PrimCategory}
+            for lname, lc in level_counts.items()
+        },
+        "physics_applied": {
+            "static_colliders": applied_collider,
+            "dynamic_rigid_bodies": applied_rigid_body,
+            "revolute_joints": joints_created,
+            "drives": drives_created,
+            "collision_filter_pairs": filtered,
+            "skipped_no_mesh": skipped_no_mesh,
+        },
+    }
+
+    manifest_path = os.path.splitext(output_usd)[0] + "_manifest.json"
+    with open(manifest_path, "w") as mf:
+        json.dump(manifest, mf, indent=2)
+    log(f"\nManifest: {manifest_path}")
+
+    # --- Fix absolute asset paths for portability (pre-export pass) ---
+    fixed_paths = fix_absolute_asset_paths(stage)
+    if fixed_paths:
+        log(f"\nFixed {fixed_paths} absolute asset paths -> relative (pre-export)")
+
     # --- Export physics USD ---
     log(f"\nExporting: {output_usd}")
     stage.Export(output_usd)
     log("Export complete.")
+
+    # --- Post-export pass: stage.Export() can re-absolutize relative MDL paths ---
+    # Re-open the exported file and fix any absolute paths that were baked in.
+    log("\nPost-export portability check...")
+    exported_stage = Usd.Stage.Open(output_usd)
+    post_fixed = fix_absolute_asset_paths(exported_stage)
+    if post_fixed:
+        exported_stage.GetRootLayer().Save()
+        log(f"Fixed {post_fixed} absolute asset paths -> relative (post-export)")
+    else:
+        log("No absolute paths found in exported file — already portable.")
+    del exported_stage
 
     file_size_mb = os.path.getsize(output_usd) / (1024 * 1024)
     log(f"File size: {file_size_mb:.1f} MB")
@@ -317,8 +395,9 @@ def main():
 
     log(f"\n{'=' * 70}")
     log("Done!")
-    log(f"  Report  -> {report_path}")
-    log(f"  Physics -> {output_usd}")
+    log(f"  Report   -> {report_path}")
+    log(f"  Physics  -> {output_usd}")
+    log(f"  Manifest -> {manifest_path}")
     log("=" * 70)
 
     _report_file.close()

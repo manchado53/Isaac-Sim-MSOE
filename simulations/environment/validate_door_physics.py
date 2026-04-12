@@ -282,9 +282,16 @@ def main():
     print(f"[door_physics] Driving doors to {DRIVE_TARGET_ANGLE} deg + recording "
           f"({RECORD_FRAMES} frames)...", flush=True)
 
-    # Set drive target on ALL doors at the start of recording
+    # Set drive target on ALL doors — choose a target far from the initial angle
+    # so doors that start already open get driven in the opposite direction.
     for path_str, joint_prim, drive, door_prim in all_doors:
-        set_drive_target(drive, DRIVE_TARGET_ANGLE)
+        initial = initial_angles.get(path_str, 0.0)
+        if abs(initial - DRIVE_TARGET_ANGLE) < 20.0:
+            # Door is already near the target — drive the other way
+            target = -DRIVE_TARGET_ANGLE
+        else:
+            target = DRIVE_TARGET_ANGLE
+        set_drive_target(drive, target)
 
     # Open all recorders (including showcase) — wrapped in try/except
     # because Isaac Sim's Replicator/OmniGraph can intermittently crash
