@@ -1,9 +1,8 @@
-"""Crowd simulation — 20 agents navigating Floor 4 with third-person follow camera.
+"""Crowd simulation — 20 humanoid agents navigating Floor 4.
 
-Building loaded via sublayer (same pattern as nova_carter_vlm_demo.py).
-Agents are VisualCapsules placed at correct Floor 4 height (Z≈27.85 m).
-Camera sits 3 m behind the followed agent at eye level (Z≈28.6 m),
-corridor-locked heading with smooth real turns.
+Humanoids use human_skeleton.usd + walk.skelanim.usd (confirmed paths from inspection).
+Animation driven by omni.timeline playing — fixes the T-pose from the earlier attempt.
+Building loaded via sublayer. Camera ahead-of-agent looking back (no wall clipping).
 
 Output: videos/crowd_<timestamp>.mp4
 """
@@ -26,9 +25,10 @@ from scipy.spatial.transform import Rotation as R
 import isaacsim.core.utils.numpy.rotations as rot_utils
 from isaacsim.core.api import World
 from isaacsim.sensors.camera import Camera
-from omni.isaac.core.objects import VisualCapsule
-from pxr import UsdLux, UsdGeom, Sdf, Gf
+from isaacsim.core.utils.stage import add_reference_to_stage
+from pxr import UsdLux, UsdGeom, UsdSkel, Sdf, Gf
 import omni.usd
+import omni.kit.app
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 from sim_utils.video_capture import VideoRecorder
@@ -39,28 +39,40 @@ PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 USD_PATH    = os.path.join(PROJECT_DIR, "assets/environments/msoe_building/innovation_center_finalV1.usd")
 GRAPH_PATH  = os.path.join(PROJECT_DIR, "assets/Graph/floor_4_nav_graph_world_xflipped.json")
 
-NUM_AGENTS     = 20
+# Confirmed paths from inspect_humanoid.py output
+_EXT_BASE    = os.path.expanduser("~/isaacsim/extscache")
+_RETARGET    = os.path.join(_EXT_BASE, "omni.anim.retarget.core-107.3.3+107.3.3.lx64.r.cp311.u353",
+                             "data/rigs/Human/assets")
+SKELETON_USD = os.path.join(_RETARGET, "human_skeleton.usd")
+WALK_USD     = os.path.join(_RETARGET, "walk.skelanim.usd")
+
+# Confirmed from inspection:
+#   SkelRoot  relative path: __RETARGETING_TEMPLATE__/Biped_Demo
+#   Animation relative path: WalkAnim/__RETARGETING_WALK_PREVIEW__
+#   Animation time range: 0–80 (81 frames)
+WALK_TIME_END = 80.0
+WALK_FPS      = 24.0    # animation authored at 24 fps
+
+NUM_AGENTS     = 15     # humanoids are heavier than capsules
 SIM_DURATION_S = 15.0
-AGENT_SPEED    = 1.2          # m/s
+AGENT_SPEED    = 1.2    # m/s
 STEP_SIZE      = 1.0 / 30.0
-WARMUP_FRAMES  = 30
+WARMUP_FRAMES  = 60
 
-# Floor 4: slab at Z=26.8 m, walkable surface ~26.9 m (verified from robot scripts)
-FLOOR_Z      = 26.9
-AGENT_RADIUS = 0.25
-AGENT_HEIGHT = 1.4
-# capsule center = floor + bottom hemisphere + half cylinder
-AGENT_CZ     = FLOOR_Z + AGENT_RADIUS + AGENT_HEIGHT / 2.0   # ≈ 27.85 m
+# Floor 4: slab Z=26.8m verified from robot scripts
+FLOOR_Z    = 26.9
+CHAR_FOOT_Z = FLOOR_Z   # characters stand at floor level
 
-# Camera: placed AHEAD of agent looking back (avoids clipping into walls behind agent).
-# Corridor ahead is open space — same strategy as nova_carter_vlm_demo.py FOLLOW_OFFSET.
-EYE_Z        = FLOOR_Z + 1.5     # ≈ 28.4 m  (matches robot script's 1.5 m above floor)
-CAM_AHEAD    = 4.0               # m ahead of agent along its heading
-CAMERA_PITCH = +0.15             # rad; positive = tilt DOWN (validated empirically)
+# Camera: ahead of agent looking back — corridor ahead is open, no wall clipping
+EYE_Z        = FLOOR_Z + 1.5
+CAM_AHEAD    = 4.0
+CAMERA_PITCH = +0.15    # positive = tilt down (validated)
 
-TURN_THRESH  = np.deg2rad(20)    # ignore heading jitter below this
-TURN_SPEED   = 0.10              # EMA blend rate once a real turn is detected
+TURN_THRESH  = np.deg2rad(20)
+TURN_SPEED   = 0.10
 
+# Hide trees — they clip through walls and are distracting
+TREE_KEYWORDS = ["tree", "plant", "vegetation", "palm", "shrub", "foliage"]
 
 # ── Nav graph ─────────────────────────────────────────────────────────────────
 
@@ -69,7 +81,6 @@ def load_graph(path):
         data = json.load(f)
     nodes = {}
     for n in data["nodes"]:
-        # XY only — Z is forced to FLOOR_Z for all agent movement
         nodes[n["id"]] = np.array([n["world_xy_cm"][0] / 100.0,
                                     n["world_xy_cm"][1] / 100.0])
     adj = {nid: [] for nid in nodes}
@@ -111,29 +122,55 @@ def dijkstra(adj, start, goal):
 # ── Agent ─────────────────────────────────────────────────────────────────────
 
 class PedestrianAgent:
-    def __init__(self, agent_id, nodes, adj, world):
+    """Humanoid agent: human_skeleton.usd + walk.skelanim.usd."""
+
+    def __init__(self, agent_id, nodes, adj, stage):
         self.agent_id     = agent_id
         self.nodes        = nodes
         self.adj          = adj
         self.current_node = random.choice(list(nodes.keys()))
         self.xy           = nodes[self.current_node].copy().astype(float)
         self.heading      = np.array([1.0, 0.0])
-        color = np.array([random.uniform(0.2, 0.95),
-                          random.uniform(0.2, 0.95),
-                          random.uniform(0.2, 0.95)])
-        self.prim = world.scene.add(
-            VisualCapsule(
-                prim_path=f"/World/Agents/agent_{agent_id}",
-                name=f"agent_{agent_id}",
-                position=np.array([self.xy[0], self.xy[1], AGENT_CZ]),
-                radius=AGENT_RADIUS,
-                height=AGENT_HEIGHT,
-                color=color,
-            )
-        )
+        self._stage       = stage
+        self._root        = f"/World/Agents/agent_{agent_id}"
+
+        # ── Load humanoid USD ─────────────────────────────────────────────────
+        add_reference_to_stage(SKELETON_USD, self._root)
+
+        # ── Reference walk animation at a child path ──────────────────────────
+        # walk.skelanim.usd contains /__RETARGETING_WALK_PREVIEW__ [SkelAnimation]
+        # with 81 joints, 81 time samples (0–80), confirmed by inspect_humanoid.py.
+        _walk_prim_path = f"{self._root}/WalkAnim"
+        _walk_prim = stage.DefinePrim(_walk_prim_path)
+        _walk_prim.GetReferences().AddReference(WALK_USD)
+
+        # ── Bind animation to SkelRoot ────────────────────────────────────────
+        # SkelRoot confirmed at: <root>/__RETARGETING_TEMPLATE__/Biped_Demo
+        # Animation confirmed at: <root>/WalkAnim/__RETARGETING_WALK_PREVIEW__
+        _skel_root_path = f"{self._root}/__RETARGETING_TEMPLATE__/Biped_Demo"
+        _anim_path      = f"{_walk_prim_path}/__RETARGETING_WALK_PREVIEW__"
+        _skel_root_prim = stage.GetPrimAtPath(_skel_root_path)
+        if _skel_root_prim.IsValid():
+            _binding = UsdSkel.BindingAPI.Apply(_skel_root_prim)
+            _binding.CreateAnimationSourceRel().SetTargets([Sdf.Path(_anim_path)])
+            print(f"[INFO] Agent {agent_id}: animation bound to {_anim_path}", flush=True)
+        else:
+            print(f"[WARN] Agent {agent_id}: SkelRoot not found at {_skel_root_path}", flush=True)
+
+        # ── XformCommonAPI for position/rotation updates ──────────────────────
+        _root_prim = stage.GetPrimAtPath(self._root)
+        self._xform = UsdGeom.XformCommonAPI(_root_prim)
+        self._update_pose()
+
         self.path     = []
         self.path_idx = 0
         self._pick_destination()
+
+    def _update_pose(self):
+        yaw_deg = float(np.degrees(np.arctan2(self.heading[1], self.heading[0])))
+        self._xform.SetTranslate(Gf.Vec3d(float(self.xy[0]), float(self.xy[1]), CHAR_FOOT_Z))
+        self._xform.SetRotate(Gf.Vec3f(0.0, 0.0, yaw_deg),
+                               UsdGeom.XformCommonAPI.RotationOrderXYZ)
 
     def _pick_destination(self):
         node_ids = list(self.nodes.keys())
@@ -159,9 +196,7 @@ class PedestrianAgent:
             unit         = direction / dist
             self.heading = unit
             self.xy     += unit * AGENT_SPEED * dt
-            self.prim.set_world_pose(
-                position=np.array([self.xy[0], self.xy[1], AGENT_CZ])
-            )
+            self._update_pose()
 
 
 # ── Minimap ────────────────────────────────────────────────────────────────────
@@ -215,14 +250,10 @@ def composite_minimap(frame_rgba, minimap_rgb, margin=10):
     return frame_rgba
 
 
-# ── Camera orientation helper ─────────────────────────────────────────────────
-
 def cam_quat(yaw, pitch=CAMERA_PITCH):
-    """Isaac Sim [w,x,y,z] quaternion for yaw then pitch.
-    Positive pitch tilts the camera DOWN (validated empirically with validate_camera_pitch.py).
-    """
-    q = R.from_euler("zy", [yaw, pitch]).as_quat()   # scipy returns [x,y,z,w]
-    return np.array([q[3], q[0], q[1], q[2]])         # Isaac expects [w,x,y,z]
+    """Isaac Sim [w,x,y,z] quaternion: yaw then pitch down."""
+    q = R.from_euler("zy", [yaw, pitch]).as_quat()
+    return np.array([q[3], q[0], q[1], q[2]])
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -239,31 +270,37 @@ def main():
              if _e["from"] in nodes and _e["to"] in nodes]
     print(f"[INFO] {len(nodes)} nodes, {len(edges)} edges", flush=True)
 
-    # ── World + building ──────────────────────────────────────────────────────
-    # Use sublayer insertion — the Revit USD has no defaultPrim so open_stage
-    # returns an empty scene. Sublayer merges all prims directly.
-    print("[INFO] Setting up world and loading building...", flush=True)
+    # ── World + building via sublayer ─────────────────────────────────────────
+    print("[INFO] Setting up world...", flush=True)
     world = World(stage_units_in_meters=1.0)
     stage = omni.usd.get_context().get_stage()
     stage.GetRootLayer().subLayerPaths.insert(0, USD_PATH)
 
-    # Exterior sky light
-    dome = UsdLux.DomeLight.Define(stage, Sdf.Path("/World/DomeLight"))
-    dome.CreateIntensityAttr(30000)
+    # ── Hide trees ────────────────────────────────────────────────────────────
+    hidden_trees = 0
+    for prim in stage.Traverse():
+        name = prim.GetName().lower()
+        if any(kw in name for kw in TREE_KEYWORDS):
+            UsdGeom.Imageable(prim).MakeInvisible()
+            hidden_trees += 1
+    print(f"[INFO] Hidden {hidden_trees} tree/plant prims", flush=True)
 
-    # Interior sphere lights at each nav node (at ceiling height above floor 4)
+    # ── Lighting ──────────────────────────────────────────────────────────────
+    # Reduced dome (was 30000 — too bright). Interior sphere lights for even coverage.
+    dome = UsdLux.DomeLight.Define(stage, Sdf.Path("/World/DomeLight"))
+    dome.CreateIntensityAttr(3000)
+
     _ceil_z = FLOOR_Z + 3.0
     for _i, (_nid, _nxy) in enumerate(nodes.items()):
         _s = UsdLux.SphereLight.Define(stage, Sdf.Path(f"/World/NavLight_{_i}"))
-        _s.CreateIntensityAttr(300000)
-        _s.CreateRadiusAttr(0.5)
+        _s.CreateIntensityAttr(80000)   # reduced from 300000
+        _s.CreateRadiusAttr(1.0)
         UsdGeom.XformCommonAPI(_s).SetTranslate(
             Gf.Vec3d(float(_nxy[0]), float(_nxy[1]), _ceil_z)
         )
-    print(f"[INFO] Lighting: DomeLight + {len(nodes)} interior lights", flush=True)
+    print(f"[INFO] Lighting: DomeLight 3k + {len(nodes)} interior lights at 80k", flush=True)
 
-    # Floor 4 ground plane — the USD slab may not have collision geometry, so
-    # this physics plane at Z=26.75 acts as a safety floor (same as robot script)
+    # Floor 4 safety ground plane
     world.scene.add_default_ground_plane(
         z_position=26.75,
         name="floor4_ground_plane",
@@ -273,13 +310,21 @@ def main():
         restitution=0.0,
     )
 
-    # ── Agents ────────────────────────────────────────────────────────────────
-    print(f"[INFO] Spawning {NUM_AGENTS} agents at Z={AGENT_CZ:.3f} m...", flush=True)
-    agents       = [PedestrianAgent(i, nodes, adj, world) for i in range(NUM_AGENTS)]
+    # ── Flush stage before spawning agents ────────────────────────────────────
+    # Required so prim tree from sublayer is resolved before add_reference_to_stage
+    simulation_app.update()
+    simulation_app.update()
+
+    # ── Spawn humanoid agents ─────────────────────────────────────────────────
+    print(f"[INFO] Spawning {NUM_AGENTS} humanoid agents...", flush=True)
+    agents       = [PedestrianAgent(i, nodes, adj, stage) for i in range(NUM_AGENTS)]
     follow_agent = agents[0]
-    minimap      = Minimap(nodes, edges, size=240)
-    print(f"[INFO] Follow agent starts at XY=({follow_agent.xy[0]:.1f}, {follow_agent.xy[1]:.1f})",
-          flush=True)
+
+    # Flush again so all references are resolved before world.reset()
+    simulation_app.update()
+    simulation_app.update()
+
+    minimap = Minimap(nodes, edges, size=240)
 
     # ── Camera ────────────────────────────────────────────────────────────────
     init_pos = np.array([follow_agent.xy[0] + CAM_AHEAD, follow_agent.xy[1], EYE_Z])
@@ -290,17 +335,27 @@ def main():
         frequency=30,
         resolution=(1280, 720),
     )
+
     world.reset()
     simulation_app.update()
     follow_cam.initialize()
 
-    # Set focal length + clipping via USD API (same pattern as nova_carter_vlm_demo.py)
+    # Focal length + clipping via USD API (same as nova_carter_vlm_demo.py)
     usd_cam = UsdGeom.Camera(stage.GetPrimAtPath("/World/FollowCam"))
-    usd_cam.GetFocalLengthAttr().Set(5.0)            # wide FOV (~90° horizontal)
+    usd_cam.GetFocalLengthAttr().Set(5.0)
     usd_cam.GetClippingRangeAttr().Set((0.01, 10000.0))
-    print(f"[INFO] Camera at Z={EYE_Z:.2f} m (floor {FLOOR_Z} + 1.7 m eye height)", flush=True)
 
-    # Renderer warmup
+    # ── Start timeline so UsdSkel deformation runs ────────────────────────────
+    # stage.SetCurrentTime() alone doesn't drive the skeleton deformer in Isaac Sim —
+    # the timeline must be playing for UsdSkel to evaluate joint transforms.
+    timeline = omni.timeline.get_timeline_interface()
+    timeline.set_start_time(0.0)
+    timeline.set_end_time(WALK_TIME_END)
+    timeline.set_time_codes_per_second(WALK_FPS)
+    timeline.play()
+    print("[INFO] Timeline playing for UsdSkel animation", flush=True)
+
+    # ── Warmup ────────────────────────────────────────────────────────────────
     print(f"[INFO] Warming up ({WARMUP_FRAMES} frames)...", flush=True)
     for _ in range(WARMUP_FRAMES):
         world.step(render=True)
@@ -313,47 +368,45 @@ def main():
 
     # ── Simulation loop ───────────────────────────────────────────────────────
     total_steps = int(SIM_DURATION_S / STEP_SIZE)
-    print(f"[INFO] Recording {total_steps} steps ({SIM_DURATION_S:.0f} s @ 30 fps)...", flush=True)
+    print(f"[INFO] Recording {total_steps} steps ({SIM_DURATION_S:.0f}s @ 30fps)...", flush=True)
 
     cam_heading = np.array(follow_agent.heading, dtype=float)
+    sim_time    = 0.0   # track simulation time for timeline
 
     frame = 0
     with VideoRecorder(video_name, fps=30) as recorder:
         while frame < total_steps:
 
-            # 1. Move all agents
+            # 1. Move agents
             for agent in agents:
                 agent.step(STEP_SIZE)
 
-            # 2. Corridor-locked camera heading — only rotate on real turns (>20 deg)
+            # 2. Advance timeline time — cycles walk animation (0–80 frames at 24fps)
+            sim_time += STEP_SIZE
+            anim_time = (sim_time * WALK_FPS) % (WALK_TIME_END + 1)
+            timeline.set_current_time(anim_time / WALK_FPS)
+
+            # 3. Corridor-locked camera heading
             raw_heading = np.array(follow_agent.heading, dtype=float)
             dot = float(np.clip(np.dot(cam_heading, raw_heading), -1.0, 1.0))
             if np.arccos(dot) > TURN_THRESH:
                 cam_heading = TURN_SPEED * raw_heading + (1 - TURN_SPEED) * cam_heading
                 cam_heading /= np.linalg.norm(cam_heading)
 
-            # 3. Camera: place AHEAD of agent along its heading, look BACK.
-            #    The corridor ahead is open space → no wall clipping.
-            #    (Same strategy as nova_carter_vlm_demo.py FOLLOW_OFFSET.)
-            yaw    = float(np.arctan2(cam_heading[1], cam_heading[0]))
-            ahead  = R.from_euler("z", yaw).apply(np.array([CAM_AHEAD, 0.0, 0.0]))
+            # 4. Camera ahead of agent, looking back
+            yaw   = float(np.arctan2(cam_heading[1], cam_heading[0]))
+            ahead = R.from_euler("z", yaw).apply(np.array([CAM_AHEAD, 0.0, 0.0]))
             cam_pos = np.array([
                 follow_agent.xy[0] + ahead[0],
                 follow_agent.xy[1] + ahead[1],
                 EYE_Z,
             ])
-            # Face back toward agent: yaw + π, with slight downward pitch
-            look_back_yaw = yaw + np.pi
+            follow_cam.set_world_pose(position=cam_pos, orientation=cam_quat(yaw + np.pi))
 
-            follow_cam.set_world_pose(
-                position    = cam_pos,
-                orientation = cam_quat(look_back_yaw),
-            )
-
-            # 4. Step physics + render
+            # 5. Step physics + render
             world.step(render=True)
 
-            # 5. Capture frame + minimap overlay
+            # 6. Capture + minimap
             rgba = follow_cam.get_rgba()
             if rgba is not None:
                 rgba = rgba.copy()
@@ -362,15 +415,15 @@ def main():
 
             if frame % 60 == 0:
                 mean_px = rgba.mean() if rgba is not None else -1
-                print(f"[INFO] Frame {frame:4d}/{total_steps}  "
-                      f"px_mean={mean_px:.1f}  "
-                      f"agent=({follow_agent.xy[0]:.1f},{follow_agent.xy[1]:.1f})  "
-                      f"cam_z={cam_pos[2]:.2f}",
+                print(f"[INFO] Frame {frame:4d}/{total_steps}  px_mean={mean_px:.1f}  "
+                      f"anim_t={anim_time:.1f}  "
+                      f"agent=({follow_agent.xy[0]:.1f},{follow_agent.xy[1]:.1f})",
                       flush=True)
 
             frame += 1
 
     minimap.close()
+    timeline.stop()
     print(f"[INFO] Done. Video: videos/{video_name}.mp4", flush=True)
     simulation_app.close()
 
