@@ -1,5 +1,5 @@
 """
-capture_anomalies.py
+capture_water_leaks.py
 
 Opens MSOEBuildingV4_physics.usd in Isaac Sim, procedurally adds water-leak
 geometry directly into the live stage (nothing written to a new USD), places
@@ -9,8 +9,8 @@ interior cameras, renders with RTX, and saves:
   captures/video.mp4 - all frames stitched into a video
 
 Run with Isaac Sim's Python:
-    ~/isaacsim/python.sh capture_anomalies.py
-    ~/isaacsim/python.sh capture_anomalies.py --count 5 --shots-per-anomaly 6
+    ~/isaacsim/python.sh capture_water_leaks.py
+    ~/isaacsim/python.sh capture_water_leaks.py --count 5 --shots 6
 
 Options:
     --count       number of water leak instances to place  (default: 5)
