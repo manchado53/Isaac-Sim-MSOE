@@ -1,7 +1,7 @@
 #!/bin/bash
-# submit_baseline_eval.sh — SLURM job for Qwen2-VL baseline evaluation (no Isaac Sim).
+# submit_baseline_eval.sh — SLURM job for Qwen2-VL evaluation on the held-out test set.
 #
-# Evaluates the BASE Qwen2-VL-2B-Instruct model against door_labels_static.npz.
+# Evaluates against data/test.jsonl (270 frames, 15% held-out split).
 # Uses conda 'vlm' env to avoid GLIBC mismatch from isaacsim/python.sh on dgx nodes.
 #
 # Usage:
@@ -33,14 +33,14 @@ echo "Started:   $(date)"
 echo "GPU:       $(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null || echo 'unknown')"
 echo ""
 
-# Check dataset exists
-NPZ="data/door_labels_static_multi_camera.npz"
-if [ ! -f "$NPZ" ]; then
-    echo "ERROR: $NPZ not found."
-    echo "  Run: sbatch submit_isaac_job.sh simulations/robot/door_static_collection.py"
+# Check test split exists
+TEST_JSONL="data/test.jsonl"
+if [ ! -f "$TEST_JSONL" ]; then
+    echo "ERROR: $TEST_JSONL not found."
+    echo "  Run: python3 simulations/robot/prepare_finetune_data.py"
     exit 1
 fi
-echo "Dataset: $NPZ  ($(du -sh "$NPZ" | cut -f1))"
+echo "Test set: $TEST_JSONL  ($(wc -l < "$TEST_JSONL") frames)"
 echo ""
 
 PYTHON="/home/ad.msoe.edu/celliot/.conda/envs/vlm/bin/python"
@@ -52,8 +52,7 @@ echo "Python: $($PYTHON --version)"
 
 echo "--- Evaluation ---"
 $PYTHON simulations/robot/eval_baseline.py \
-    --npz "$NPZ" \
-    --n_samples 1800 \
+    --test_jsonl "$TEST_JSONL" \
     "$@"
 EVAL_EXIT=$?
 

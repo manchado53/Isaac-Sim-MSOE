@@ -4,8 +4,13 @@ prepare_finetune_data.py — Convert door_labels.npz → JSONL for Qwen2-VL fine
 
 Reads data/door_labels.npz (produced by nova_carter_door_collection.py) and writes:
   data/finetune_images/frame_XXXXX.jpg  — individual JPEG frames
-  data/train.jsonl                       — 80% training split
-  data/val.jsonl                         — 20% validation split
+  data/train.jsonl                       — 70% training split  (1260 frames)
+  data/val.jsonl                         — 15% validation split ( 270 frames)
+  data/test.jsonl                        — 15% held-out test set ( 270 frames)
+
+The test split is held out entirely and must NOT be used during training or
+hyperparameter selection. Run eval_baseline.py against test.jsonl only for
+final reported accuracy numbers.
 
 Label thresholding (from VLM_fine-tuning.md):
   angle_deg = label * 90.0
@@ -40,7 +45,8 @@ from PIL import Image
 # ---------------------------------------------------------------------------
 
 CLOSED_THRESHOLD_DEG = 5.0   # angles ≤ this → CLOSED  (matches VLM_fine-tuning.md)
-TRAIN_FRACTION       = 0.80  # 80/20 train/val split
+TRAIN_FRACTION       = 0.70  # 70/15/15 train/val/test split
+VAL_FRACTION         = 0.15  # test gets the remainder (also 0.15)
 JPEG_QUALITY         = 92    # JPEG compression quality for saved frames
 VISION_TOKEN_STR     = "<|vision_start|><|image_pad|><|vision_end|>"
 
@@ -127,25 +133,30 @@ def main():
         print("\nERROR: No OPEN frames found.")
         sys.exit(1)
 
-    # Stratified 80/20 split
+    # Stratified 70/15/15 split
     random.shuffle(closed_idx)
     random.shuffle(open_idx)
 
-    def split(idx_list):
-        cut = int(len(idx_list) * TRAIN_FRACTION)
-        return idx_list[:cut], idx_list[cut:]
+    def split3(idx_list):
+        n = len(idx_list)
+        train_cut = int(n * TRAIN_FRACTION)
+        val_cut   = int(n * (TRAIN_FRACTION + VAL_FRACTION))
+        return idx_list[:train_cut], idx_list[train_cut:val_cut], idx_list[val_cut:]
 
-    train_closed, val_closed = split(closed_idx)
-    train_open,   val_open   = split(open_idx)
+    train_closed, val_closed, test_closed = split3(closed_idx)
+    train_open,   val_open,   test_open   = split3(open_idx)
 
     train_idx = train_closed + train_open
     val_idx   = val_closed   + val_open
+    test_idx  = test_closed  + test_open
     random.shuffle(train_idx)
     random.shuffle(val_idx)
+    random.shuffle(test_idx)
 
-    print(f"\nSplit:")
+    print(f"\nSplit (70/15/15 stratified):")
     print(f"  Train — CLOSED: {len(train_closed)}, OPEN: {len(train_open)}, total: {len(train_idx)}")
     print(f"  Val   — CLOSED: {len(val_closed)},   OPEN: {len(val_open)},   total: {len(val_idx)}")
+    print(f"  Test  — CLOSED: {len(test_closed)},  OPEN: {len(test_open)},  total: {len(test_idx)}  [HELD OUT]")
 
     # Save frames as JPEG and build JSONL records
     def process_split(indices, jsonl_path, split_name):
@@ -171,15 +182,19 @@ def main():
         with open(jsonl_path, "w") as f:
             for rec in records:
                 f.write(json.dumps(rec) + "\n")
+            f.flush()
+            os.fsync(f.fileno())   # force NFS write-through before finetune job reads
         print(f"  Saved {len(records)} records → {jsonl_path}")
 
     print(f"\nSaving frames to {img_dir} ...")
     process_split(train_idx, os.path.join(out_dir, "train.jsonl"), "train")
     process_split(val_idx,   os.path.join(out_dir, "val.jsonl"),   "val")
+    process_split(test_idx,  os.path.join(out_dir, "test.jsonl"),  "test")
 
     print("\nDone.")
-    print(f"  train.jsonl : {len(train_idx)} records")
-    print(f"  val.jsonl   : {len(val_idx)} records")
+    print(f"  train.jsonl : {len(train_idx)} records  (70%)")
+    print(f"  val.jsonl   : {len(val_idx)} records  (15%)")
+    print(f"  test.jsonl  : {len(test_idx)} records  (15%) — held out for final eval")
     print(f"  Images      : {img_dir}")
 
 

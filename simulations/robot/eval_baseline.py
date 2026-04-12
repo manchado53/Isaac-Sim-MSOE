@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 """
-eval_baseline.py — Evaluate the BASE Qwen2-VL-2B-Instruct (no fine-tuning)
-against the door_labels_static.npz dataset.
+eval_baseline.py — Evaluate Qwen2-VL-2B-Instruct on the held-out test split.
 
-Run this BEFORE fine-tuning to get a baseline accuracy. After fine-tuning,
-run eval_finetuned.py (or rerun this with --adapter) to compare.
+Reads data/test.jsonl (produced by prepare_finetune_data.py — 15% held-out set,
+270 frames, never seen during training or val-based hyperparameter selection).
 
-Results are printed to stdout and saved to data/baseline_eval_results.json.
+Run without --adapter for the zero-shot baseline, or with --adapter for the
+fine-tuned model. Both report identical metrics so results are directly comparable.
+
+Results are printed to stdout and saved to:
+  data/baseline_eval_results.json   (no --adapter)
+  data/finetuned_eval_results.json  (with --adapter)
 
 Usage (GPU node required — submit via SLURM or interactive session):
   ~/isaacsim/python.sh simulations/robot/eval_baseline.py
-  ~/isaacsim/python.sh simulations/robot/eval_baseline.py --n_samples 100
   ~/isaacsim/python.sh simulations/robot/eval_baseline.py --adapter data/qwen2vl_door_lora
 """
 
@@ -42,31 +45,26 @@ _project_dir = os.path.abspath(os.path.join(_script_dir, "..", ".."))
 # Helpers
 # ---------------------------------------------------------------------------
 
-def load_dataset(npz_path: str, n_samples: int, seed: int):
+def load_test_jsonl(jsonl_path: str):
     """
-    Load frames from the npz and return a stratified sample.
-    Returns list of (frame_rgb_array, true_label_str, angle_deg).
+    Load the held-out test split from data/test.jsonl.
+    Each record has an image path (relative to the data/ dir) and a label
+    derived from the assistant turn ("Door Status: [CLOSED]." or "[OPEN].").
+    Returns list of (frame_rgb_array, true_label_str, image_path).
     """
-    d       = np.load(npz_path)
-    frames  = d["frames"]   # (N, H, W, 3) uint8
-    angles  = d["angles"]   # (N,) float32 degrees
-
-    closed_idx = np.where(angles <= CLOSED_THRESHOLD)[0]
-    open_idx   = np.where(angles >  CLOSED_THRESHOLD)[0]
-
-    rng = np.random.default_rng(seed)
-
-    # Stratified sample: half CLOSED, half OPEN
-    n_each = n_samples // 2
-    c_pick = rng.choice(closed_idx, size=min(n_each, len(closed_idx)), replace=False)
-    o_pick = rng.choice(open_idx,   size=min(n_each, len(open_idx)),   replace=False)
-    indices = np.concatenate([c_pick, o_pick])
-    rng.shuffle(indices)
-
-    samples = []
-    for i in indices:
-        label = "CLOSED" if angles[i] <= CLOSED_THRESHOLD else "OPEN"
-        samples.append((frames[i], label, float(angles[i])))
+    data_dir = os.path.dirname(jsonl_path)
+    samples  = []
+    with open(jsonl_path) as f:
+        for line in f:
+            rec   = json.loads(line)
+            # Label is in the assistant conversation turn
+            answer = rec["conversations"][1]["content"]
+            label  = "CLOSED" if "[CLOSED]" in answer.upper() else "OPEN"
+            # Image path is relative to data/ directory
+            img_path = os.path.join(data_dir, rec["image"])
+            img      = Image.open(img_path).convert("RGB")
+            frame    = np.array(img, dtype=np.uint8)
+            samples.append((frame, label, rec["image"]))
     return samples
 
 
@@ -130,18 +128,16 @@ def parse_prediction(response: str) -> str:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--npz",       default="data/door_labels_static.npz",
-                        help="Path to dataset npz (relative to project root)")
-    parser.add_argument("--n_samples", type=int, default=600,
-                        help="Total frames to evaluate (half CLOSED, half OPEN)")
-    parser.add_argument("--adapter",   default=None,
+    parser.add_argument("--test_jsonl", default="data/test.jsonl",
+                        help="Path to held-out test JSONL (relative to project root)")
+    parser.add_argument("--adapter",    default=None,
                         help="Path to LoRA adapter dir — omit for baseline (no fine-tuning)")
-    parser.add_argument("--seed",      type=int, default=42)
     args = parser.parse_args()
 
-    npz_path = os.path.join(_project_dir, args.npz)
-    if not os.path.isfile(npz_path):
-        print(f"ERROR: dataset not found: {npz_path}")
+    jsonl_path = os.path.join(_project_dir, args.test_jsonl)
+    if not os.path.isfile(jsonl_path):
+        print(f"ERROR: test split not found: {jsonl_path}")
+        print("  Run prepare_finetune_data.py first to generate the 70/15/15 splits.")
         sys.exit(1)
 
     mode = "FINE-TUNED" if args.adapter else "BASELINE (no fine-tuning)"
@@ -150,8 +146,7 @@ def main():
     print(f"{'='*60}")
     print(f"  Model:    {VLM_MODEL_ID}")
     print(f"  Adapter:  {args.adapter or 'none'}")
-    print(f"  Dataset:  {npz_path}")
-    print(f"  Samples:  {args.n_samples} (stratified {args.n_samples//2} CLOSED + {args.n_samples//2} OPEN)")
+    print(f"  Test set: {jsonl_path}")
     print()
 
     # ------------------------------------------------------------------
@@ -177,15 +172,20 @@ def main():
         from peft import PeftModel
         print(f"Loading LoRA adapter from {args.adapter} ...")
         model = PeftModel.from_pretrained(model, args.adapter)
-        model = model.merge_and_unload()   # merge weights for faster inference
+        # Do NOT call merge_and_unload() — crashes with modules_to_save adapters
+        # in peft 0.18.1. PeftModel inference is identical in accuracy.
 
     model.eval()
     print(f"Model loaded in {time.time()-t0:.1f}s\n")
 
     # ------------------------------------------------------------------
-    # Load samples
+    # Load test split
     # ------------------------------------------------------------------
-    samples = load_dataset(npz_path, args.n_samples, args.seed)
+    print(f"Loading test split from {jsonl_path} ...")
+    samples = load_test_jsonl(jsonl_path)
+    n_closed = sum(1 for _, lbl, _ in samples if lbl == "CLOSED")
+    n_open   = sum(1 for _, lbl, _ in samples if lbl == "OPEN")
+    print(f"  {len(samples)} frames — CLOSED: {n_closed}, OPEN: {n_open}")
     print(f"Evaluating {len(samples)} frames ...\n")
 
     # ------------------------------------------------------------------
@@ -196,7 +196,7 @@ def main():
     per_class = {"CLOSED": {"correct": 0, "total": 0},
                  "OPEN":   {"correct": 0, "total": 0}}
 
-    for i, (frame, true_label, angle_deg) in enumerate(samples):
+    for i, (frame, true_label, img_path) in enumerate(samples):
         t_start  = time.time()
         response = predict(model, processor, frame, device)
         pred     = parse_prediction(response)
@@ -210,12 +210,12 @@ def main():
             per_class[true_label]["correct"] += 1
 
         status = "✓" if is_correct else "✗"
-        print(f"  [{i+1:3d}/{len(samples)}] {status}  true={true_label:6s} ({angle_deg:5.1f}°)  "
+        print(f"  [{i+1:3d}/{len(samples)}] {status}  true={true_label:6s}  "
               f"pred={pred:7s}  response: {response!r}  ({elapsed:.1f}s)")
 
         results.append({
             "index":      i,
-            "angle_deg":  angle_deg,
+            "image":      img_path,
             "true_label": true_label,
             "predicted":  pred,
             "correct":    is_correct,
@@ -267,10 +267,11 @@ def main():
         "finetuned_eval_results.json" if args.adapter else "baseline_eval_results.json"
     )
     summary = {
-        "mode":            mode,
-        "model":           VLM_MODEL_ID,
-        "adapter":         args.adapter,
-        "n_samples":       len(samples),
+        "mode":             mode,
+        "model":            VLM_MODEL_ID,
+        "adapter":          args.adapter,
+        "test_jsonl":       args.test_jsonl,
+        "n_samples":        len(samples),
         "overall_accuracy": overall_acc,
         "closed_accuracy": closed_acc,
         "open_accuracy":   open_acc,

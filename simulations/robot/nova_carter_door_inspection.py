@@ -144,7 +144,7 @@ if assets_root is None:
 
 world = World(stage_units_in_meters=1.0)
 
-_building_usd = os.path.join(_project_dir, "innovation_center_finalV1.usd")
+_building_usd = os.path.join(_project_dir, "MSOEBuildingV4_physics.usd")
 if not os.path.isfile(_building_usd):
     print(f"ERROR: Building USD not found: {_building_usd}")
     simulation_app.close()

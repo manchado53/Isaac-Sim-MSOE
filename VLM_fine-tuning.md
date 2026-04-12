@@ -1,7 +1,9 @@
 # Qwen2-VL Fine-Tuning for Door State Classification
 
+> **Note (April 2026):** This document covers the initial door state classification pipeline. The project has since expanded to multi-anomaly detection (open doors, broken glass, water leakage) as part of a general-purpose visual building agent. See [PROJECT_PLAN.md](PROJECT_PLAN.md) for the current scope and [DATASET_IMPROVEMENT_PLAN.md](DATASET_IMPROVEMENT_PLAN.md) for the expanded dataset plan. The fine-tuning architecture and engineering lessons documented here remain current and apply to all anomaly types.
+
 **Model:** Qwen2-VL-2B-Instruct + LoRA + Vision Projector
-**Task:** Binary classification — door `[OPEN]` vs `[CLOSED]`
+**Task:** Binary classification — door `[OPEN]` vs `[CLOSED]` (expanding to multi-anomaly)
 **Data Source:** NVIDIA Isaac Sim (MSOE Digital Twin)
 **Hardware:** Tesla V100 32 GB — MSOE Rosie `dgx` partition
 
@@ -74,14 +76,15 @@ OPEN episodes: door held at a random angle in [10°, 90°].
 
 **Script:** `simulations/robot/prepare_finetune_data.py`
 
-### Train / Validation Split
+### Train / Validation / Test Split
 
-Stratified 80/20 split — class balance enforced in both splits:
+> **Updated:** The code now uses a 70/15/15 stratified split (train/val/test). The 80/20 split shown in the original version of this document is outdated.
 
 | Split | CLOSED | OPEN | Total |
 |-------|--------|------|-------|
-| Train | 720    | 720  | 1,440 |
-| Val   | 180    | 180  |   360 |
+| Train | 630    | 630  | 1,260 (70%) |
+| Val   | 135    | 135  |   270 (15%) |
+| Test  | 135    | 135  |   270 (15%) |
 
 ### JSONL Conversation Format
 
@@ -219,7 +222,7 @@ A large spike (~1.9) in the first ~10 steps reflects the projector rapidly adapt
 **Dataset:** `data/door_labels_static_multi_camera.npz`
 **Samples:** 1,800 (stratified — 900 CLOSED + 900 OPEN)
 
-The adapter is loaded with `PeftModel.from_pretrained` then merged into base weights via `model.merge_and_unload()` for full-speed inference.
+The adapter is loaded with `PeftModel.from_pretrained`. **Do NOT use `model.merge_and_unload()`** — it crashes with `modules_to_save`. Use the `PeftModel` directly for inference.
 
 ### Baseline vs Fine-Tuned Results
 
@@ -279,7 +282,28 @@ The model loads in `float16`. PyTorch's AMP gradient scaler requires `float32` p
 
 ---
 
-## 9. File Reference
+## 9. Generalization Results
+
+### Out-of-Distribution Test (Unseen Door)
+
+The fine-tuned model was evaluated on door `Doors_13185454` — a door not included in training data.
+
+| Metric | In-Distribution (test set) | Out-of-Distribution (unseen door) |
+|---|---|---|
+| Accuracy | 96.3% | **0%** |
+
+The model learned the specific appearance of `Doors_13606713`, not the abstract concept of open vs. closed. This is consistent with findings from InspectVLM (2025), which reported similar brittleness in fine-tuned VLMs — collapsing to memorized responses when presented with novel visual inputs.
+
+### Implications
+
+This generalization failure is the **central motivating result** for the project's current direction:
+- Proves that naive single-source fine-tuning is insufficient
+- Motivates the expanded dataset plan: 5–8 doors with domain randomization (lighting, materials, viewpoints)
+- The generalization curve (accuracy vs. training diversity) is the key deliverable — see [PROJECT_PLAN.md](PROJECT_PLAN.md)
+
+---
+
+## 10. File Reference
 
 | File | Purpose |
 |------|---------|

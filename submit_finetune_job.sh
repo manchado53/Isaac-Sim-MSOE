@@ -35,18 +35,6 @@ echo "Started:   $(date)"
 echo "GPU:       $(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null || echo 'unknown')"
 echo ""
 
-# Check prerequisites
-if [ ! -f "data/train.jsonl" ] || [ ! -f "data/val.jsonl" ]; then
-    echo "ERROR: data/train.jsonl or data/val.jsonl not found."
-    echo "  Run: python3 simulations/robot/prepare_finetune_data.py"
-    exit 1
-fi
-
-TRAIN_N=$(wc -l < data/train.jsonl)
-VAL_N=$(wc -l < data/val.jsonl)
-echo "Dataset:  train=$TRAIN_N  val=$VAL_N"
-echo ""
-
 # Use conda 'vlm' env — does NOT use isaacsim/python.sh because fine-tuning
 # does not need Isaac Sim and libcarb.so requires GLIBC 2.32+ not available
 # on dgx/dgxh100 nodes. Set up once with:
@@ -60,6 +48,27 @@ if [ ! -f "$PYTHON" ]; then
     exit 1
 fi
 echo "Python: $($PYTHON --version)"
+echo ""
+
+# Check source NPZ exists
+if [ ! -f "data/door_labels_static_multi_camera.npz" ]; then
+    echo "ERROR: data/door_labels_static_multi_camera.npz not found."
+    echo "  Run door_static_collection.py first to collect training data."
+    exit 1
+fi
+
+# Regenerate train/val/test splits on this compute node to avoid NFS cache issues.
+# Running prepare_finetune_data.py here (rather than relying on pre-generated files
+# from the login node) guarantees the JSONL files are fully flushed before training.
+echo "--- Generating data splits ---"
+$PYTHON simulations/robot/prepare_finetune_data.py
+echo ""
+
+TRAIN_N=$(wc -l < data/train.jsonl)
+VAL_N=$(wc -l < data/val.jsonl)
+TEST_N=$(wc -l < data/test.jsonl)
+echo "Dataset:  train=$TRAIN_N  val=$VAL_N  test=$TEST_N"
+echo ""
 
 echo "--- Fine-tuning ---"
 $PYTHON simulations/robot/finetune_qwen2vl.py "$@"

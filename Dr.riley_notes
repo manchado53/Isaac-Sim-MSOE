@@ -1,0 +1,6 @@
+We seriously need to reevaluate and figure our what exact problem are we solving that has not already been solved
+Ex: Doors open/closed can use sensors, Rumba's can navigate a building, etc
+Judges thought the digital twin looked like a plastic toy environment and were not convinced it will translate to the real world. How can we fix this to confidently say it will translate?
+Do we need RL? What is the benefit of proving RL in this environment
+How can we automate the process to show scalability. They value scalability more than perfect optimization.
+We need to think through the argument of how the robot will adapt to the real world - they are currently not convinced it will. 

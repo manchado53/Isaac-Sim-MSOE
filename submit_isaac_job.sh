@@ -22,7 +22,10 @@ ISAAC_PYTHON="$ISAAC_SIM_DIR/python.sh"
 # VLM demo uses two scripts (Phase 1 and Phase 2+3) because simulation_app.close()
 # calls os._exit(0) internally, which terminates the process before Phase 2/3 can run.
 # For any other script, pass it as $1 and only Phase 1 runs.
+# Any arguments after the script name ($2, $3, ...) are forwarded to the script.
 PHASE1_SCRIPT="${1:-simulations/robot/nova_carter_vlm_demo.py}"
+shift 2>/dev/null || true  # consume $1; remaining $@ are script arguments
+SCRIPT_ARGS="$@"
 PHASE23_SCRIPT="simulations/robot/nova_carter_vlm_phase23.py"
 
 echo "========================================="
@@ -30,6 +33,7 @@ echo "Isaac Sim Job Starting"
 echo "Job ID: $SLURM_JOB_ID"
 echo "Node: $SLURMD_NODENAME"
 echo "Phase 1: $PHASE1_SCRIPT"
+echo "Script args: $SCRIPT_ARGS"
 echo "Isaac Sim: $ISAAC_SIM_DIR"
 echo "========================================="
 echo ""
@@ -52,7 +56,8 @@ cd "$HOME/Digital-twin-v2/isaac-sim-msoe" || exit 1
 # --- Phase 1: Isaac Sim simulation (saves frame_cache.npz) ---
 echo "--- Phase 1: Running Isaac Sim ---"
 echo ""
-"$ISAAC_PYTHON" "$PHASE1_SCRIPT"
+# shellcheck disable=SC2086
+"$ISAAC_PYTHON" "$PHASE1_SCRIPT" $SCRIPT_ARGS
 PHASE1_EXIT=$?
 
 echo ""

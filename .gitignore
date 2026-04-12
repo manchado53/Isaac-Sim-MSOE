@@ -8,3 +8,14 @@ tb_logs/
 *.usd
 *.log
 /logs/
+
+# Large data artifacts — store on Rosie, not in git
+data/qwen2vl_door_lora/
+data/*.npz
+data/door_inspection_frames_*/
+data/door_static_sanity/
+data/train.jsonl
+data/val.jsonl
+frames/
+frames_external_camera/
+frame_cache.npz
