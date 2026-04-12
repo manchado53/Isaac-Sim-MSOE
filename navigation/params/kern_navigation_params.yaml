@@ -43,9 +43,9 @@ amcl:
     always_reset_initial_pose: false
     first_map_only: false
     initial_pose:
-      # TODO: Set to actual robot spawn pose in Kern building after map export
-      x: 0.0
-      y: 0.0
+      # MSOE Innovation Center, floor 4, spawn node 77 (see InnovationCenter/building_info.json)
+      x: -10.70
+      y: 82.09
       z: 0.0
       yaw: 0.0
 
@@ -352,7 +352,10 @@ collision_monitor:
 map_server:
   ros__parameters:
     use_sim_time: True
-    yaml_filename: "kern_innovation_center.yaml"
+    # Overridden at launch time by the `map:=` argument. The Nav2 bringup passes
+    # the launch-arg map path to map_server directly, so this default is only
+    # used if someone launches map_server standalone.
+    yaml_filename: "/home/thescript/isaac-sim-msoe/assets/environments/InnovationCenter/maps/floor_4_map_metadata.yaml"
 
 map_saver:
   ros__parameters:

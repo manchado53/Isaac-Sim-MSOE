@@ -45,8 +45,8 @@ from skimage.morphology import disk, erosion, skeletonize
 # Paths
 # ---------------------------------------------------------------------------
 REPO_DIR        = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-V4_DIR          = os.path.join(REPO_DIR, "test_building", "V4_floor_plans")
-DEFAULT_OUT_DIR = os.path.join(REPO_DIR, "floorplan_vision", "results")
+V4_DIR          = os.path.join(REPO_DIR, "assets", "environments", "InnovationCenter", "maps")
+DEFAULT_OUT_DIR = os.path.join(REPO_DIR, "assets", "environments", "InnovationCenter", "navgraphs")
 
 V4_FLOORS = ["floor_1", "floor_2", "floor_3", "floor_4"]
 
@@ -115,18 +115,27 @@ def load_v4_floor(floor_name):
 def pixel_to_world(row, col, meta):
     """
     Convert pixel (row, col) → world (x, y) in metres.
-    V4 convention: row 0 = xy_min[1], y increases with row.
+
+    Matches Isaac Sim's omap convention from
+    isaacsim.asset.gen.omap.utils::compute_coordinates:
+
+        top_left  = (max_b[0] - half_w, min_b[1] + half_w)  # (x_max, y_min)
+        top_right = (min_b[0] + half_w, min_b[1] + half_w)  # (x_min, y_min)
+
+    So row 0 is y_min (y grows downward in the image) AND col 0 is x_MAX
+    (x DECREASES as col grows). Earlier V4 code assumed col 0 = x_min, which
+    mirrored every stored X across the floor's midline.
     """
-    res   = meta["resolution_m"]
-    x     = meta["xy_min"][0] + col * res
-    y     = meta["xy_min"][1] + row * res
+    res = meta["resolution_m"]
+    x   = meta["xy_max"][0] - col * res   # col grows toward x_min
+    y   = meta["xy_min"][1] + row * res   # row grows toward y_max
     return x, y
 
 
 def world_to_pixel(x, y, meta):
     """Inverse of pixel_to_world — returns (row, col)."""
     res = meta["resolution_m"]
-    col = int((x - meta["xy_min"][0]) / res)
+    col = int((meta["xy_max"][0] - x) / res)
     row = int((y - meta["xy_min"][1]) / res)
     return row, col
 

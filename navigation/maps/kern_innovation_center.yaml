@@ -1,7 +1,0 @@
-# Placeholder — replace with occupancy map exported from Isaac Sim
-image: kern_innovation_center.png
-resolution: 0.05
-origin: [0.0, 0.0, 0.0]
-negate: 0
-occupied_thresh: 0.65
-free_thresh: 0.196
