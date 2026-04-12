@@ -1,0 +1,71 @@
+# IRA (Isaac Sim Replicator Agent) config for MSOE Innovation Center ground-floor
+# single-character walking demo. Fallback scaffold ("W3") for the people-in-building
+# pipeline in case the lighter-weight W2.5 path (direct omni.anim.* extensions)
+# fails to get characters out of T-pose.
+#
+# Invoked via:
+#   ~/isaacsim/python.sh ~/isaacsim/tools/actor_sdg/sdg_scheduler.py \
+#       -c assets/people/ira_configs/ground_floor_config.yaml \
+#       --sensor_placment_file assets/people/ira_configs/ground_floor_cameras.json \
+#       --no_random_commands --debug_print
+#
+# Required top-level sections (per
+# extscache/.../config_file_default_values.yaml):
+#   global, sensor, scene, character, robot, replicator
+# `event` is optional and omitted.
+#
+# NOTE on units: the building USD has metersPerUnit=0.3048 (Revit feet). IRA
+# characters ship in meters. IRA respects metersPerUnit when spawning, so the
+# scale should resolve automatically — see README for caveats.
+
+isaacsim.replicator.agent:
+  version: 0.7.0
+  global:
+    # seed auto-generated at load time if 0/empty; pinning for reproducibility
+    seed: 42
+    # 15 s @ 30 fps. IRA divides by FRAME_RATE to get duration.
+    simulation_length: 450
+
+  sensor:
+    # Single virtual camera. Position is overridden by ground_floor_cameras.json
+    # (loaded via --sensor_placment_file).
+    camera_num: 1
+    lidar_num: 0
+    camera_list: []
+    lidar_list: []
+
+  scene:
+    # Must be an absolute path or omniverse:// URL. Pipeline resolves this via
+    # StageUtil.open_stage() — known to work with on-disk physics USDs.
+    asset_path: /home/ad.msoe.edu/pacettio/isaacsim/isaac-sim-msoe/assets/environments/msoe_building/MSOEBuildingV4_physics.usd
+
+  character:
+    # Pulled from NVIDIA S3 at runtime (see README). Leave empty to use
+    # Isaac Sim's auto-resolved default asset root
+    # (https://.../Assets/Isaac/5.1/Isaac/People/Characters/).
+    asset_path: ""
+    # Relative to this config file. Generated character will be named
+    # "Character_0" (see CharacterUtil.get_character_name_by_index).
+    command_file: ground_floor_commands.txt
+    filters: []
+    num: 1
+
+  robot:
+    command_file: default_robot_command.txt
+    nova_carter_num: 0
+    iw_hub_num: 0
+    write_data: false
+
+  replicator:
+    writer: IRABasicWriter
+    parameters:
+      # Keep output minimal — we just want the rendered RGB frames for the video.
+      object_info_bounding_box_2d_tight: false
+      object_info_bounding_box_2d_loose: false
+      object_info_bounding_box_3d: false
+      agent_info_skeleton_data: false
+      semantic_filter_predicate: class:character|robot;id:*
+      rgb: true
+      camera_params: true
+      # Writer will pick up the default ReplicatorResult path unless
+      # /exts/isaacsim.replicator.agent/default_replicator_output_path is set.

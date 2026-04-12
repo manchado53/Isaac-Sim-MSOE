@@ -551,6 +551,151 @@ def create_revolute_joint(stage, joint_path, body0_path, body1_path,
     return joint
 
 
+def create_spherical_joint(stage, joint_path, body0_path, body1_path,
+                           cone_angle0=45.0, cone_angle1=45.0,
+                           axis="Y",
+                           local_pos0=None, local_pos1=None,
+                           local_rot0=None, local_rot1=None,
+                           break_force=3.4028235e+38,
+                           break_torque=3.4028235e+38):
+    """
+    Create a spherical (ball-and-socket) joint between two bodies.
+
+    Useful for shoulder / hip / neck / waist joints in a ragdoll — rotation
+    free around the primary axis, limited in a cone off that axis.
+
+    Args:
+        stage: USD stage
+        joint_path: Where to define the joint prim
+        body0_path: Path to body0 (parent) — None/"" means world frame
+        body1_path: Path to body1 (child)
+        cone_angle0: Cone half-angle around first swing axis (degrees)
+        cone_angle1: Cone half-angle around second swing axis (degrees)
+        axis: Primary (twist) axis — "X", "Y", or "Z"
+        local_pos0/1: Local position offset on each body (Gf.Vec3f)
+        local_rot0/1: Local rotation on each body (Gf.Quatf)
+        break_force / break_torque: Thresholds (MAX_FLOAT = unbreakable)
+    """
+    joint = UsdPhysics.SphericalJoint.Define(stage, joint_path)
+
+    joint.CreateAxisAttr(axis)
+    joint.CreateConeAngle0LimitAttr(float(cone_angle0))
+    joint.CreateConeAngle1LimitAttr(float(cone_angle1))
+
+    if body0_path:
+        joint.CreateBody0Rel().SetTargets([Sdf.Path(body0_path)])
+    joint.CreateBody1Rel().SetTargets([Sdf.Path(body1_path)])
+
+    if local_pos0 is not None:
+        joint.CreateLocalPos0Attr(local_pos0)
+    if local_pos1 is not None:
+        joint.CreateLocalPos1Attr(local_pos1)
+    if local_rot0 is not None:
+        joint.CreateLocalRot0Attr(local_rot0)
+    if local_rot1 is not None:
+        joint.CreateLocalRot1Attr(local_rot1)
+
+    joint.CreateBreakForceAttr(break_force)
+    joint.CreateBreakTorqueAttr(break_torque)
+
+    if _HAS_PHYSX_SCHEMA:
+        physx_joint = PhysxSchema.PhysxJointAPI.Apply(joint.GetPrim())
+        physx_joint.CreateJointFrictionAttr(0.1)
+
+    return joint
+
+
+def apply_capsule_rigid_body(stage, prim_path, length, radius, mass,
+                             world_position=None, world_orientation=None,
+                             axis="Y", kinematic=False, display_color=None):
+    """
+    Create a capsule primitive with rigid-body physics attached.
+
+    Designed for ragdoll limbs: set length/radius to approximate a bone,
+    set axis to the local coord axis aligned with the bone direction.
+
+    Args:
+        stage: USD stage
+        prim_path: Where to create the capsule prim
+        length: Capsule cylinder length (meters in stage units)
+        radius: Capsule radius (meters)
+        mass: Mass in kg
+        world_position: (x, y, z) world translation. None → origin.
+        world_orientation: Gf.Quatf world rotation. None → identity.
+        axis: Local axis the capsule extends along — "X", "Y", or "Z"
+        kinematic: If True, body is kinematic (no gravity, script-driven).
+                   Set True initially for "standing" then flip False to drop.
+        display_color: Optional (r, g, b) tuple in [0,1] for visual debugging.
+
+    Returns:
+        The capsule prim.
+    """
+    capsule = UsdGeom.Capsule.Define(stage, prim_path)
+    capsule.CreateHeightAttr(float(length))
+    capsule.CreateRadiusAttr(float(radius))
+    capsule.CreateAxisAttr(axis)
+
+    # Extent attr (bounds) — required for valid USD
+    if axis == "Y":
+        h = length * 0.5 + radius
+        capsule.CreateExtentAttr([(-radius, -h, -radius), (radius, h, radius)])
+    elif axis == "X":
+        h = length * 0.5 + radius
+        capsule.CreateExtentAttr([(-h, -radius, -radius), (h, radius, radius)])
+    else:  # Z
+        h = length * 0.5 + radius
+        capsule.CreateExtentAttr([(-radius, -radius, -h), (radius, radius, h)])
+
+    # World transform
+    xformable = UsdGeom.Xformable(capsule.GetPrim())
+    xformable.ClearXformOpOrder()
+    if world_position is not None:
+        xformable.AddTranslateOp(precision=UsdGeom.XformOp.PrecisionDouble).Set(
+            Gf.Vec3d(float(world_position[0]),
+                      float(world_position[1]),
+                      float(world_position[2]))
+        )
+    if world_orientation is not None:
+        xformable.AddOrientOp(precision=UsdGeom.XformOp.PrecisionFloat).Set(
+            world_orientation
+        )
+
+    if display_color is not None:
+        capsule.CreateDisplayColorAttr().Set([Gf.Vec3f(*display_color)])
+
+    prim = capsule.GetPrim()
+
+    # Rigid body + mass + collision
+    rb_api = UsdPhysics.RigidBodyAPI.Apply(prim)
+    rb_api.CreateKinematicEnabledAttr(bool(kinematic))
+
+    mass_api = UsdPhysics.MassAPI.Apply(prim)
+    mass_api.CreateMassAttr(float(mass))
+
+    UsdPhysics.CollisionAPI.Apply(prim)
+
+    if _HAS_PHYSX_SCHEMA:
+        physx_rb = PhysxSchema.PhysxRigidBodyAPI.Apply(prim)
+        physx_rb.CreateEnableCCDAttr(True)
+        physx_rb.CreateSolverPositionIterationCountAttr(8)
+        physx_rb.CreateSolverVelocityIterationCountAttr(4)
+        PhysxSchema.PhysxCollisionAPI.Apply(prim)
+
+    return prim
+
+
+def set_rigid_body_kinematic(prim, kinematic):
+    """Flip a rigid body between kinematic and dynamic at runtime.
+
+    Used by ragdoll to transition from "standing still" to "falling".
+    """
+    rb_api = UsdPhysics.RigidBodyAPI(prim)
+    attr = rb_api.GetKinematicEnabledAttr()
+    if not attr:
+        attr = rb_api.CreateKinematicEnabledAttr()
+    attr.Set(bool(kinematic))
+
+
 # ---------------------------------------------------------------------------
 # Door Mechanism Classification & Drive
 # ---------------------------------------------------------------------------
