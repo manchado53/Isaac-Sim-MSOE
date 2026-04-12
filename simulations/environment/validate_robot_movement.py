@@ -55,7 +55,7 @@ from sim_utils.building_physics import setup_physics_scene, raycast_down
 # Instead we keep native scale — the robot appears ~3x smaller than realistic
 # but physics is correct. Camera positions compensate for visibility.
 FWD_SPEED = 7.0           # stage_units/s — robot forward speed
-APPROACH_OFFSET = 3.0     # feet — spawn this far beyond camera target (keep on floor)
+APPROACH_OFFSET = 2.0     # feet — spawn this far beyond camera target (keep on floor)
 SETTLE_FRAMES = 90        # 1.5s settle before driving
 DRIVE_FRAMES = 600        # 10s at 60Hz
 RECORD_FRAMES = 300       # 10s at 30fps video

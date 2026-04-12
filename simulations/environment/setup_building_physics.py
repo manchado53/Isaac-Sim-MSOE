@@ -67,6 +67,8 @@ from sim_utils.building_physics import (
     setup_physics_scene,
     add_door_collision_filters,
     setup_collision_groups,
+    create_placeholder_door_mesh,
+    fix_absolute_asset_paths,
     CATEGORY_MATERIALS,
     DOOR_DRIVE_PARAMS,
     iter_building_elements,
@@ -179,13 +181,22 @@ def main():
             continue
 
         if category == PrimCategory.DYNAMIC_DOOR:
-            mechanism = classify_door_mechanism(element)
-            if mechanism not in (DoorMechanism.HINGED_SINGLE, DoorMechanism.HINGED_DOUBLE):
+            # Skip doors with geometry that prevents any rotation
+            if element.GetName() in ("Doors_13182085", "Doors_13606466"):
                 counts[PrimCategory.SKIP] += 1
                 level_counts[level_name][PrimCategory.SKIP] = level_counts[level_name].get(PrimCategory.SKIP, 0) + 1
-                log(f"  Skipping non-hinged door ({mechanism.name}): {element.GetName()}")
+                log(f"  Skipping jammed door: {element.GetName()}")
                 continue
-            door_mass = 30.0 if mechanism == DoorMechanism.HINGED_DOUBLE else 15.0
+            mechanism = classify_door_mechanism(element)
+            if mechanism != DoorMechanism.HINGED_SINGLE:
+                counts[PrimCategory.SKIP] += 1
+                level_counts[level_name][PrimCategory.SKIP] = level_counts[level_name].get(PrimCategory.SKIP, 0) + 1
+                if mechanism == DoorMechanism.HINGED_DOUBLE:
+                    log(f"  Skipping double door: {element.GetName()}")
+                else:
+                    log(f"  Skipping non-hinged door ({mechanism.name}): {element.GetName()}")
+                continue
+            door_mass = 15.0
             if apply_dynamic_rigid_body(stage, element, mass=door_mass, deep_search=True):
                 applied_rigid_body += 1
                 door_prims.append((level_name, element, mechanism))
@@ -270,16 +281,13 @@ def main():
     log(f"  Drives skipped:           {drives_skipped}")
 
     # --- Collision filtering for doors ---
+    # Use pairwise margin filtering — single doors in tight Revit frames need
+    # per-door collision disabling with nearby walls/mullions. Collision groups
+    # alone are too coarse (they disable ALL door-static pairs globally).
     door_prim_list = [door for _, door, _ in door_prims]
-    if args.use_pairwise_filter:
-        log(f"\nApplying pairwise collision filters for {len(door_prims)} doors (margin={args.margin}m)...")
-        filtered = add_door_collision_filters(stage, door_prim_list, margin=args.margin)
-        log(f"  Filtered {filtered} door-static collision pairs")
-    else:
-        log(f"\nSetting up collision groups for {len(door_prims)} doors...")
-        doors_grp, static_grp = setup_collision_groups(stage, door_prim_list)
-        log(f"  Collision groups: {doors_grp}, {static_grp}")
-        filtered = 0
+    log(f"\nApplying collision filters for {len(door_prims)} doors (margin={args.margin}m)...")
+    filtered = add_door_collision_filters(stage, door_prim_list, margin=args.margin)
+    log(f"  Filtered {filtered} door-static collision pairs")
 
     # --- Summary ---
     t_physics = time.time()
@@ -353,10 +361,27 @@ def main():
         json.dump(manifest, mf, indent=2)
     log(f"\nManifest: {manifest_path}")
 
+    # --- Fix absolute asset paths for portability (pre-export pass) ---
+    fixed_paths = fix_absolute_asset_paths(stage)
+    if fixed_paths:
+        log(f"\nFixed {fixed_paths} absolute asset paths -> relative (pre-export)")
+
     # --- Export physics USD ---
     log(f"\nExporting: {output_usd}")
     stage.Export(output_usd)
     log("Export complete.")
+
+    # --- Post-export pass: stage.Export() can re-absolutize relative MDL paths ---
+    # Re-open the exported file and fix any absolute paths that were baked in.
+    log("\nPost-export portability check...")
+    exported_stage = Usd.Stage.Open(output_usd)
+    post_fixed = fix_absolute_asset_paths(exported_stage)
+    if post_fixed:
+        exported_stage.GetRootLayer().Save()
+        log(f"Fixed {post_fixed} absolute asset paths -> relative (post-export)")
+    else:
+        log("No absolute paths found in exported file — already portable.")
+    del exported_stage
 
     file_size_mb = os.path.getsize(output_usd) / (1024 * 1024)
     log(f"File size: {file_size_mb:.1f} MB")

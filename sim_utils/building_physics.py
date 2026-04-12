@@ -314,18 +314,14 @@ def apply_dynamic_rigid_body(stage, prim, mass=15.0, deep_search=False):
         physx_rb.CreateEnableCCDAttr(True)
 
     # CollisionAPI + MeshCollisionAPI on the Mesh child (where geometry lives)
-    # convexDecomposition handles concave door geometry better than convexHull
+    # convexHull is fast to cook; convexDecomposition is more accurate but
+    # takes hours on T4 GPUs with large buildings — not worth the tradeoff.
     UsdPhysics.CollisionAPI.Apply(mesh_prim)
     mesh_collision = UsdPhysics.MeshCollisionAPI.Apply(mesh_prim)
-    mesh_collision.CreateApproximationAttr("convexDecomposition")
+    mesh_collision.CreateApproximationAttr("convexHull")
 
-    # PhysxCollisionAPI + decomposition parameters
     if _HAS_PHYSX_SCHEMA:
         PhysxSchema.PhysxCollisionAPI.Apply(mesh_prim)
-        decomp_api = PhysxSchema.PhysxConvexDecompositionCollisionAPI.Apply(mesh_prim)
-        decomp_api.CreateMaxConvexHullsAttr(12)
-        decomp_api.CreateHullVertexLimitAttr(32)
-        decomp_api.CreateShrinkWrapAttr(True)
 
     # MassAPI on the Xform
     mass_api = UsdPhysics.MassAPI.Apply(prim)
@@ -341,6 +337,92 @@ def apply_dynamic_rigid_body(stage, prim, mass=15.0, deep_search=False):
                 )
         if len(mesh_children) > 1:
             PhysxSchema.PhysxMeshMergeCollisionAPI.Apply(prim)
+
+    return True
+
+
+def create_placeholder_door_mesh(stage, door_prim, panel_root="/World/DoorPanels"):
+    """Create a visible rectangular mesh for doors with missing visual geometry.
+
+    TEMPORARY — remove when Revit export includes proper door panel geometry.
+
+    Creates a box mesh at /World/DoorPanels/<door_name> in world-space
+    coordinates (feet). The mesh is defined directly in world space so it
+    doesn't depend on the door prim's Revit-scale transforms.
+
+    Note: The panel is static visual geometry only — it does NOT swing with
+    the door's rigid body. For a proper demo of door physics, the door's
+    collision shape (invisible convex hull) is what actually rotates.
+    """
+    xf_cache = UsdGeom.XformCache()
+    world_points = _collect_mesh_world_points(door_prim, xf_cache)
+    if len(world_points) < 4:
+        return False
+
+    xs = [p[0] for p in world_points]
+    ys = [p[1] for p in world_points]
+    zs = [p[2] for p in world_points]
+
+    x_min, x_max = min(xs), max(xs)
+    y_min, y_max = min(ys), max(ys)
+    z_min, z_max = min(zs), max(zs)
+
+    dx = x_max - x_min
+    dy = y_max - y_min
+    height = z_max - z_min
+
+    if height < 0.1 or max(dx, dy) < 0.1:
+        return False
+
+    # Build a thin box in world space at the door's position
+    cy = (y_min + y_max) / 2.0
+    cx = (x_min + x_max) / 2.0
+    thickness = 0.2  # 0.2 feet (~2.4 inches)
+
+    if dx >= dy:
+        # Door extends along X
+        pts = [
+            Gf.Vec3f(x_min, cy - thickness, z_min),
+            Gf.Vec3f(x_max, cy - thickness, z_min),
+            Gf.Vec3f(x_max, cy - thickness, z_max),
+            Gf.Vec3f(x_min, cy - thickness, z_max),
+            Gf.Vec3f(x_min, cy + thickness, z_min),
+            Gf.Vec3f(x_max, cy + thickness, z_min),
+            Gf.Vec3f(x_max, cy + thickness, z_max),
+            Gf.Vec3f(x_min, cy + thickness, z_max),
+        ]
+    else:
+        # Door extends along Y
+        pts = [
+            Gf.Vec3f(cx - thickness, y_min, z_min),
+            Gf.Vec3f(cx - thickness, y_max, z_min),
+            Gf.Vec3f(cx - thickness, y_max, z_max),
+            Gf.Vec3f(cx - thickness, y_min, z_max),
+            Gf.Vec3f(cx + thickness, y_min, z_min),
+            Gf.Vec3f(cx + thickness, y_max, z_min),
+            Gf.Vec3f(cx + thickness, y_max, z_max),
+            Gf.Vec3f(cx + thickness, y_min, z_max),
+        ]
+
+    # Ensure root prim exists
+    if not stage.GetPrimAtPath(panel_root):
+        UsdGeom.Xform.Define(stage, panel_root)
+
+    door_name = door_prim.GetName()
+    mesh_path = f"{panel_root}/{door_name}"
+    mesh = UsdGeom.Mesh.Define(stage, mesh_path)
+    mesh.CreatePointsAttr(pts)
+    mesh.CreateFaceVertexCountsAttr([4, 4, 4, 4, 4, 4])
+    mesh.CreateFaceVertexIndicesAttr([
+        0, 1, 2, 3,  # front
+        5, 4, 7, 6,  # back
+        0, 3, 7, 4,  # left
+        1, 5, 6, 2,  # right
+        3, 2, 6, 7,  # top
+        0, 4, 5, 1,  # bottom
+    ])
+    mesh.CreateSubdivisionSchemeAttr("none")
+    mesh.CreateDisplayColorAttr([(0.55, 0.35, 0.17)])
 
     return True
 
@@ -532,12 +614,42 @@ _MECHANISM_RULES = [
     ("2FG", DoorMechanism.HINGED_DOUBLE),
     ("2FU", DoorMechanism.HINGED_DOUBLE),
     ("2F_", DoorMechanism.HINGED_DOUBLE),
+    # Sidelight door assemblies — door+fixed glass as one mesh, skip
+    ("SIDELITE", DoorMechanism.UNKNOWN),
+    ("Sidelite", DoorMechanism.UNKNOWN),
+    # Clearwall / glass wall panels — not hinged doors
+    ("Clearwall", DoorMechanism.UNKNOWN),
+    ("clearwall", DoorMechanism.UNKNOWN),
     # Single-leaf hinged
     ("Type_F", DoorMechanism.HINGED_SINGLE),
     ("Type_G", DoorMechanism.HINGED_SINGLE),
     ("Type_N", DoorMechanism.HINGED_SINGLE),
     ("Type_FG", DoorMechanism.HINGED_SINGLE),
     ("Curtain_Wall", DoorMechanism.HINGED_SINGLE),
+    # HMFrame (Hollow Metal) doors from combined Revit exports —
+    # width determines single vs double (48"+ = double leaf)
+    ("HMFrame96x", DoorMechanism.HINGED_DOUBLE),
+    ("HMFrame90x", DoorMechanism.HINGED_DOUBLE),
+    ("HMFrame84x", DoorMechanism.HINGED_DOUBLE),
+    ("HMFrame72x", DoorMechanism.HINGED_DOUBLE),
+    ("HMFrame68x", DoorMechanism.HINGED_DOUBLE),
+    ("HMFrame66x", DoorMechanism.HINGED_DOUBLE),
+    ("HMFrame60x", DoorMechanism.HINGED_DOUBLE),
+    ("HMFrame48x", DoorMechanism.HINGED_DOUBLE),
+    ("HMFrame42x", DoorMechanism.HINGED_SINGLE),
+    ("HMFrame40x", DoorMechanism.HINGED_SINGLE),
+    ("HMFrame36x", DoorMechanism.HINGED_SINGLE),
+    ("HMFrame32x", DoorMechanism.HINGED_SINGLE),
+    ("HMFrame30x", DoorMechanism.HINGED_SINGLE),
+    ("HMFrame24x", DoorMechanism.HINGED_SINGLE),
+    # ALFrame / CLFrame (Aluminum / Clear frame) — same width logic
+    ("ALFrame36x", DoorMechanism.HINGED_SINGLE),
+    ("CLFrame72x", DoorMechanism.HINGED_DOUBLE),
+    # Bare size patterns (WxH) from combined Revit exports
+    ("72x84", DoorMechanism.HINGED_DOUBLE),
+    ("92HX84W", DoorMechanism.HINGED_DOUBLE),
+    ("36x80", DoorMechanism.HINGED_SINGLE),
+    ("36x84", DoorMechanism.HINGED_SINGLE),
 ]
 
 
@@ -589,65 +701,102 @@ def set_drive_target(drive, angle_deg):
     drive.GetTargetPositionAttr().Set(angle_deg)
 
 
+def _collect_mesh_world_points(prim, xf_cache, max_depth=4):
+    """Gather all mesh vertex positions in world space under a prim."""
+    points = []
+    if prim.IsInstanceable():
+        prim.SetInstanceable(False)
+    if prim.IsA(UsdGeom.Mesh):
+        mesh = UsdGeom.Mesh(prim)
+        pts = mesh.GetPointsAttr().Get()
+        if pts:
+            local_to_world = xf_cache.GetLocalToWorldTransform(prim)
+            for p in pts:
+                wp = local_to_world.Transform(Gf.Vec3d(p[0], p[1], p[2]))
+                points.append(wp)
+    if max_depth > 0:
+        for child in prim.GetChildren():
+            points.extend(_collect_mesh_world_points(child, xf_cache, max_depth - 1))
+    return points
+
+
 def estimate_door_hinge_offset(stage, door_prim):
     """
-    Estimate a hinge position at one vertical edge of a door's bounding box.
+    Estimate hinge position using mesh vertex analysis.
 
-    Uses **world-space** bounding box to avoid unit-scale mismatches that
-    occur with Revit-exported geometry (local coords may be in centimeters
-    or other non-stage units).  The world-space hinge position is then
-    inverse-transformed back into body1's local frame for ``local_pos1``.
+    Instead of using the prim bounding box (which includes frame/mullion
+    geometry for curtain wall doors), this analyzes the actual mesh vertices
+    to find the densest vertical edge — that's where the hinge goes.
 
-    The hinge edge is chosen along the door's **narrow horizontal axis**
-    (the door width), picking the min edge.  Doors oriented along X get
-    a min-X hinge; doors oriented along Y get a min-Y hinge.
+    For each of the 4 vertical edges of the door's XY footprint (min-X,
+    max-X, min-Y, max-Y), counts how many vertices are near that edge.
+    The edge with the most vertices is the frame/hinge side.
 
     Returns (local_pos0, local_pos1, local_rot0, local_rot1) where positions
     are Gf.Vec3f and rotations are Gf.Quatf, suitable for create_revolute_joint.
-    Returns (None, None, None, None) if bounding box can't be computed.
+    Returns (None, None, None, None) if geometry can't be analyzed.
     """
-    bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    xf_cache = UsdGeom.XformCache()
 
-    # --- World-space bounding box (in stage units = meters) ---
-    world_bbox = bbox_cache.ComputeWorldBound(door_prim)
-    world_range = world_bbox.ComputeAlignedRange()
-    w_min = world_range.GetMin()
-    w_max = world_range.GetMax()
-
-    if w_min == w_max:
+    # Collect all mesh vertices in world space
+    world_points = _collect_mesh_world_points(door_prim, xf_cache)
+    if len(world_points) < 4:
         return None, None, None, None
 
-    dx = w_max[0] - w_min[0]
-    dy = w_max[1] - w_min[1]
+    # Compute tight bounds from actual vertices
+    xs = [p[0] for p in world_points]
+    ys = [p[1] for p in world_points]
+    zs = [p[2] for p in world_points]
 
-    # Determine door orientation: the wider horizontal axis is the door
-    # width, the thinner one is the door depth (thickness).
-    # Hinge goes on the min edge of the wider axis.
+    x_min, x_max = min(xs), max(xs)
+    y_min, y_max = min(ys), max(ys)
+    z_min, z_max = min(zs), max(zs)
+
+    dx = x_max - x_min
+    dy = y_max - y_min
+
+    if dx < 0.01 and dy < 0.01:
+        return None, None, None, None
+
+    # Determine door orientation from vertex spread
     if dx >= dy:
-        # Door extends along X — hinge at min-X edge
-        hinge_x = w_min[0]
-        hinge_y = (w_min[1] + w_max[1]) / 2.0
+        # Door extends along X — hinge is at min-X or max-X
+        # Count vertices near each X edge to find the frame/hinge side.
+        # The hinge side typically has more vertices (frame geometry).
+        edge_tolerance = dx * 0.15  # 15% of door width
+        near_min_x = sum(1 for x in xs if x - x_min < edge_tolerance)
+        near_max_x = sum(1 for x in xs if x_max - x < edge_tolerance)
+        # Pick the edge with MORE vertices (that's the frame/hinge side)
+        if near_min_x >= near_max_x:
+            hinge_x = x_min
+        else:
+            hinge_x = x_max
+        hinge_y = (y_min + y_max) / 2.0
     else:
-        # Door extends along Y — hinge at min-Y edge
-        hinge_x = (w_min[0] + w_max[0]) / 2.0
-        hinge_y = w_min[1]
+        # Door extends along Y — hinge is at min-Y or max-Y
+        edge_tolerance = dy * 0.15
+        near_min_y = sum(1 for y in ys if y - y_min < edge_tolerance)
+        near_max_y = sum(1 for y in ys if y_max - y < edge_tolerance)
+        if near_min_y >= near_max_y:
+            hinge_y = y_min
+        else:
+            hinge_y = y_max
+        hinge_x = (x_min + x_max) / 2.0
 
-    hinge_z = (w_min[2] + w_max[2]) / 2.0
+    hinge_z = (z_min + z_max) / 2.0
 
-    # local_pos0: hinge in body0's frame (body0 = world, so world coords)
+    # local_pos0: hinge in world frame
     hinge_world = Gf.Vec3d(hinge_x, hinge_y, hinge_z)
     local_pos0 = Gf.Vec3f(float(hinge_world[0]),
                            float(hinge_world[1]),
                            float(hinge_world[2]))
 
-    # local_pos1: hinge in body1's (door's) local frame.
-    # Use RemoveScaleShear() to strip non-uniform scale from Revit exports
-    # before computing local offsets. NVIDIA's createJoint() does the same
-    # to handle cm->m conversion and mirrored door transforms.
-    xf_cache = UsdGeom.XformCache()
+    # local_pos1: hinge in door's local frame
+    # Use the FULL inverse transform (including Revit's ~100x scale) so that
+    # local_pos1 is in the door prim's actual local coordinate system.
+    # RemoveScaleShear() would strip the scale, producing values ~100x too large.
     world_xform = xf_cache.GetLocalToWorldTransform(door_prim)
-    clean_xform = world_xform.RemoveScaleShear()
-    inv_xform = clean_xform.GetInverse()
+    inv_xform = world_xform.GetInverse()
     hinge_local = inv_xform.Transform(hinge_world)
     local_pos1 = Gf.Vec3f(float(hinge_local[0]),
                            float(hinge_local[1]),
@@ -655,7 +804,7 @@ def estimate_door_hinge_offset(stage, door_prim):
 
     # Rotation quaternions for joint frames
     local_rot0 = Gf.Quatf(1.0)  # body0 is world frame — identity
-    local_rot1 = Gf.Quatf(clean_xform.ExtractRotationQuat())
+    local_rot1 = Gf.Quatf(1.0)  # Revit doors have no rotation in parent chain
 
     return local_pos0, local_pos1, local_rot0, local_rot1
 
@@ -1108,6 +1257,48 @@ def discover_floor_levels(stage, building_path="/World/Building"):
         })
 
     return levels
+
+
+# ---------------------------------------------------------------------------
+# Asset Path Portability
+# ---------------------------------------------------------------------------
+
+def fix_absolute_asset_paths(stage):
+    """Convert absolute asset paths to relative ones for portability.
+
+    Revit-to-USD exporters often bake in absolute paths to MDL material files
+    (e.g. /home/user/project/assets/.../Materials/X.mdl).  These break when
+    another user opens the file.
+
+    This function rewrites every SdfAssetPath-typed attribute that contains
+    an absolute ``/home/`` path, converting it to a path relative to the USD
+    file's directory (e.g. ``./Materials/X.mdl``).
+
+    Returns the number of attributes fixed.
+    """
+    REPO_MARKER = "assets/environments/msoe_building/"
+
+    fixed = 0
+    for prim in stage.TraverseAll():
+        for attr in prim.GetAttributes():
+            try:
+                if "SdfAssetPath" not in attr.GetTypeName().cppTypeName:
+                    continue
+                val = attr.Get()
+                if val is None:
+                    continue
+                path_str = val.path if hasattr(val, "path") else str(val)
+                if not path_str or "/home/" not in path_str:
+                    continue
+                idx = path_str.find(REPO_MARKER)
+                if idx < 0:
+                    continue
+                relative = "./" + path_str[idx + len(REPO_MARKER):]
+                attr.Set(Sdf.AssetPath(relative))
+                fixed += 1
+            except Exception:
+                pass
+    return fixed
 
 
 # ---------------------------------------------------------------------------

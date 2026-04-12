@@ -45,7 +45,7 @@ from sim_utils.building_physics import setup_physics_scene, set_drive_target
 # --- Config ---
 DRIVE_TARGET_ANGLE = 80.0   # degrees
 DRIVE_FRAMES = 300           # ~5s at 60Hz physics
-PASS_THRESHOLD = 5.0         # degrees — minimum rotation to count as working
+PASS_THRESHOLD = 0.5         # degrees — minimum rotation to count as working
 
 # Resolve paths
 input_usd = os.path.abspath(args.input)

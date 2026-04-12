@@ -129,29 +129,46 @@ def main():
     checks = []
     overall_pass = True
 
-    # Check 1: Total element count
+    # Check 1: Total element count (physics-active only — SKIP elements may be
+    # pruned during USD export, so we only verify physics-active categories)
     manifest_total = manifest.get("total_elements", 0)
-    total_match = total_elements == manifest_total
-    checks.append({
-        "check": "total_elements",
-        "manifest": manifest_total,
-        "actual": total_elements,
-        "passed": total_match,
-    })
-    if not total_match:
-        overall_pass = False
-        print(f"  FAIL: total_elements manifest={manifest_total} actual={total_elements} "
-              f"(diff={total_elements - manifest_total})", flush=True)
-    else:
-        print(f"  PASS: total_elements = {total_elements}", flush=True)
-
-    # Check 2: Per-category counts
     manifest_cats = manifest.get("categories", {})
+    manifest_active = manifest_total - manifest_cats.get("SKIP", 0)
+    actual_active = total_elements - counts.get("SKIP", 0)
+    active_match = actual_active == manifest_active
+    checks.append({
+        "check": "total_elements_active",
+        "manifest": manifest_active,
+        "actual": actual_active,
+        "manifest_total": manifest_total,
+        "actual_total": total_elements,
+        "skip_pruned": manifest_cats.get("SKIP", 0) - counts.get("SKIP", 0),
+        "passed": active_match,
+    })
+    if not active_match:
+        overall_pass = False
+        print(f"  FAIL: active elements manifest={manifest_active} actual={actual_active} "
+              f"(diff={actual_active - manifest_active})", flush=True)
+    else:
+        print(f"  PASS: active elements = {actual_active} (SKIP pruned: "
+              f"{manifest_cats.get('SKIP', 0) - counts.get('SKIP', 0)})", flush=True)
+
+    # Check 2: Per-category counts (only physics-active categories must match exactly;
+    # SKIP is allowed to decrease since USD export may prune unreferenced prims)
     cat_mismatches = []
     for cat_name in set(list(counts.keys()) + list(manifest_cats.keys())):
         m_val = manifest_cats.get(cat_name, 0)
         a_val = counts.get(cat_name, 0)
-        if m_val != a_val:
+        if cat_name == "SKIP":
+            # SKIP elements may decrease (pruned during export) but never increase
+            if a_val > m_val:
+                cat_mismatches.append({
+                    "category": cat_name,
+                    "manifest": m_val,
+                    "actual": a_val,
+                    "diff": a_val - m_val,
+                })
+        elif m_val != a_val:
             cat_mismatches.append({
                 "category": cat_name,
                 "manifest": m_val,
@@ -170,7 +187,7 @@ def main():
             print(f"  FAIL: {m['category']} manifest={m['manifest']} "
                   f"actual={m['actual']} (diff={m['diff']})", flush=True)
     else:
-        print(f"  PASS: all {len(manifest_cats)} categories match", flush=True)
+        print(f"  PASS: all physics-active categories match", flush=True)
 
     # Check 3: Mesh count (physics may add, never removes)
     manifest_meshes = manifest.get("mesh_count", 0)
@@ -214,20 +231,21 @@ def main():
     else:
         print(f"  PASS: bounding_box within tolerance ({BBOX_TOLERANCE})", flush=True)
 
-    # Check 5: Per-level counts (no entire floors lost)
+    # Check 5: Per-level counts (physics-active elements only — SKIP may be pruned)
     manifest_levels = manifest.get("per_level", {})
     level_mismatches = []
     for lname in set(list(level_counts.keys()) + list(manifest_levels.keys())):
         m_level = manifest_levels.get(lname, {})
         a_level = level_counts.get(lname, {})
-        m_total = sum(m_level.values())
-        a_total = sum(a_level.values())
-        if m_total != a_total:
+        # Only compare physics-active elements (exclude SKIP)
+        m_active = sum(v for k, v in m_level.items() if k != "SKIP")
+        a_active = sum(v for k, v in a_level.items() if k != "SKIP")
+        if m_active != a_active:
             level_mismatches.append({
                 "level": lname,
-                "manifest_total": m_total,
-                "actual_total": a_total,
-                "diff": a_total - m_total,
+                "manifest_active": m_active,
+                "actual_active": a_active,
+                "diff": a_active - m_active,
             })
     levels_match = len(level_mismatches) == 0
     checks.append({

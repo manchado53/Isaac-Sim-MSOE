@@ -23,6 +23,7 @@ import json
 import math
 import re
 import time
+import argparse
 
 os.environ["OMNI_KIT_ACCEPT_EULA"] = "YES"
 
@@ -451,23 +452,41 @@ def compute_camera_target(cam_pos, floor_center_x, floor_center_y):
 
 def main():
     global _report_file
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", default=None, help="Path to building USD file")
+    args, _ = parser.parse_known_args()
+
     _report_file = open(_report_path, "w")
     t_start = time.time()
 
     log("=" * 70)
-    log("FLOOR CAMERA SCREENSHOTS — MSOEBuildingTake2")
+    log("FLOOR CAMERA SCREENSHOTS")
     log("=" * 70)
 
     # --- Load building ---
     world = World(stage_units_in_meters=1.0)
     stage = omni.usd.get_context().get_stage()
 
-    building_usd = os.path.join(
-        _project_dir, "assets", "environments", "msoe_building",
-        "MSOEBuildingTake2.usd"
-    )
+    if args.input:
+        building_usd = os.path.abspath(args.input)
+    else:
+        building_usd = os.path.join(
+            _project_dir, "assets", "environments", "msoe_building",
+            "MSOEBuildingTake2.usd"
+        )
     log(f"\nLoading: {building_usd}")
-    add_reference_to_stage(building_usd, prim_path="/World/Building")
+    # Check if USD has a defaultPrim (raw Revit exports do, physics USDs don't)
+    probe_stage = Usd.Stage.Open(building_usd)
+    has_default = probe_stage.GetDefaultPrim().IsValid() if probe_stage else False
+    del probe_stage
+    if has_default:
+        add_reference_to_stage(building_usd, prim_path="/World/Building")
+    else:
+        building_prim_def = stage.DefinePrim("/World/Building", "Xform")
+        building_prim_def.GetReferences().AddReference(
+            building_usd, primPath=Sdf.Path("/World/Building")
+        )
     log("Building loaded.")
 
     building_prim = stage.GetPrimAtPath("/World/Building")
