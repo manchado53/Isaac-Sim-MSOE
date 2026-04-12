@@ -1,0 +1,25 @@
+# IRA character command file — ground-floor walking demo.
+#
+# Format (per omni.anim.people command parsers):
+#   <AgentName> <CommandName> <args...>
+# Commands available: GoTo, Idle, LookAround, Sit, Queue, Dequeue, Talk, TalkWith, GoToObject
+#
+# AgentName is auto-assigned by IRA as "Character_<idx>" (zero-indexed).
+# With character.num=1 we only have Character_0.
+#
+# Coordinates are in stage units. MSOEBuildingV4_physics.usd uses Revit feet
+# (metersPerUnit=0.3048). Ground floor Z ~= 14.56 ft.
+# Path mirrors the simpler people_walking_demo.py: start near NE corner,
+# mid waypoint, end near SW corner — all comfortably inside the Event Floor
+# volume visible from camera "G" at (-42.15, 68.44, 16.44).
+#
+# GoTo syntax: <name> GoTo x y z target_rot_deg   (use "_" for no rotation lock)
+# Idle syntax: <name> Idle duration_seconds
+
+Character_0 Idle 1.5
+Character_0 GoTo -38.0 82.0 14.56 _
+Character_0 Idle 1.0
+Character_0 GoTo -33.0 77.0 14.56 _
+Character_0 Idle 1.0
+Character_0 GoTo -28.0 72.0 14.56 _
+Character_0 Idle 2.0
