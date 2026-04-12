@@ -32,7 +32,12 @@ from pxr import Usd, UsdGeom, UsdPhysics, PhysxSchema, Sdf
 # Config
 # ---------------------------------------------------------------------------
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
-OUTPUT_DIR = os.path.join(PROJECT_DIR, "V4_floor_plans")
+# Write straight into the building-centric layout so downstream consumers
+# (auto_graph_generator.py, Nav2 map_server, plot_graph_with_axes.py) read
+# from a single canonical location.
+OUTPUT_DIR = os.path.abspath(os.path.join(
+    PROJECT_DIR, "..", "assets", "environments", "InnovationCenter", "maps"
+))
 USD_PATH = os.path.join(PROJECT_DIR, "MSOEBuildingV4_physics.usd")
 
 CELL_SIZE = 0.05  # 5 cm per cell — V4 stage units are meters
@@ -127,10 +132,17 @@ def save_floor(grid, dims, floor_name, meta_base):
           f"Free {n_free} ({100*n_free/total:.1f}%), "
           f"Unknown {n_unknown} ({100*n_unknown/total:.1f}%)")
 
-    # Save numpy array
+    # Isaac Sim's occupancy map plugin produces a buffer where col 0 is at
+    # world x_max (see isaacsim.asset.gen.omap.utils::compute_coordinates).
+    # Flip horizontally so col 0 = x_min — standard map convention that
+    # Nav2's map_server and every downstream consumer assumes. This fix is
+    # applied before both the .npy and .png outputs so they stay consistent.
+    grid = np.fliplr(grid)
+
+    # Save numpy array (post-flip)
     np.save(os.path.join(OUTPUT_DIR, f"{floor_name}_occupancy.npy"), grid)
 
-    # Save PNG
+    # Save PNG (built from the flipped grid)
     img_array = np.zeros((dims[1], dims[0], 3), dtype=np.uint8)
     img_array[grid == OCCUPIED] = [0, 0, 0]
     img_array[grid == FREE] = [255, 255, 255]

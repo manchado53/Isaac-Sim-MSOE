@@ -29,12 +29,9 @@ def plot_floor(floor_name: str, show_ids: bool = False):
     img_path = os.path.join(MAP_DIR, f"{floor_name}_occupancy.png")
     graph_path = os.path.join(GRAPH_DIR, f"{floor_name}_auto_navgraph.json")
 
-    # The occupancy PNG from Isaac Sim's omap plugin is stored with col 0 at
-    # world x_max (see isaacsim.asset.gen.omap.utils::compute_coordinates).
-    # Nav graph JSONs now store world coordinates that match the USD frame
-    # directly. Flip the image horizontally so its col 0 aligns with x_min,
-    # matching matplotlib's imshow extent below.
-    img = np.fliplr(np.array(Image.open(img_path).convert("L")))
+    # Occupancy PNG is now stored in standard map convention (col 0 = x_min)
+    # after Phase 2 fixed the flip at the generator source.
+    img = np.array(Image.open(img_path).convert("L"))
     with open(graph_path) as f:
         graph = json.load(f)
 
