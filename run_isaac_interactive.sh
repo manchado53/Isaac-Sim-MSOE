@@ -10,8 +10,8 @@
 export OMNI_KIT_ACCEPT_EULA=YES
 export PRIVACY_CONSENT=Y
 
-# Isaac Sim installation path
-ISAAC_SIM_DIR="$HOME/isaacsim"
+# Isaac Sim installation path (override with ISAAC_SIM_DIR env var)
+ISAAC_SIM_DIR="${ISAAC_SIM_DIR:-$HOME/isaacsim}"
 ISAAC_PYTHON="$ISAAC_SIM_DIR/python.sh"
 
 # Check if Isaac Sim is installed
@@ -54,6 +54,6 @@ else
     fi
 
     # Run the script
-    cd "$HOME/isaac-sim-msoe" || exit 1
+    cd "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit 1
     "$ISAAC_PYTHON" "$SCRIPT"
 fi

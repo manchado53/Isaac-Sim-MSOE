@@ -31,8 +31,9 @@ echo "Args: $@"
 echo "========================================="
 echo ""
 
-# Activate conda env if specified
-if [ -n "${IFC_CONDA_ENV:-}" ]; then
+# Activate conda env (defaults to ifc-convert if not overridden)
+IFC_CONDA_ENV="${IFC_CONDA_ENV:-ifc-convert}"
+if [ -n "${IFC_CONDA_ENV}" ]; then
     echo "Activating conda env: $IFC_CONDA_ENV"
     source "$(conda info --base)/etc/profile.d/conda.sh" 2>/dev/null && conda activate "$IFC_CONDA_ENV"
 fi

@@ -108,6 +108,10 @@ echo "========================================="
 echo ""
 
 # --- SLURM helpers ---
+# NOTE: $EXTRA_ARGS is intentionally unquoted in sbatch calls so that
+# word-splitting expands the argument string into separate tokens.
+# This means file paths with spaces will BREAK. All our asset paths
+# use hyphens/underscores, so this is safe.
 
 # Submit a GPU job via submit_isaac_job.sh (for Isaac Sim scripts)
 submit_gpu_job() {
@@ -153,9 +157,10 @@ submit_ifc_job() {
         --job-name="$JOB_NAME" \
         --partition="$PARTITION" \
         --mem="16G" \
-        --time="01:00:00" \
+        --time="02:00:00" \
         --output="logs/ifc_%j.out" \
         --error="logs/ifc_%j.err" \
+        --export=ALL \
         $DEP_FLAG \
         submit_ifc_job.sh $EXTRA_ARGS \
         | cut -d';' -f1)

@@ -17,6 +17,13 @@ from typing import List, Optional
 
 from pxr import Usd, UsdGeom, UsdPhysics, UsdShade, Gf, Sdf
 
+try:
+    from pxr import PhysxSchema
+    _HAS_PHYSX_SCHEMA = True
+except ImportError:
+    PhysxSchema = None  # type: ignore
+    _HAS_PHYSX_SCHEMA = False
+
 
 # ---------------------------------------------------------------------------
 # Prim Categories
@@ -263,6 +270,12 @@ def apply_static_collider(stage, prim, approx="none", deep_search=False):
     mesh_collision = UsdPhysics.MeshCollisionAPI.Apply(mesh_prim)
     mesh_collision.CreateApproximationAttr(approx)
 
+    # Apply PhysxCollisionAPI for contact/rest offsets (matches NVIDIA setCollider pattern)
+    if _HAS_PHYSX_SCHEMA:
+        PhysxSchema.PhysxCollisionAPI.Apply(mesh_prim)
+        if approx == "none":
+            PhysxSchema.PhysxTriangleMeshCollisionAPI.Apply(mesh_prim)
+
     return True
 
 
@@ -292,14 +305,124 @@ def apply_dynamic_rigid_body(stage, prim, mass=15.0, deep_search=False):
     # RigidBodyAPI on the Xform (makes it a dynamic body)
     UsdPhysics.RigidBodyAPI.Apply(prim)
 
+    # PhysxRigidBodyAPI for CCD and depenetration control (NVIDIA setRigidBody pattern)
+    if _HAS_PHYSX_SCHEMA:
+        physx_rb = PhysxSchema.PhysxRigidBodyAPI.Apply(prim)
+        physx_rb.CreateMaxDepenetrationVelocityAttr(3.0)
+        physx_rb.CreateSolverPositionIterationCountAttr(8)
+        physx_rb.CreateSolverVelocityIterationCountAttr(4)
+        physx_rb.CreateEnableCCDAttr(True)
+
     # CollisionAPI + MeshCollisionAPI on the Mesh child (where geometry lives)
+    # convexHull is fast to cook; convexDecomposition is more accurate but
+    # takes hours on T4 GPUs with large buildings — not worth the tradeoff.
     UsdPhysics.CollisionAPI.Apply(mesh_prim)
     mesh_collision = UsdPhysics.MeshCollisionAPI.Apply(mesh_prim)
     mesh_collision.CreateApproximationAttr("convexHull")
 
+    if _HAS_PHYSX_SCHEMA:
+        PhysxSchema.PhysxCollisionAPI.Apply(mesh_prim)
+
     # MassAPI on the Xform
     mass_api = UsdPhysics.MassAPI.Apply(prim)
     mass_api.CreateMassAttr(mass)
+
+    # Merge child meshes into a single collision shape for multi-mesh doors
+    if _HAS_PHYSX_SCHEMA:
+        mesh_children = [c for c in prim.GetChildren() if c.IsA(UsdGeom.Mesh)]
+        if not mesh_children:
+            for c in prim.GetChildren():
+                mesh_children.extend(
+                    gc for gc in c.GetChildren() if gc.IsA(UsdGeom.Mesh)
+                )
+        if len(mesh_children) > 1:
+            PhysxSchema.PhysxMeshMergeCollisionAPI.Apply(prim)
+
+    return True
+
+
+def create_placeholder_door_mesh(stage, door_prim, panel_root="/World/DoorPanels"):
+    """Create a visible rectangular mesh for doors with missing visual geometry.
+
+    TEMPORARY — remove when Revit export includes proper door panel geometry.
+
+    Creates a box mesh at /World/DoorPanels/<door_name> in world-space
+    coordinates (feet). The mesh is defined directly in world space so it
+    doesn't depend on the door prim's Revit-scale transforms.
+
+    Note: The panel is static visual geometry only — it does NOT swing with
+    the door's rigid body. For a proper demo of door physics, the door's
+    collision shape (invisible convex hull) is what actually rotates.
+    """
+    xf_cache = UsdGeom.XformCache()
+    world_points = _collect_mesh_world_points(door_prim, xf_cache)
+    if len(world_points) < 4:
+        return False
+
+    xs = [p[0] for p in world_points]
+    ys = [p[1] for p in world_points]
+    zs = [p[2] for p in world_points]
+
+    x_min, x_max = min(xs), max(xs)
+    y_min, y_max = min(ys), max(ys)
+    z_min, z_max = min(zs), max(zs)
+
+    dx = x_max - x_min
+    dy = y_max - y_min
+    height = z_max - z_min
+
+    if height < 0.1 or max(dx, dy) < 0.1:
+        return False
+
+    # Build a thin box in world space at the door's position
+    cy = (y_min + y_max) / 2.0
+    cx = (x_min + x_max) / 2.0
+    thickness = 0.2  # 0.2 feet (~2.4 inches)
+
+    if dx >= dy:
+        # Door extends along X
+        pts = [
+            Gf.Vec3f(x_min, cy - thickness, z_min),
+            Gf.Vec3f(x_max, cy - thickness, z_min),
+            Gf.Vec3f(x_max, cy - thickness, z_max),
+            Gf.Vec3f(x_min, cy - thickness, z_max),
+            Gf.Vec3f(x_min, cy + thickness, z_min),
+            Gf.Vec3f(x_max, cy + thickness, z_min),
+            Gf.Vec3f(x_max, cy + thickness, z_max),
+            Gf.Vec3f(x_min, cy + thickness, z_max),
+        ]
+    else:
+        # Door extends along Y
+        pts = [
+            Gf.Vec3f(cx - thickness, y_min, z_min),
+            Gf.Vec3f(cx - thickness, y_max, z_min),
+            Gf.Vec3f(cx - thickness, y_max, z_max),
+            Gf.Vec3f(cx - thickness, y_min, z_max),
+            Gf.Vec3f(cx + thickness, y_min, z_min),
+            Gf.Vec3f(cx + thickness, y_max, z_min),
+            Gf.Vec3f(cx + thickness, y_max, z_max),
+            Gf.Vec3f(cx + thickness, y_min, z_max),
+        ]
+
+    # Ensure root prim exists
+    if not stage.GetPrimAtPath(panel_root):
+        UsdGeom.Xform.Define(stage, panel_root)
+
+    door_name = door_prim.GetName()
+    mesh_path = f"{panel_root}/{door_name}"
+    mesh = UsdGeom.Mesh.Define(stage, mesh_path)
+    mesh.CreatePointsAttr(pts)
+    mesh.CreateFaceVertexCountsAttr([4, 4, 4, 4, 4, 4])
+    mesh.CreateFaceVertexIndicesAttr([
+        0, 1, 2, 3,  # front
+        5, 4, 7, 6,  # back
+        0, 3, 7, 4,  # left
+        1, 5, 6, 2,  # right
+        3, 2, 6, 7,  # top
+        0, 4, 5, 1,  # bottom
+    ])
+    mesh.CreateSubdivisionSchemeAttr("none")
+    mesh.CreateDisplayColorAttr([(0.55, 0.35, 0.17)])
 
     return True
 
@@ -361,7 +484,10 @@ CATEGORY_MATERIALS = {
 
 def create_revolute_joint(stage, joint_path, body0_path, body1_path,
                           axis="Z", lower_limit=-90.0, upper_limit=90.0,
-                          local_pos0=None, local_pos1=None):
+                          local_pos0=None, local_pos1=None,
+                          local_rot0=None, local_rot1=None,
+                          break_force=3.4028235e+38,
+                          break_torque=3.4028235e+38):
     """
     Create a revolute joint (hinge) between two bodies.
 
@@ -378,6 +504,10 @@ def create_revolute_joint(stage, joint_path, body0_path, body1_path,
         upper_limit: Upper angle limit in degrees
         local_pos0: Local position offset on body0 (Gf.Vec3f)
         local_pos1: Local position offset on body1 (Gf.Vec3f)
+        local_rot0: Local rotation on body0 (Gf.Quatf)
+        local_rot1: Local rotation on body1 (Gf.Quatf)
+        break_force: Force threshold to break joint (MAX_FLOAT = unbreakable)
+        break_torque: Torque threshold to break joint (MAX_FLOAT = unbreakable)
     """
     joint = UsdPhysics.RevoluteJoint.Define(stage, joint_path)
 
@@ -398,6 +528,25 @@ def create_revolute_joint(stage, joint_path, body0_path, body1_path,
         joint.CreateLocalPos0Attr(local_pos0)
     if local_pos1 is not None:
         joint.CreateLocalPos1Attr(local_pos1)
+    if local_rot0 is not None:
+        joint.CreateLocalRot0Attr(local_rot0)
+    if local_rot1 is not None:
+        joint.CreateLocalRot1Attr(local_rot1)
+
+    # Prevent joint breakage under stress
+    joint.CreateBreakForceAttr(break_force)
+    joint.CreateBreakTorqueAttr(break_torque)
+
+    # PhysX joint friction and soft angular limits
+    if _HAS_PHYSX_SCHEMA:
+        physx_joint = PhysxSchema.PhysxJointAPI.Apply(joint.GetPrim())
+        physx_joint.CreateJointFrictionAttr(0.1)
+
+        limit_api = PhysxSchema.PhysxLimitAPI.Apply(joint.GetPrim(), "angular")
+        limit_api.CreateStiffnessAttr(500.0)
+        limit_api.CreateDampingAttr(100.0)
+        limit_api.CreateRestitutionAttr(0.3)
+        limit_api.CreateBounceThresholdAttr(0.5)
 
     return joint
 
@@ -465,12 +614,42 @@ _MECHANISM_RULES = [
     ("2FG", DoorMechanism.HINGED_DOUBLE),
     ("2FU", DoorMechanism.HINGED_DOUBLE),
     ("2F_", DoorMechanism.HINGED_DOUBLE),
+    # Sidelight door assemblies — door+fixed glass as one mesh, skip
+    ("SIDELITE", DoorMechanism.UNKNOWN),
+    ("Sidelite", DoorMechanism.UNKNOWN),
+    # Clearwall / glass wall panels — not hinged doors
+    ("Clearwall", DoorMechanism.UNKNOWN),
+    ("clearwall", DoorMechanism.UNKNOWN),
     # Single-leaf hinged
     ("Type_F", DoorMechanism.HINGED_SINGLE),
     ("Type_G", DoorMechanism.HINGED_SINGLE),
     ("Type_N", DoorMechanism.HINGED_SINGLE),
     ("Type_FG", DoorMechanism.HINGED_SINGLE),
     ("Curtain_Wall", DoorMechanism.HINGED_SINGLE),
+    # HMFrame (Hollow Metal) doors from combined Revit exports —
+    # width determines single vs double (48"+ = double leaf)
+    ("HMFrame96x", DoorMechanism.HINGED_DOUBLE),
+    ("HMFrame90x", DoorMechanism.HINGED_DOUBLE),
+    ("HMFrame84x", DoorMechanism.HINGED_DOUBLE),
+    ("HMFrame72x", DoorMechanism.HINGED_DOUBLE),
+    ("HMFrame68x", DoorMechanism.HINGED_DOUBLE),
+    ("HMFrame66x", DoorMechanism.HINGED_DOUBLE),
+    ("HMFrame60x", DoorMechanism.HINGED_DOUBLE),
+    ("HMFrame48x", DoorMechanism.HINGED_DOUBLE),
+    ("HMFrame42x", DoorMechanism.HINGED_SINGLE),
+    ("HMFrame40x", DoorMechanism.HINGED_SINGLE),
+    ("HMFrame36x", DoorMechanism.HINGED_SINGLE),
+    ("HMFrame32x", DoorMechanism.HINGED_SINGLE),
+    ("HMFrame30x", DoorMechanism.HINGED_SINGLE),
+    ("HMFrame24x", DoorMechanism.HINGED_SINGLE),
+    # ALFrame / CLFrame (Aluminum / Clear frame) — same width logic
+    ("ALFrame36x", DoorMechanism.HINGED_SINGLE),
+    ("CLFrame72x", DoorMechanism.HINGED_DOUBLE),
+    # Bare size patterns (WxH) from combined Revit exports
+    ("72x84", DoorMechanism.HINGED_DOUBLE),
+    ("92HX84W", DoorMechanism.HINGED_DOUBLE),
+    ("36x80", DoorMechanism.HINGED_SINGLE),
+    ("36x84", DoorMechanism.HINGED_SINGLE),
 ]
 
 
@@ -522,68 +701,112 @@ def set_drive_target(drive, angle_deg):
     drive.GetTargetPositionAttr().Set(angle_deg)
 
 
+def _collect_mesh_world_points(prim, xf_cache, max_depth=4):
+    """Gather all mesh vertex positions in world space under a prim."""
+    points = []
+    if prim.IsInstanceable():
+        prim.SetInstanceable(False)
+    if prim.IsA(UsdGeom.Mesh):
+        mesh = UsdGeom.Mesh(prim)
+        pts = mesh.GetPointsAttr().Get()
+        if pts:
+            local_to_world = xf_cache.GetLocalToWorldTransform(prim)
+            for p in pts:
+                wp = local_to_world.Transform(Gf.Vec3d(p[0], p[1], p[2]))
+                points.append(wp)
+    if max_depth > 0:
+        for child in prim.GetChildren():
+            points.extend(_collect_mesh_world_points(child, xf_cache, max_depth - 1))
+    return points
+
+
 def estimate_door_hinge_offset(stage, door_prim):
     """
-    Estimate a hinge position at one vertical edge of a door's bounding box.
+    Estimate hinge position using mesh vertex analysis.
 
-    Uses **world-space** bounding box to avoid unit-scale mismatches that
-    occur with Revit-exported geometry (local coords may be in centimeters
-    or other non-stage units).  The world-space hinge position is then
-    inverse-transformed back into body1's local frame for ``local_pos1``.
+    Instead of using the prim bounding box (which includes frame/mullion
+    geometry for curtain wall doors), this analyzes the actual mesh vertices
+    to find the densest vertical edge — that's where the hinge goes.
 
-    The hinge edge is chosen along the door's **narrow horizontal axis**
-    (the door width), picking the min edge.  Doors oriented along X get
-    a min-X hinge; doors oriented along Y get a min-Y hinge.
+    For each of the 4 vertical edges of the door's XY footprint (min-X,
+    max-X, min-Y, max-Y), counts how many vertices are near that edge.
+    The edge with the most vertices is the frame/hinge side.
 
-    Returns (local_pos0, local_pos1) as Gf.Vec3f tuples suitable for
-    create_revolute_joint, or (None, None) if bounding box can't be computed.
+    Returns (local_pos0, local_pos1, local_rot0, local_rot1) where positions
+    are Gf.Vec3f and rotations are Gf.Quatf, suitable for create_revolute_joint.
+    Returns (None, None, None, None) if geometry can't be analyzed.
     """
-    bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
+    xf_cache = UsdGeom.XformCache()
 
-    # --- World-space bounding box (in stage units = meters) ---
-    world_bbox = bbox_cache.ComputeWorldBound(door_prim)
-    world_range = world_bbox.ComputeAlignedRange()
-    w_min = world_range.GetMin()
-    w_max = world_range.GetMax()
+    # Collect all mesh vertices in world space
+    world_points = _collect_mesh_world_points(door_prim, xf_cache)
+    if len(world_points) < 4:
+        return None, None, None, None
 
-    if w_min == w_max:
-        return None, None
+    # Compute tight bounds from actual vertices
+    xs = [p[0] for p in world_points]
+    ys = [p[1] for p in world_points]
+    zs = [p[2] for p in world_points]
 
-    dx = w_max[0] - w_min[0]
-    dy = w_max[1] - w_min[1]
+    x_min, x_max = min(xs), max(xs)
+    y_min, y_max = min(ys), max(ys)
+    z_min, z_max = min(zs), max(zs)
 
-    # Determine door orientation: the wider horizontal axis is the door
-    # width, the thinner one is the door depth (thickness).
-    # Hinge goes on the min edge of the wider axis.
+    dx = x_max - x_min
+    dy = y_max - y_min
+
+    if dx < 0.01 and dy < 0.01:
+        return None, None, None, None
+
+    # Determine door orientation from vertex spread
     if dx >= dy:
-        # Door extends along X — hinge at min-X edge
-        hinge_x = w_min[0]
-        hinge_y = (w_min[1] + w_max[1]) / 2.0
+        # Door extends along X — hinge is at min-X or max-X
+        # Count vertices near each X edge to find the frame/hinge side.
+        # The hinge side typically has more vertices (frame geometry).
+        edge_tolerance = dx * 0.15  # 15% of door width
+        near_min_x = sum(1 for x in xs if x - x_min < edge_tolerance)
+        near_max_x = sum(1 for x in xs if x_max - x < edge_tolerance)
+        # Pick the edge with MORE vertices (that's the frame/hinge side)
+        if near_min_x >= near_max_x:
+            hinge_x = x_min
+        else:
+            hinge_x = x_max
+        hinge_y = (y_min + y_max) / 2.0
     else:
-        # Door extends along Y — hinge at min-Y edge
-        hinge_x = (w_min[0] + w_max[0]) / 2.0
-        hinge_y = w_min[1]
+        # Door extends along Y — hinge is at min-Y or max-Y
+        edge_tolerance = dy * 0.15
+        near_min_y = sum(1 for y in ys if y - y_min < edge_tolerance)
+        near_max_y = sum(1 for y in ys if y_max - y < edge_tolerance)
+        if near_min_y >= near_max_y:
+            hinge_y = y_min
+        else:
+            hinge_y = y_max
+        hinge_x = (x_min + x_max) / 2.0
 
-    hinge_z = (w_min[2] + w_max[2]) / 2.0
+    hinge_z = (z_min + z_max) / 2.0
 
-    # local_pos0: hinge in body0's frame (body0 = world, so world coords)
+    # local_pos0: hinge in world frame
     hinge_world = Gf.Vec3d(hinge_x, hinge_y, hinge_z)
     local_pos0 = Gf.Vec3f(float(hinge_world[0]),
                            float(hinge_world[1]),
                            float(hinge_world[2]))
 
-    # local_pos1: hinge in body1's (door's) local frame.
-    # Inverse-transform the world hinge position into the door's local space
-    # so that units match regardless of internal scale factors.
-    xformable = UsdGeom.Xformable(door_prim)
-    world_xform = xformable.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+    # local_pos1: hinge in door's local frame
+    # Use the FULL inverse transform (including Revit's ~100x scale) so that
+    # local_pos1 is in the door prim's actual local coordinate system.
+    # RemoveScaleShear() would strip the scale, producing values ~100x too large.
+    world_xform = xf_cache.GetLocalToWorldTransform(door_prim)
     inv_xform = world_xform.GetInverse()
     hinge_local = inv_xform.Transform(hinge_world)
     local_pos1 = Gf.Vec3f(float(hinge_local[0]),
                            float(hinge_local[1]),
                            float(hinge_local[2]))
 
-    return local_pos0, local_pos1
+    # Rotation quaternions for joint frames
+    local_rot0 = Gf.Quatf(1.0)  # body0 is world frame — identity
+    local_rot1 = Gf.Quatf(1.0)  # Revit doors have no rotation in parent chain
+
+    return local_pos0, local_pos1, local_rot0, local_rot1
 
 
 # ---------------------------------------------------------------------------
@@ -709,12 +932,77 @@ def add_door_collision_filters(stage, door_prims, collision_index=None,
     return total_filtered
 
 
+def setup_collision_groups(stage, door_prims, group_root="/World/CollisionGroups"):
+    """Create collision groups for doors and static building elements.
+
+    Replaces pairwise FilteredPairsAPI with group-based filtering:
+    - "doors" group: all door collision meshes
+    - "static_building" group: all static colliders
+
+    Doors won't collide with walls/floors/etc. but WILL collide with
+    other dynamic objects (robots, dropped items).
+
+    Args:
+        stage: USD stage
+        door_prims: list of door Xform prims (with RigidBodyAPI)
+        group_root: path prefix for collision group definitions
+
+    Returns:
+        (doors_group_path, static_group_path) tuple
+    """
+    doors_path = f"{group_root}/doors"
+    static_path = f"{group_root}/static_building"
+
+    doors_group = UsdPhysics.CollisionGroup.Define(stage, doors_path)
+    static_group = UsdPhysics.CollisionGroup.Define(stage, static_path)
+
+    # Doors group filters against static_building group
+    doors_group.CreateFilteredGroupsRel().SetTargets([Sdf.Path(static_path)])
+
+    # Add door collision meshes to doors group
+    for door_prim in door_prims:
+        for child in door_prim.GetChildren():
+            if child.HasAPI(UsdPhysics.CollisionAPI):
+                doors_group.GetCollidersCollectionAPI().GetIncludesRel().AddTarget(
+                    child.GetPath()
+                )
+        if door_prim.HasAPI(UsdPhysics.CollisionAPI):
+            doors_group.GetCollidersCollectionAPI().GetIncludesRel().AddTarget(
+                door_prim.GetPath()
+            )
+
+    # Add static colliders to static group (auto-discover)
+    for prim in stage.Traverse():
+        if not prim.HasAPI(UsdPhysics.CollisionAPI):
+            continue
+        if prim.HasAPI(UsdPhysics.RigidBodyAPI):
+            continue
+        # Skip collision prims that are children of rigid bodies (door meshes)
+        parent = prim.GetParent()
+        is_rb_child = False
+        while parent and parent != stage.GetPseudoRoot():
+            if parent.HasAPI(UsdPhysics.RigidBodyAPI):
+                is_rb_child = True
+                break
+            parent = parent.GetParent()
+        if is_rb_child:
+            continue
+        static_group.GetCollidersCollectionAPI().GetIncludesRel().AddTarget(
+            prim.GetPath()
+        )
+
+    return doors_path, static_path
+
+
 # ---------------------------------------------------------------------------
 # Physics Scene Setup
 # ---------------------------------------------------------------------------
 
 def setup_physics_scene(stage, gravity=-9.81, time_steps_per_second=60,
-                        gpu_dynamics=True, scene_path="/World/PhysicsScene"):
+                        gpu_dynamics=False, scene_path="/World/PhysicsScene",
+                        solver_type="TGS", broadphase_type="MBP",
+                        enable_ccd=True, min_position_iterations=4,
+                        max_position_iterations=16):
     """
     Create and configure a PhysicsScene with gravity and solver settings.
 
@@ -722,25 +1010,30 @@ def setup_physics_scene(stage, gravity=-9.81, time_steps_per_second=60,
         stage: USD stage
         gravity: Gravitational acceleration (negative = downward)
         time_steps_per_second: Physics solver frequency
-        gpu_dynamics: Enable GPU-accelerated dynamics
+        gpu_dynamics: Enable GPU-accelerated dynamics (False recommended for <100 bodies)
         scene_path: Where to define the physics scene prim
+        solver_type: "TGS" (better convergence) or "PGS"
+        broadphase_type: "MBP" (Multi-Box Pruning) or "GPU"
+        enable_ccd: Continuous collision detection (prevents tunneling)
+        min_position_iterations: Minimum solver position iterations
+        max_position_iterations: Maximum solver position iterations
     """
     scene = UsdPhysics.Scene.Define(stage, scene_path)
     scene.CreateGravityDirectionAttr(Gf.Vec3f(0.0, 0.0, -1.0))
     scene.CreateGravityMagnitudeAttr(abs(gravity))
 
-    # Set timestep via physxScene API if available
-    physx_prim = stage.GetPrimAtPath(scene_path)
-    try:
-        from pxr import PhysxSchema
+    # Configure PhysX-specific scene properties
+    if _HAS_PHYSX_SCHEMA:
+        physx_prim = stage.GetPrimAtPath(scene_path)
         physx_scene = PhysxSchema.PhysxSceneAPI.Apply(physx_prim)
         physx_scene.CreateTimeStepsPerSecondAttr(time_steps_per_second)
-        if gpu_dynamics:
-            physx_scene.CreateEnableGPUDynamicsAttr(True)
-            physx_scene.CreateBroadphaseTypeAttr("GPU")
-    except (ImportError, AttributeError):
-        # PhysxSchema not available — base physics still works
-        pass
+        physx_scene.CreateSolverTypeAttr(solver_type)
+        physx_scene.CreateBroadphaseTypeAttr(broadphase_type)
+        physx_scene.CreateEnableCCDAttr(enable_ccd)
+        physx_scene.CreateMinPositionIterationCountAttr(min_position_iterations)
+        physx_scene.CreateMaxPositionIterationCountAttr(max_position_iterations)
+        physx_scene.CreateEnableStabilizationAttr(True)
+        physx_scene.CreateEnableGPUDynamicsAttr(gpu_dynamics)
 
     return scene
 
@@ -967,6 +1260,48 @@ def discover_floor_levels(stage, building_path="/World/Building"):
 
 
 # ---------------------------------------------------------------------------
+# Asset Path Portability
+# ---------------------------------------------------------------------------
+
+def fix_absolute_asset_paths(stage):
+    """Convert absolute asset paths to relative ones for portability.
+
+    Revit-to-USD exporters often bake in absolute paths to MDL material files
+    (e.g. /home/user/project/assets/.../Materials/X.mdl).  These break when
+    another user opens the file.
+
+    This function rewrites every SdfAssetPath-typed attribute that contains
+    an absolute ``/home/`` path, converting it to a path relative to the USD
+    file's directory (e.g. ``./Materials/X.mdl``).
+
+    Returns the number of attributes fixed.
+    """
+    REPO_MARKER = "assets/environments/msoe_building/"
+
+    fixed = 0
+    for prim in stage.TraverseAll():
+        for attr in prim.GetAttributes():
+            try:
+                if "SdfAssetPath" not in attr.GetTypeName().cppTypeName:
+                    continue
+                val = attr.Get()
+                if val is None:
+                    continue
+                path_str = val.path if hasattr(val, "path") else str(val)
+                if not path_str or "/home/" not in path_str:
+                    continue
+                idx = path_str.find(REPO_MARKER)
+                if idx < 0:
+                    continue
+                relative = "./" + path_str[idx + len(REPO_MARKER):]
+                attr.Set(Sdf.AssetPath(relative))
+                fixed += 1
+            except Exception:
+                pass
+    return fixed
+
+
+# ---------------------------------------------------------------------------
 # Native PhysX Runtime Metrics Helpers
 # ---------------------------------------------------------------------------
 # These functions query the PhysX simulation engine for data that is only
@@ -1062,13 +1397,14 @@ def get_solver_residuals(stage, scene_path="/World/PhysicsScene"):
     Returns dict with rms/max position/velocity residuals, or empty dict.
     """
     try:
-        from pxr import PhysxSchema as _PhysxSchema
+        if not _HAS_PHYSX_SCHEMA:
+            return {}
 
         scene_prim = stage.GetPrimAtPath(scene_path)
         if not scene_prim.IsValid():
             return {}
 
-        residual_api = _PhysxSchema.PhysxResidualReportingAPI(scene_prim)
+        residual_api = PhysxSchema.PhysxResidualReportingAPI(scene_prim)
 
         rms_pos = residual_api.GetPhysxResidualReportingRmsResidualPositionIterationAttr().Get()
         max_pos = residual_api.GetPhysxResidualReportingMaxResidualPositionIterationAttr().Get()
@@ -1172,11 +1508,13 @@ def enable_residual_reporting(stage, scene_path="/World/PhysicsScene"):
     """
     try:
         import carb
-        from pxr import PhysxSchema as _PhysxSchema
+
+        if not _HAS_PHYSX_SCHEMA:
+            return False
 
         scene_prim = stage.GetPrimAtPath(scene_path)
         if scene_prim.IsValid():
-            _PhysxSchema.PhysxResidualReportingAPI.Apply(scene_prim)
+            PhysxSchema.PhysxResidualReportingAPI.Apply(scene_prim)
             carb.settings.get_settings().set("/physics/updateResidualsToUsd", True)
             return True
     except (ImportError, AttributeError) as e:

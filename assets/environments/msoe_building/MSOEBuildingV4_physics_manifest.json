@@ -1,0 +1,41 @@
+{
+  "source_usd": "MSOEBuildingV4.usd",
+  "total_elements": 8284,
+  "mesh_count": 8953,
+  "bounding_box": {
+    "min": [
+      -85.72184007062124,
+      -9.509439888000488,
+      8.382000122070313
+    ],
+    "max": [
+      41.909308147679795,
+      130.93748757299207,
+      35.96640057563782
+    ]
+  },
+  "categories": {
+    "STATIC_STRUCTURAL": 2069,
+    "STATIC_GLAZING": 4007,
+    "STATIC_STAIR": 207,
+    "DYNAMIC_DOOR": 37,
+    "SKIP": 1964
+  },
+  "per_level": {
+    "default": {
+      "STATIC_STRUCTURAL": 2069,
+      "STATIC_GLAZING": 4007,
+      "STATIC_STAIR": 207,
+      "DYNAMIC_DOOR": 37,
+      "SKIP": 1964
+    }
+  },
+  "physics_applied": {
+    "static_colliders": 6283,
+    "dynamic_rigid_bodies": 26,
+    "revolute_joints": 26,
+    "drives": 26,
+    "collision_filter_pairs": 985,
+    "skipped_no_mesh": 0
+  }
+}
