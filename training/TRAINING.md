@@ -53,13 +53,16 @@ The reward design uses dual-scale tanh position tracking with heading alignment,
 
 | Term | Function | Weight | Parameters | Purpose |
 |------|----------|--------|------------|---------|
-| `position_tracking` | `position_tracking_tanh` | +2.0 | std=2.0 | Dense gradient — "getting warmer" |
-| `goal_reached` | `goal_reached` | +10.0 | threshold=0.5m | Sparse bonus — "you found it" |
-| `collision` | `mdp.undesired_contacts` | -10.0 | contact_sensor, threshold=1.0N | "crashing is very bad" |
+| `delta_progress` | `delta_progress` | +3.0 | — | Net distance closed per step (anti-oscillation) |
+| `distance_to_goal` | `position_tracking_tanh` | +1.0 | std=0.3 | Steep proximity magnet inside final 0.75m |
+| `time_penalty` | `time_penalty` | -0.05 | — | Per-step cost so hovering is always losing |
+| `backward_motion` | `backward_motion_penalty` | -2.0 | — | Penalizes driving casters-first |
+| `goal_reached` | `goal_reached` | +100.0 | threshold=0.75m | Dominant arrival bonus |
+| `collision` | `mdp.undesired_contacts` | -20.0 | contact_sensor, threshold=1.0N | Impact penalty via contact sensor |
+| `obstacle_proximity` | `obstacle_proximity` | -0.5 | lidar, safe_dist=1.0m | Continuous LiDAR proximity penalty — anticipatory avoidance |
 
-**Removed terms** (see Reward Design Principles below):
+**Removed terms** (historical):
 - `velocity_near_goal` — robot should learn deceleration from the tanh gradient and goal_reached spike
-- `obstacle_proximity` — redundant with contact sensor collision penalty
 - `action_smoothness` — adds complexity without clear benefit
 - `position_tracking_fine` (std=0.2) — redundant with `goal_reached` at the same 0.5m zone
 - `heading_alignment` (-0.2) — accumulated ~-190/episode and penalized turning away from goal to avoid obstacles
@@ -79,7 +82,9 @@ This means weights are in "reward per second" units, not "reward per step." The 
 | Term | Weight (config) | × dt | Effective per RL step |
 |------|----------------|------|-----------------------|
 | `goal_reached` | +100.0 | × 0.0833 | **+8.33** |
-| `collision` | -10.0 | × 0.0833 | **-0.83** |
+| `collision` | -20.0 | × 0.0833 | **-1.67** |
+| `obstacle_proximity` | -0.5 | × 0.0833 | **-0.042** max (at contact), **-0.021** at 0.5m |
+| `backward_motion` | -2.0 | × 0.0833 | **-0.167** max (at 0.5 m/s backward) |
 | `time_penalty` | -0.05 | × 0.0833 | **-0.004** |
 | `delta_progress` | +3.0 | × 0.0833 | **+0.25 × Δm** |
 | `distance_to_goal` | +1.0 | × 0.0833 | **+0.083** max |
@@ -190,9 +195,16 @@ Sources: [WheeledLab (arXiv:2502.07380)](https://arxiv.org/abs/2502.07380), [Isa
 |-----------|------|-------------|
 | `time_out` | Truncation | Episode ends at 83s (1000 steps at 12 Hz) |
 | `bad_orientation` | Termination | Roll or pitch > 30 degrees (robot tipped) |
-| `command_resample` | Termination | Episode ends after 6 goal reaches (patrol complete) |
+| `command_resample` | Termination | Episode ends after 6 goal reaches/stuck events (patrol complete) |
 
-The `command_resample` termination uses Isaac Lab's built-in `mdp.command_resample` function. It terminates when `command_counter == num_resamples` (6) and the command timer expires. With `GoalReachPose2dCommand`, each goal reach increments `command_counter`, so after 6 successful reaches the episode ends. At ~5-10s per goal, episodes last 30-60s naturally, or the full 83s if goals take longer.
+The `command_resample` termination uses Isaac Lab's built-in `mdp.command_resample` function. It terminates when `command_counter == num_resamples` (6) and the command timer expires. With `GoalReachPose2dCommand`, each goal reach OR stuck-resample increments `command_counter`, so the episode ends after 6 combined events. At ~5-10s per goal, episodes last 30-60s naturally, or the full 83s if goals take longer.
+
+**Stuck goal resample** (not a termination): `GoalReachPose2dCommand._update_command()` detects
+when the robot's ground-plane speed stays below 0.05 m/s for 36 consecutive steps (3 seconds
+past the per-episode grace period). When triggered, it resamples the goal immediately — same
+call as a successful arrival — and increments `command_counter`. This caps the wall-press
+damage at 36 steps × -2.5 collision = -90, vs the previous 15s fallback = -450. The episode
+continues; patrol training is preserved. Log line: `[STUCK] N env(s) stuck >36 steps, resampling goals`.
 
 No `collision` termination — handled as reward penalty only. Terminating on collision causes a death spiral when the robot spawns near furniture (instant death -> no useful signal -> NaN gradients).
 
@@ -273,17 +285,16 @@ CHECKPOINT = "training/logs/sb3/NovaCarter-Patrol/2026-03-14_19-42-01/model.zip"
 
 ## Evaluation
 
-Training automatically runs evaluation after completion. To run standalone:
+Training automatically runs the scenario evaluation after completion. To run standalone:
 
 ```bash
-# Evaluate latest run
-sbatch training/submit_eval.sh
-
-# Evaluate specific checkpoint
-sbatch training/submit_eval.sh training/logs/sb3/NovaCarter-Patrol/<run>/model.zip
+cd ~/IsaacLab
+./isaaclab.sh -p ~/isaac-sim-msoe/training/eval/eval_scenarios.py \
+  --checkpoint ~/isaac-sim-msoe/training/logs/sb3/NovaCarter-Patrol/<run>/model.zip \
+  --headless
 ```
 
-Evaluation records 6 video clips of 500 steps each, saved to `<run>/videos/eval/`.
+Results are saved as `scenario_results_<timestamp>.json` and a pass/fail scorecard is printed to stdout. Videos saved to `<run>/videos/scenarios/`.
 
 ---
 
@@ -335,9 +346,7 @@ TensorBoard's left sidebar lets you toggle individual runs on/off. Use the smoot
 training/
 ├── train_config.py                     # Centralized training parameters
 ├── train_nova_carter.py                # Training entry point (PPO + SB3)
-├── eval_nova_carter.py                 # Evaluation with video recording
-├── submit_training.sh                  # SLURM batch script for training
-├── submit_eval.sh                      # SLURM batch script for evaluation
+├── submit_training.sh                  # SLURM batch script for training + auto scenario eval
 ├── TRAINING.md                         # This file
 ├── PLAN.md                             # Development plan and phase history
 ├── logs/                               # SLURM logs + TensorBoard data
