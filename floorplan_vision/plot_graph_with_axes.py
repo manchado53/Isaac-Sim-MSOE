@@ -29,8 +29,8 @@ def plot_floor(floor_name: str, show_ids: bool = False):
     img_path = os.path.join(MAP_DIR, f"{floor_name}_occupancy.png")
     graph_path = os.path.join(GRAPH_DIR, f"{floor_name}_auto_navgraph.json")
 
-    # Occupancy PNG is now stored in standard map convention (col 0 = x_min)
-    # after Phase 2 fixed the flip at the generator source.
+    # Occupancy PNG is now stored in ROS map_server convention: col 0 = x_min,
+    # row 0 = y_max. Both flips are applied at the generator source.
     img = np.array(Image.open(img_path).convert("L"))
     with open(graph_path) as f:
         graph = json.load(f)
@@ -40,14 +40,14 @@ def plot_floor(floor_name: str, show_ids: bool = False):
 
     fig, ax = plt.subplots(figsize=(16, 10))
 
-    # row 0 of the image = world y_min, y increases with row. With
-    # origin="upper" and extent=[x_min, x_max, y_max, y_min], matplotlib draws
-    # y_min at the top of the axes and y_max at the bottom. The X-flipped
-    # image above aligns col 0 with x_min (left) and col_max with x_max (right).
+    # row 0 of the image = world y_max, y decreases with row. With
+    # origin="upper" and extent=[x_min, x_max, y_min, y_max], matplotlib
+    # puts row 0 at the top of the axes where y_max lives, giving a natural
+    # "north up" view with no flip tricks.
     ax.imshow(
         img,
         cmap="gray",
-        extent=[x_min, x_max, y_max, y_min],
+        extent=[x_min, x_max, y_min, y_max],
         origin="upper",
     )
 

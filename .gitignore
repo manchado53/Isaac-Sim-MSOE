@@ -12,3 +12,6 @@ datasets/
 *.ifc
 *.log
 /logs/
+
+# Isaac Sim WebRTC streaming client trace logs
+NvStreamer-*.etli

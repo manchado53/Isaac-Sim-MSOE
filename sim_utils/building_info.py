@@ -72,10 +72,11 @@ def get_floor(building_name: str, floor_num: int) -> dict:
 def lookup_node(nav_graph_path: str, node_id: int) -> Tuple[float, float]:
     """Look up a node's world (x, y) coordinates in an auto_navgraph JSON file.
 
-    The JSON stores world coordinates that already match the USD frame, as of
-    the `auto_graph_generator.py` fix that aligned `pixel_to_world` with
-    `isaacsim.asset.gen.omap.utils::compute_coordinates` (col 0 = x_max,
-    row 0 = y_min). No read-time compensation needed.
+    The JSON stores world coordinates in the ROS map_server convention
+    (col 0 = x_min, row 0 = y_max). `auto_graph_generator.pixel_to_world`
+    applies the correct inverse when exporting, so no read-time
+    compensation is needed here — these (x, y) values match the USD frame
+    directly.
 
     Args:
         nav_graph_path: Absolute path to a floor_N_auto_navgraph.json file.

@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-Generate 2D occupancy maps from TestBuilding.usd using multi-origin scanning.
+Generate 2D occupancy maps from InnovationCenter.usd using multi-origin scanning.
 
 Scans from multiple origin points across the building to eliminate unknown
 regions that a single-origin scan can't reach (areas behind walls).
 
 Run with:
-  sbatch submit_isaac_job.sh test_building/generate_occupancy_map.py
+  sbatch submit_isaac_job.sh floorplan_vision/generate_occupancy_map.py
   OR (interactive):
   srun --partition=teaching --gres=gpu:1 --time=2:00:00 --pty bash
-  ./run_isaac_interactive.sh test_building/generate_occupancy_map.py
+  ./run_isaac_interactive.sh floorplan_vision/generate_occupancy_map.py
 """
 
 import os
@@ -38,7 +38,10 @@ PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.abspath(os.path.join(
     PROJECT_DIR, "..", "assets", "environments", "InnovationCenter", "maps"
 ))
-USD_PATH = os.path.join(PROJECT_DIR, "MSOEBuildingV4_physics.usd")
+USD_PATH = os.path.abspath(os.path.join(
+    PROJECT_DIR, "..", "assets", "environments", "InnovationCenter",
+    "InnovationCenter.usd"
+))
 
 CELL_SIZE = 0.05  # 5 cm per cell — V4 stage units are meters
 OCCUPIED = 1
@@ -133,11 +136,15 @@ def save_floor(grid, dims, floor_name, meta_base):
           f"Unknown {n_unknown} ({100*n_unknown/total:.1f}%)")
 
     # Isaac Sim's occupancy map plugin produces a buffer where col 0 is at
-    # world x_max (see isaacsim.asset.gen.omap.utils::compute_coordinates).
-    # Flip horizontally so col 0 = x_min — standard map convention that
-    # Nav2's map_server and every downstream consumer assumes. This fix is
-    # applied before both the .npy and .png outputs so they stay consistent.
-    grid = np.fliplr(grid)
+    # world x_max and row 0 is at world y_min (see
+    # isaacsim.asset.gen.omap.utils::compute_coordinates). We need to end up
+    # with col 0 = x_min AND row 0 = y_max, which is the ROS map_server
+    # convention: origin is the world pose of the BOTTOM-LEFT pixel, and
+    # map_io.cpp internally reverses rows on load (map_io.cpp:326 "ROS
+    # expects origin at bottom-left"). Fix both axes here, before the .npy
+    # and .png writes, so everything downstream sees a consistent map.
+    grid = np.fliplr(grid)   # col 0 = x_max -> col 0 = x_min
+    grid = np.flipud(grid)   # row 0 = y_min -> row 0 = y_max
 
     # Save numpy array (post-flip)
     np.save(os.path.join(OUTPUT_DIR, f"{floor_name}_occupancy.npy"), grid)
