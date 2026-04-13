@@ -1,0 +1,105 @@
+{
+  "name": "MSOE Innovation Center",
+  "short_name": "InnovationCenter",
+  "description": "Multi-story engineering facility on the Milwaukee School of Engineering campus. The target environment for the BIM-to-sim navigation research project.",
+  "usd": {
+    "primary": "InnovationCenter.usd",
+    "physics": "InnovationCenter.usd"
+  },
+  "units": {
+    "length": "meters",
+    "meters_per_unit": 1.0
+  },
+  "coordinate_frame": {
+    "description": "Building world frame. X/Y lie in the floor plane, Z is vertical. Matches the occupancy map scan bounds below (all scans were performed in the same frame as the USD).",
+    "origin_note": "World origin is inherited from the Revit export; not colocated with any particular floor or corner."
+  },
+  "total_floors": 4,
+  "floors": {
+    "1": {
+      "z_min": 14.0,
+      "z_max": 16.0,
+      "floor_deck_z": 14.0,
+      "xy_min": [-72.649966, -10.509440],
+      "xy_max": [29.978102, 89.803560],
+      "grid_width_px": 2053,
+      "grid_height_px": 2007,
+      "cell_size_m": 0.05,
+      "occupancy_png": "maps/floor_1_occupancy.png",
+      "map_metadata_yaml": "navgraphs/floor_1_map_metadata.yaml",
+      "nav_graph_json": "navgraphs/floor_1_auto_navgraph.json",
+      "nav_graph_nodes": 263,
+      "nav_graph_edges": 270,
+      "default_spawn": {
+        "x": 0.0,
+        "y": 0.0,
+        "yaw": 0.0
+      }
+    },
+    "2": {
+      "z_min": 19.5,
+      "z_max": 20.5,
+      "floor_deck_z": 19.5,
+      "xy_min": [-72.649966, -10.509440],
+      "xy_max": [29.978102, 89.803560],
+      "grid_width_px": 2053,
+      "grid_height_px": 2007,
+      "cell_size_m": 0.05,
+      "occupancy_png": "maps/floor_2_occupancy.png",
+      "map_metadata_yaml": "navgraphs/floor_2_map_metadata.yaml",
+      "nav_graph_json": "navgraphs/floor_2_auto_navgraph.json",
+      "nav_graph_nodes": 549,
+      "nav_graph_edges": 554,
+      "default_spawn": {
+        "x": 0.0,
+        "y": 0.0,
+        "yaw": 0.0
+      }
+    },
+    "3": {
+      "z_min": 23.5,
+      "z_max": 24.5,
+      "floor_deck_z": 23.5,
+      "xy_min": [-72.649966, -10.509440],
+      "xy_max": [29.978102, 89.803560],
+      "grid_width_px": 2053,
+      "grid_height_px": 2007,
+      "cell_size_m": 0.05,
+      "occupancy_png": "maps/floor_3_occupancy.png",
+      "map_metadata_yaml": "navgraphs/floor_3_map_metadata.yaml",
+      "nav_graph_json": "navgraphs/floor_3_auto_navgraph.json",
+      "nav_graph_nodes": 586,
+      "nav_graph_edges": 589,
+      "default_spawn": {
+        "x": 0.0,
+        "y": 0.0,
+        "yaw": 0.0
+      }
+    },
+    "4": {
+      "z_min": 27.5,
+      "z_max": 29.0,
+      "floor_deck_z": 27.5,
+      "xy_min": [-72.649966, -10.509440],
+      "xy_max": [29.978102, 89.803560],
+      "grid_width_px": 2053,
+      "grid_height_px": 2007,
+      "cell_size_m": 0.05,
+      "occupancy_png": "maps/floor_4_occupancy.png",
+      "map_metadata_yaml": "navgraphs/floor_4_map_metadata.yaml",
+      "nav_graph_json": "navgraphs/floor_4_auto_navgraph.json",
+      "nav_graph_nodes": 219,
+      "nav_graph_edges": 226,
+      "default_spawn": {
+        "x": -37.20,
+        "y": 82.09,
+        "yaw": 0.0
+      }
+    }
+  },
+  "floor_spacing_m": {
+    "1_to_2": 5.5,
+    "2_to_3": 4.0,
+    "3_to_4": 4.0
+  }
+}

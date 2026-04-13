@@ -476,6 +476,54 @@ python validate_physics.py --usd my_physics.usd --dry-run   # preview without su
 - `--skip <tests>` — comma-separated test names to skip
 - `--dry-run` — print sbatch commands without submitting
 
+## Navigation Pipeline (Nova Carter + Nav2)
+
+The full navigation stack for driving Nova Carter around the Innovation Center in Isaac Sim. Two READMEs document it end-to-end:
+
+- **[navigation/README.md](../navigation/README.md)** — runtime entry point: `nav2_orchestrator.py` + Nav2 launch + params + visualization. Start here for any "how do I drive the robot" question.
+- **[floorplan_vision/README.md](../floorplan_vision/README.md)** — map generation pipeline: `generate_occupancy_map.py` → `auto_graph_generator.py` → `verify_orientation.py`. Start here for any "how do I regenerate the occupancy map / navgraph" question.
+
+**Three things to remember** before touching this stack:
+
+1. **Occupancy map orientation is ROS `map_server` convention**: `row 0 = world y_max`, `origin: [x_min, y_min, yaw]` is the world pose of the **bottom-left** pixel. `nav2_map_server/src/map_io.cpp:326` internally reverses the image rows after loading. If you save a PNG with `row 0 = y_min` (the natural visual orientation), Nav2 publishes a Y-mirrored static map and AMCL can't localize. `generate_occupancy_map.py::save_floor` applies `np.fliplr` + `np.flipud` to end up in the ROS convention. Run `verify_orientation.py` after any change to the generator.
+
+2. **NVIDIA's upstream `carter_navigation_params.yaml` has gotchas we patch in `kern_navigation_params.yaml`**: `collision_monitor.FootprintApproach.min_points` is `6000000000` in the reference (effectively disables the emergency stop — we use `4`), and `DWB.FollowPath.BaseObstacle.scale` is `0.02` in the reference (path-following critics outweigh obstacle avoidance 1600:1 — we use `15.0`). If someone copies a fresh upstream params file, they'll hit both.
+
+3. **Visualization: Foxglove over RViz for headless setups.** `foxglove_bridge` is installed on rosita; run `ros2 run foxglove_bridge foxglove_bridge --ros-args -p port:=8765` alongside Nav2 and connect from a laptop browser to `ws://<host>:8765`. RViz via SSH `-Y` X11 forwarding works but needs an X server on the client side (XQuartz on Mac, VcXsrv on Windows with `$env:DISPLAY = "localhost:0.0"`).
+
+**Quick runtime reference**:
+
+```bash
+# Isaac Sim + robot + ROS bridge
+~/isaacsim/python.sh navigation/nav2_orchestrator.py --floor 4 --stream --stream-ip 100.107.199.57
+# Optional: spawn a test obstacle cube at world coords (use = for negative values)
+~/isaacsim/python.sh navigation/nav2_orchestrator.py --floor 4 --stream --obstacle=-24.25,81.69
+
+# Nav2 stack (separate terminal, after "Scene ready")
+source /opt/ros/jazzy/setup.bash
+source ~/IsaacSim-ros_workspaces/jazzy_ws/install/setup.bash
+ros2 launch kern_navigation kern_navigation.launch.py
+
+# Send a goal
+ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose \
+  "{pose: {header: {frame_id: map}, pose: {position: {x: -7.30, y: 78.09, z: 0.0}, orientation: {w: 1.0}}}}"
+```
+
+**File layout** (post-reorg):
+
+- `navigation/nav2_orchestrator.py` — Isaac Sim entry point (was `simulations/robot/nav2_orchestrator.py` pre-reorg)
+- `navigation/params/kern_navigation_params.yaml` — all Nav2 params
+- `navigation/launch/kern_navigation.launch.py` — Nav2 bringup
+- `navigation/rviz2/kern_navigation.rviz` — RViz layout
+- `floorplan_vision/generate_occupancy_map.py` — occupancy scanner (was `test_building/generate_occupancy_map.py` pre-reorg)
+- `floorplan_vision/auto_graph_generator.py` — skeleton → navgraph
+- `floorplan_vision/verify_orientation.py` — Y-flip correctness check
+- `floorplan_vision/plot_graph_with_axes.py` — labeled-axis visualization
+- `assets/environments/InnovationCenter/maps/floor_{1-4}_occupancy.{png,npy}` — occupancy outputs
+- `assets/environments/InnovationCenter/navgraphs/floor_{1-4}_auto_navgraph.{json,gml}` — navgraph outputs
+- `assets/environments/InnovationCenter/navgraphs/floor_{1-4}_map_metadata.yaml` — **authoritative Nav2 map YAML** (points at `../maps/floor_N_occupancy.png`)
+- `assets/environments/InnovationCenter/building_info.json` — floor/bounds/spawn metadata
+
 ## GPU Partitions on Rosie
 
 | Partition | GPU Type | Time Limit | Use Case |
