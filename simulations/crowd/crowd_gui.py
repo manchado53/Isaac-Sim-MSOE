@@ -1,93 +1,119 @@
-"""Crowd GUI script.
+"""Crowd GUI script — AnimationGraph approach (confirmed working per tutorial).
+
+Steps:
+  1. Load character USD
+  2. Create AnimationGraph on the character
+  3. Add AnimationClip node pointing to walk skelanim
+  4. Assign graph to SkelRoot via SkelBindingAPI
+
 exec(open('/home/ad.msoe.edu/somed/isaac-sim-msoe/simulations/crowd/crowd_gui.py').read())
 """
-import os
-import carb
 import omni.usd
 import omni.kit.app
-import omni.kit.commands
-from pxr import UsdGeom, Sdf, Gf
+import omni.anim.graph.core as ag
+from pxr import UsdGeom, UsdSkel, Sdf, Gf, Usd
 from isaacsim.storage.native import get_assets_root_path
+from isaacsim.core.utils.stage import add_reference_to_stage
 
 stage = omni.usd.get_context().get_stage()
 app   = omni.kit.app.get_app()
 
-# ── Verify building is loaded ─────────────────────────────────────────────────
-top_prims = [str(p.GetPath()) for p in stage.GetPseudoRoot().GetChildren()]
-print(f"Top-level prims: {top_prims}")
-
-# ── Config ────────────────────────────────────────────────────────────────────
 ASSETS_ROOT = get_assets_root_path()
 CHAR_USD    = ASSETS_ROOT + "/Isaac/People/Characters/female_adult_police_01_new/female_adult_police_01_new.usd"
-CHAR_ROOT   = "/World/Characters"
-CHAR_PATH   = f"{CHAR_ROOT}/officer_01"
-CMD_FILE    = "/home/ad.msoe.edu/somed/isaac-sim-msoe/videos/crowd_commands.txt"
+WALK_USD    = ASSETS_ROOT + "/Isaac/People/Animations/stand_walk_1.skelanim.usd"
 FLOOR_Z     = 26.9
+CHAR_ROOT   = "/World/Characters"
 
-# ── Get behavior script path ──────────────────────────────────────────────────
-ext_mgr     = omni.kit.app.get_app().get_extension_manager()
-ext_path    = ext_mgr.get_extension_path_by_module("omni.anim.people")
-BHVR_SCRIPT = ext_path + "/omni/anim/people/scripts/character_behavior.py"
-print(f"BehaviorScript exists: {os.path.isfile(BHVR_SCRIPT)}")
+# Characters: (name, x, y)
+CHARACTERS = [
+    ("officer_01", -19.7, 70.1),
+    ("officer_02", -22.0, 72.5),
+]
 
 # ── Create character root ─────────────────────────────────────────────────────
 if not stage.GetPrimAtPath(CHAR_ROOT).IsValid():
     stage.DefinePrim(CHAR_ROOT, "Xform")
 
-# ── Character definitions: (prim_name, x, y) ─────────────────────────────────
-CHARACTERS = [
-    ("officer_01", -19.7, 70.1),
-    ("officer_02", -22.0, 72.0),
-]
-
+# ── Load characters ───────────────────────────────────────────────────────────
 for char_name, cx, cy in CHARACTERS:
     path = f"{CHAR_ROOT}/{char_name}"
-    if stage.GetPrimAtPath(path).IsValid():
-        print(f"{path} already exists, skipping")
-        continue
-    prim = stage.DefinePrim(path, "Xform")
-    prim.GetReferences().AddReference(CHAR_USD)
-    UsdGeom.XformCommonAPI(prim).SetTranslate(Gf.Vec3d(cx, cy, FLOOR_Z))
-    print(f"Loaded {path} at ({cx}, {cy}, {FLOOR_Z})")
-
-app.update()
-app.update()
-
-prim = stage.GetPrimAtPath(CHAR_PATH)
-print(f"Character prim valid: {prim.IsValid()}")
-
-# ── Set DAP settings ──────────────────────────────────────────────────────────
-settings = carb.settings.get_settings()
-settings.set("/exts/omni.anim.people/character_prim_path", CHAR_ROOT)
-settings.set("/exts/omni.anim.people/command_file_path",   CMD_FILE)
-settings.set("/exts/omni.anim.people/navmesh_enabled",     False)
-settings.set("/exts/omni.anim.people/dynamic_avoidance_enabled", False)
-
-# ── Write command file ────────────────────────────────────────────────────────
-with open(CMD_FILE, "w") as f:
-    f.write("officer_01 GoTo -22.0 72.0 26.9 0\n")
-    f.write("officer_01 GoTo -17.0 68.5 26.9 180\n")
-    f.write("officer_01 GoTo -19.7 70.1 26.9 90\n")
-    f.write("officer_02 GoTo -17.0 68.5 26.9 0\n")
-    f.write("officer_02 GoTo -22.0 72.0 26.9 180\n")
-    f.write("officer_02 GoTo -19.7 70.1 26.9 270\n")
-print(f"Command file written")
-
-# ── Attach BehaviorScript to all characters ───────────────────────────────────
-for char_name, _, _ in CHARACTERS:
-    path = f"{CHAR_ROOT}/{char_name}"
-    omni.kit.commands.execute("ApplyScriptingAPICommand", paths=[Sdf.Path(path)])
-    attr = stage.GetPrimAtPath(path).GetAttribute("omni:scripting:scripts")
-    if attr:
-        attr.Set([BHVR_SCRIPT])
-        print(f"BehaviorScript attached to {char_name}")
+    if not stage.GetPrimAtPath(path).IsValid():
+        prim = stage.DefinePrim(path, "Xform")
+        prim.GetReferences().AddReference(CHAR_USD)
+        UsdGeom.XformCommonAPI(prim).SetTranslate(Gf.Vec3d(cx, cy, FLOOR_Z))
+        print(f"Loaded {path}")
     else:
-        print(f"WARNING: Could not attach BehaviorScript to {char_name}")
+        print(f"{path} already exists")
 
 app.update()
 app.update()
+app.update()
 
-print("\n=== DONE ===")
-print("Now press the PLAY button in the toolbar.")
-print("Character should walk between the GoTo points.")
-print("Check Console for any DAP errors.")
+# ── Wire up AnimationGraph on each character ──────────────────────────────────
+for char_name, _, _ in CHARACTERS:
+    char_path = f"{CHAR_ROOT}/{char_name}"
+
+    # Find SkelRoot under this character
+    skel_root_prim = None
+    for prim in stage.Traverse():
+        if str(prim.GetPath()).startswith(char_path) and prim.GetTypeName() == "SkelRoot":
+            skel_root_prim = prim
+            break
+
+    if skel_root_prim is None:
+        print(f"ERROR: No SkelRoot found under {char_path}")
+        continue
+
+    skel_root_path = str(skel_root_prim.GetPath())
+    print(f"SkelRoot: {skel_root_path}")
+
+    # ── Load walk animation as a reference under the character ────────────────
+    walk_ref_path = f"{char_path}/WalkAnim"
+    if not stage.GetPrimAtPath(walk_ref_path).IsValid():
+        walk_prim = stage.DefinePrim(walk_ref_path)
+        walk_prim.GetReferences().AddReference(WALK_USD)
+        print(f"Walk anim loaded at {walk_ref_path}")
+
+    app.update()
+    app.update()
+
+    # Find the SkelAnimation prim inside WalkAnim
+    walk_anim_path = None
+    for prim in stage.Traverse():
+        p = str(prim.GetPath())
+        if p.startswith(walk_ref_path) and prim.GetTypeName() == "SkelAnimation":
+            walk_anim_path = p
+            print(f"SkelAnimation found: {walk_anim_path}")
+            break
+
+    if walk_anim_path is None:
+        print(f"ERROR: No SkelAnimation found under {walk_ref_path}")
+        continue
+
+    # ── Create AnimationGraph prim ────────────────────────────────────────────
+    graph_path = f"{char_path}/AnimationGraph"
+    if not stage.GetPrimAtPath(graph_path).IsValid():
+        graph_prim = stage.DefinePrim(graph_path, "AnimationGraph")
+        print(f"Created AnimationGraph at {graph_path}")
+    else:
+        graph_prim = stage.GetPrimAtPath(graph_path)
+        print(f"AnimationGraph already exists at {graph_path}")
+
+    # ── Add AnimationClip node inside graph ───────────────────────────────────
+    clip_path = f"{graph_path}/AnimationClip"
+    if not stage.GetPrimAtPath(clip_path).IsValid():
+        clip_prim = stage.DefinePrim(clip_path, "AnimationClip")
+        # Point AnimationClip to the walk skelanim
+        clip_prim.CreateAttribute("animationSource", Sdf.ValueTypeNames.String).Set(walk_anim_path)
+        print(f"Created AnimationClip at {clip_path} -> {walk_anim_path}")
+
+    app.update()
+    app.update()
+
+    # ── Assign AnimationGraph to SkelRoot ─────────────────────────────────────
+    binding = UsdSkel.BindingAPI.Apply(skel_root_prim)
+    binding.CreateAnimationSourceRel().SetTargets([Sdf.Path(graph_path)])
+    print(f"Assigned AnimationGraph to SkelRoot")
+
+app.update()
+print("\n=== DONE — press Play in toolbar ===")
