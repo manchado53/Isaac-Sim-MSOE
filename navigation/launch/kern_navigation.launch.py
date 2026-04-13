@@ -28,12 +28,12 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time", default="True")
 
     # Default map: floor 4 of the MSOE Innovation Center.
-    # The orchestration script (simulations/robot/nav2_orchestrator.py) prints
+    # The orchestration script (navigation/nav2_orchestrator.py) prints
     # the correct absolute path for any building/floor; pass it as `map:=<path>`
     # when launching from a different environment.
     map_dir = LaunchConfiguration(
         "map",
-        default="/home/thescript/isaac-sim-msoe/assets/environments/InnovationCenter/maps/floor_4_map_metadata.yaml",
+        default="/home/thescript/isaac-sim-msoe/assets/environments/InnovationCenter/navgraphs/floor_4_map_metadata.yaml",
     )
 
     param_dir = LaunchConfiguration(

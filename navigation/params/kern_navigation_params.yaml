@@ -43,8 +43,9 @@ amcl:
     always_reset_initial_pose: false
     first_map_only: false
     initial_pose:
-      # MSOE Innovation Center, floor 4, spawn node 77 (see InnovationCenter/building_info.json)
-      x: -10.70
+      # MSOE Innovation Center, floor 4 default spawn (post-Phase-2 X-flip fix).
+      # Matches assets/environments/InnovationCenter/building_info.json::floors.4.default_spawn.
+      x: -37.20
       y: 82.09
       z: 0.0
       yaw: 0.0
@@ -189,7 +190,13 @@ controller_server:
       short_circuit_trajectory_evaluation: True
       stateful: True
       critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
-      BaseObstacle.scale: 0.02
+      # Raised from 0.02 → 15.0 (see nav2 tuning docs / carter_navigation
+      # reference). With 0.02 DWB essentially ignores marked obstacle
+      # cells in its trajectory rollout and plows straight through them
+      # at path weight 32 vs obstacle weight 0.02 — 1600:1 imbalance.
+      # 15.0 puts obstacle avoidance roughly on par with path following,
+      # so DWB actually swerves around unmapped obstacles.
+      BaseObstacle.scale: 15.0
       PathAlign.scale: 32.0
       PathAlign.forward_point_distance: 0.1
       GoalAlign.scale: 24.0
@@ -205,7 +212,12 @@ local_costmap:
   local_costmap:
     ros__parameters:
       use_sim_time: True
-      footprint_padding: 0.03
+      # Raised 0.03 → 0.10 so the local costmap's collision check
+      # treats the robot as slightly larger than the planner does.
+      # This makes the controller STRICTLY more conservative than
+      # the global planner: DWB refuses to steer into poses that
+      # would later trip the planner's start_occupied check.
+      footprint_padding: 0.10
       update_frequency: 5.0
       publish_frequency: 2.0
       global_frame: odom
@@ -269,7 +281,12 @@ local_costmap:
           topic: /front_3d_lidar/lidar_points
           marking: true
           clearing: false
-          obstacle_range: 3.0
+          # Raised from 3.0 → 5.0 → 8.0 m. The 5.0 value still gave the
+          # local planner only ~6 s warning at cruise speed before an
+          # obstacle appeared in its trajectory rollout window, which
+          # wasn't enough time for DWB to commit to a large detour.
+          # 8.0 m matches our path-following lookahead horizon.
+          obstacle_range: 8.0
           min_obstacle_height: -0.4
           max_obstacle_height: 1.5
           expected_update_rate: 0.0
@@ -282,7 +299,16 @@ global_costmap:
   global_costmap:
     ros__parameters:
       use_sim_time: True
-      footprint_padding: 0.25
+      # Dropped 0.25 → 0.05. The 0.25 inherited from NVIDIA reference
+      # added 0.5 m to the effective robot diameter, bumping the
+      # costmap's inscribed_radius from 0.14 m to 0.39 m. That turned
+      # cells up to ~1.38 m from any wall into blocked-inflated cells,
+      # causing "Start occupied" the moment the robot drifted close to
+      # a corridor wall. 0.05 keeps the check tight so the PADDED
+      # footprint only blocks if the robot is genuinely touching the
+      # wall, and we use the larger inflation_radius below for
+      # clearance-preference.
+      footprint_padding: 0.05
       update_frequency: 1.0
       publish_frequency: 1.0
       global_frame: map
@@ -300,16 +326,29 @@ global_costmap:
           clearing: True
           marking: True
           data_type: "LaserScan"
-          raytrace_max_range: 10.0
+          # Raised 10.0 → 15.0 so the planner sees obstacles with
+          # enough range to compute a global detour before the robot
+          # commits to a direct path that would need drastic re-routing.
+          raytrace_max_range: 15.0
           raytrace_min_range: 0.0
-          obstacle_max_range: 10.0
+          obstacle_max_range: 15.0
           obstacle_min_range: 0.0
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: True
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 0.3
+        # Cost gradient tuning for "stay far from walls" path preference:
+        # inflation_radius 1.0 m = cost gradient reaches 1 m from every
+        # wall. cost_scaling_factor 0.1 = slow decay so even cells 0.5 m
+        # from a wall still cost ~245 (vs ~195 under the old 0.3 decay).
+        # Combined with SmacPlanner2D.cost_travel_multiplier: 4.0 below,
+        # this makes A* actively prefer wall-clearing paths instead of
+        # grudgingly hugging walls to save a few grid cells. The
+        # costmap's "blocked" inscribed radius stays at 0.14+0.05=0.19 m
+        # (from footprint_padding: 0.05 above), so the planner still
+        # accepts poses that are genuinely traversable.
+        cost_scaling_factor: 0.1
         inflation_radius: 1.0
       always_send_full_costmap: True
   global_costmap_client:
@@ -338,7 +377,12 @@ collision_monitor:
       footprint_topic: "/local_costmap/published_footprint"
       time_before_collision: 1.2
       simulation_time_step: 0.1
-      min_points: 6000000000
+      # NVIDIA's upstream carter_navigation_params.yaml ships
+      # min_points: 6000000000 — six BILLION lidar points required before
+      # the emergency stop fires, which silently disables the collision
+      # monitor. A Hesai scan has a few thousand points per sweep; 4 is
+      # the sane value recommended by Nav2 docs for a 2D LaserScan source.
+      min_points: 4
       visualize: False
       enabled: True
     observation_sources: ["scan"]
@@ -355,7 +399,7 @@ map_server:
     # Overridden at launch time by the `map:=` argument. The Nav2 bringup passes
     # the launch-arg map path to map_server directly, so this default is only
     # used if someone launches map_server standalone.
-    yaml_filename: "/home/thescript/isaac-sim-msoe/assets/environments/InnovationCenter/maps/floor_4_map_metadata.yaml"
+    yaml_filename: "/home/thescript/isaac-sim-msoe/assets/environments/InnovationCenter/navgraphs/floor_4_map_metadata.yaml"
 
 map_saver:
   ros__parameters:
@@ -370,11 +414,31 @@ planner_server:
     use_sim_time: True
     expected_planner_frequency: 10.0
     planner_plugins: ["GridBased"]
+    # SmacPlanner2D handles rectangular footprints properly (full SE2 collision
+    # checking), unlike NavfnPlanner which only checks the robot's center cell
+    # and fails whenever the center is within the inflation radius of a wall.
+    # See https://github.com/ros-navigation/navigation2/issues/5685 — this is
+    # the Nav2-maintainer-recommended fix for non-circular robots like Nova Carter.
     GridBased:
-      plugin: "nav2_navfn_planner::NavfnPlanner"
-      tolerance: 0.5
-      use_astar: false
+      plugin: "nav2_smac_planner::SmacPlanner2D"
+      tolerance: 0.125
+      downsample_costmap: false
+      downsampling_factor: 1
       allow_unknown: true
+      max_iterations: 1000000
+      max_on_approach_iterations: 1000
+      max_planning_time: 2.0
+      # Raised 2.0 → 4.0 so A* actively prefers low-cost cells far from
+      # walls. Combined with the larger inflation_radius (1.0) and slower
+      # cost_scaling_factor (0.1) on the global_costmap, the planner now
+      # consistently routes ~1 m off walls instead of hugging them.
+      cost_travel_multiplier: 4.0
+      use_final_approach_orientation: false
+      smoother:
+        max_iterations: 1000
+        w_smooth: 0.3
+        w_data: 0.2
+        tolerance: 1.0e-10
 
 planner_server_rclcpp_node:
   ros__parameters:
