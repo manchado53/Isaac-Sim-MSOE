@@ -34,26 +34,27 @@ print(f"BehaviorScript exists: {os.path.isfile(BHVR_SCRIPT)}")
 if not stage.GetPrimAtPath(CHAR_ROOT).IsValid():
     stage.DefinePrim(CHAR_ROOT, "Xform")
 
-# ── Load character ────────────────────────────────────────────────────────────
-if stage.GetPrimAtPath(CHAR_PATH).IsValid():
-    print(f"Character already exists at {CHAR_PATH}, skipping load")
-else:
-    prim = stage.DefinePrim(CHAR_PATH, "Xform")
+# ── Character definitions: (prim_name, x, y) ─────────────────────────────────
+CHARACTERS = [
+    ("officer_01", -19.7, 70.1),
+    ("officer_02", -22.0, 72.0),
+]
+
+for char_name, cx, cy in CHARACTERS:
+    path = f"{CHAR_ROOT}/{char_name}"
+    if stage.GetPrimAtPath(path).IsValid():
+        print(f"{path} already exists, skipping")
+        continue
+    prim = stage.DefinePrim(path, "Xform")
     prim.GetReferences().AddReference(CHAR_USD)
-    print(f"Character referenced at {CHAR_PATH}")
+    UsdGeom.XformCommonAPI(prim).SetTranslate(Gf.Vec3d(cx, cy, FLOOR_Z))
+    print(f"Loaded {path} at ({cx}, {cy}, {FLOOR_Z})")
 
 app.update()
 app.update()
 
-# Verify it loaded
 prim = stage.GetPrimAtPath(CHAR_PATH)
 print(f"Character prim valid: {prim.IsValid()}")
-print(f"Character prim type: {prim.GetTypeName()}")
-
-# ── Position at Floor 4 ───────────────────────────────────────────────────────
-xform = UsdGeom.XformCommonAPI(prim)
-xform.SetTranslate(Gf.Vec3d(-19.7, 70.1, FLOOR_Z))
-print(f"Positioned at Floor 4 Z={FLOOR_Z}")
 
 # ── Set DAP settings ──────────────────────────────────────────────────────────
 settings = carb.settings.get_settings()
@@ -67,16 +68,21 @@ with open(CMD_FILE, "w") as f:
     f.write("officer_01 GoTo -22.0 72.0 26.9 0\n")
     f.write("officer_01 GoTo -17.0 68.5 26.9 180\n")
     f.write("officer_01 GoTo -19.7 70.1 26.9 90\n")
+    f.write("officer_02 GoTo -17.0 68.5 26.9 0\n")
+    f.write("officer_02 GoTo -22.0 72.0 26.9 180\n")
+    f.write("officer_02 GoTo -19.7 70.1 26.9 270\n")
 print(f"Command file written")
 
-# ── Attach BehaviorScript ─────────────────────────────────────────────────────
-omni.kit.commands.execute("ApplyScriptingAPICommand", paths=[Sdf.Path(CHAR_PATH)])
-attr = stage.GetPrimAtPath(CHAR_PATH).GetAttribute("omni:scripting:scripts")
-if attr:
-    attr.Set([BHVR_SCRIPT])
-    print(f"BehaviorScript attached")
-else:
-    print("WARNING: Could not attach BehaviorScript")
+# ── Attach BehaviorScript to all characters ───────────────────────────────────
+for char_name, _, _ in CHARACTERS:
+    path = f"{CHAR_ROOT}/{char_name}"
+    omni.kit.commands.execute("ApplyScriptingAPICommand", paths=[Sdf.Path(path)])
+    attr = stage.GetPrimAtPath(path).GetAttribute("omni:scripting:scripts")
+    if attr:
+        attr.Set([BHVR_SCRIPT])
+        print(f"BehaviorScript attached to {char_name}")
+    else:
+        print(f"WARNING: Could not attach BehaviorScript to {char_name}")
 
 app.update()
 app.update()
