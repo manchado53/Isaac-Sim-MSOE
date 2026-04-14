@@ -1,28 +1,46 @@
-"""Diagnostic: dump everything inside the loaded character prim.
+"""Check what omni.anim.graph.ui actually exposes and find animation graph API.
 exec(open('/home/ad.msoe.edu/somed/isaac-sim-msoe/simulations/crowd/crowd_gui.py').read())
 """
 import omni.usd
+import omni.kit.app
 stage = omni.usd.get_context().get_stage()
+app = omni.kit.app.get_app()
 
-# Dump all prims under /World/Characters
 out = []
-for prim in stage.Traverse():
-    p = str(prim.GetPath())
-    if p.startswith("/World/Characters"):
-        depth = p.count("/") - 2
-        t = prim.GetTypeName()
-        apis = [str(a) for a in prim.GetAppliedSchemas()]
-        attrs = [a.GetName() for a in prim.GetAttributes()]
-        line = f"{'  '*depth}{p}  [{t}]"
-        if apis:
-            line += f"  schemas={apis}"
-        if any(k in str(attrs) for k in ["anim","graph","script","skel"]):
-            line += f"  attrs={[a for a in attrs if any(k in a for k in ['anim','graph','script','skel'])]}"
-        out.append(line)
+
+# Check what anim graph extensions are loaded
+ext_mgr = app.get_extension_manager()
+for ext in ["omni.anim.graph.core", "omni.anim.graph.ui", "omni.anim.graph.schema"]:
+    enabled = ext_mgr.is_extension_enabled(ext)
+    out.append(f"{ext}: enabled={enabled}")
+
+# Try importing core
+try:
+    import omni.anim.graph.core as ag
+    out.append(f"omni.anim.graph.core imported OK")
+    out.append(f"  dir: {[x for x in dir(ag) if not x.startswith('_')]}")
+except Exception as e:
+    out.append(f"omni.anim.graph.core import FAILED: {e}")
+
+# Try importing schema
+try:
+    import omni.anim.graph.schema as ags
+    out.append(f"omni.anim.graph.schema imported OK")
+    out.append(f"  dir: {[x for x in dir(ags) if not x.startswith('_')]}")
+except Exception as e:
+    out.append(f"omni.anim.graph.schema import FAILED: {e}")
+
+# Try to create an AnimationGraph prim directly
+char_path = "/female_adult_police_01_new"
+graph_path = char_path + "/AnimGraph_Test"
+try:
+    prim = stage.DefinePrim(graph_path, "AnimationGraph")
+    out.append(f"DefinePrim AnimationGraph: valid={prim.IsValid()} type={prim.GetTypeName()}")
+except Exception as e:
+    out.append(f"DefinePrim AnimationGraph FAILED: {e}")
 
 result = "\n".join(out)
 print(result)
-
-with open("/home/ad.msoe.edu/somed/isaac-sim-msoe/videos/char_dump.txt", "w") as f:
+with open("/home/ad.msoe.edu/somed/isaac-sim-msoe/videos/animgraph_check.txt", "w") as f:
     f.write(result)
-print("\nSaved to videos/char_dump.txt")
+print("Saved to videos/animgraph_check.txt")
