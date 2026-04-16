@@ -36,7 +36,7 @@ sys.path.insert(0, _project_dir)
 from isaacsim.core.api import World
 from isaacsim.core.api.objects import DynamicCuboid
 from sim_utils.test_cameras import (
-    TEST_CAMERAS, create_test_camera, add_interior_lighting, look_at_orientation,
+    discover_test_cameras, create_test_camera, add_interior_lighting, look_at_orientation,
     set_focal_length_on_prim,
 )
 from sim_utils.video_capture import VideoRecorder
@@ -112,7 +112,10 @@ def main():
     )
 
     setup_physics_scene(stage)
-    add_interior_lighting(stage)
+    TEST_CAMERAS = discover_test_cameras(stage)
+    print(f"[cube_drop] Discovered {len(TEST_CAMERAS)} test cameras: "
+          f"{list(TEST_CAMERAS.keys())}", flush=True)
+    add_interior_lighting(stage, TEST_CAMERAS)
 
     # Ground plane at building bottom
     building_prim = stage.GetPrimAtPath("/World/Building")

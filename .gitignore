@@ -11,3 +11,4 @@ images/
 *.ifc
 *.log
 /logs/
+datasets/
