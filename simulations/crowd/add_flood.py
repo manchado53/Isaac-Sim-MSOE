@@ -13,7 +13,7 @@ os.environ["PRIVACY_CONSENT"] = "Y"
 from isaacsim import SimulationApp
 app = SimulationApp({"headless": True})
 
-from pxr import Usd, UsdGeom, UsdShade, Sdf, Gf, VtArray
+from pxr import Usd, UsdGeom, UsdShade, Sdf, Gf, Vt
 
 PROJECT_DIR  = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 IN_USD  = os.path.join(PROJECT_DIR, "assets/environments/msoe_building/floor4_no_plants.usd")
@@ -37,15 +37,15 @@ mesh = UsdGeom.Mesh.Define(stage, water_path)
 
 # Large flat quad covering Floor 4 area (120m x 120m)
 half = 60.0
-pts = VtArray.Vec3fArray([
+pts = Vt.Vec3fArray([
     Gf.Vec3f(-half, -half, 0),
     Gf.Vec3f( half, -half, 0),
     Gf.Vec3f( half,  half, 0),
     Gf.Vec3f(-half,  half, 0),
 ])
 mesh.GetPointsAttr().Set(pts)
-mesh.GetFaceVertexCountsAttr().Set(VtArray.IntArray([4]))
-mesh.GetFaceVertexIndicesAttr().Set(VtArray.IntArray([0, 1, 2, 3]))
+mesh.GetFaceVertexCountsAttr().Set(Vt.IntArray([4]))
+mesh.GetFaceVertexIndicesAttr().Set(Vt.IntArray([0, 1, 2, 3]))
 mesh.GetSubdivisionSchemeAttr().Set("none")
 
 # Double-sided so it's visible from below too
