@@ -25,6 +25,21 @@ parser = argparse.ArgumentParser(description="Ball barrage showcase with orbital
 parser.add_argument("--input", required=True, help="Path to physics-ready USD file")
 parser.add_argument("--video", default=None, help="Output video name override")
 parser.add_argument("--report", default=None, help="Report log path override")
+parser.add_argument(
+    "--hide-patterns",
+    default="",
+    help="Comma-separated substrings; any prim path under /World/Building matching "
+         "any of these is hidden (visibility=invisible) AND excluded from geometry "
+         "calc. Useful for stripping trees, planting, and site clutter that "
+         "inflate the camera orbit radius. Example: 'Tree,Planting,Entourage'.",
+)
+parser.add_argument(
+    "--cam-radius-mult",
+    type=float,
+    default=1.05,
+    help="Camera orbit radius as a multiple of building half-diagonal (default 1.05). "
+         "Larger values pull the camera back for a wider establishing shot.",
+)
 args, _unknown = parser.parse_known_args()
 
 os.environ["OMNI_KIT_ACCEPT_EULA"] = "YES"
@@ -75,15 +90,21 @@ def log(msg=""):
 # layout is consistent regardless of building aspect ratio.
 NUM_AZIMUTHS = 24           # ring segments
 BALLS_PER_SITE = 4          # 2 heights * 2 balls
-BALL_RADIUS = 2.0           # visible at ~250 m orbit distance
+BALL_RADIUS = 1.5           # visible at close range
 BALL_MASS = 25.0
-LAUNCH_SPEED = 55.0         # m/s toward building center — fast, dramatic streaks
-VELOCITY_JITTER = 2.0
+LAUNCH_SPEED = 50.0         # m/s horizontal — covers typical flight distance quickly
+VELOCITY_JITTER = 1.5
 HEIGHT_LAYERS = 2
-LAUNCH_RADIUS_MULT = 1.15   # launch ring clears bbox at all angles (not just corners)
-CAM_RADIUS_MULT  = 1.60     # camera sits outside the launch ring
+LAUNCH_RADIUS_MULT = 0.85   # fraction of bbox half-diagonal for the fixed launch ring
+LAUNCH_MARGIN = 4.0         # added on top of the computed base radius
+CAM_RADIUS_MULT = 1.05      # fixed orbit radius as a multiple of half-diagonal (IC-style)
 CAM_HEIGHT_MULT  = 0.55     # moderate 3/4 view, constant altitude
-CAM_FOCAL_LENGTH_MM = 18.0
+CAM_ZBOB_MULT    = 0.08     # gentle up/down bob as camera orbits (IC-style)
+CAM_FOCAL_LENGTH_MM = 22.0  # slightly tighter since camera is close
+FACADE_SAMPLES = 72         # angular samples for per-angle facade distance (every 5°)
+ORBIT_FRAMES = 600          # 20s at 30fps — slower, smoother rotation
+FIRE_FRAME = 30             # 1s buildup: all balls visible and still, then all launch together
+GRAVITY = 9.81              # m/s^2 — for ballistic arc compensation
 
 # Color palette — cycled across sites for visual variety
 BALL_COLORS = [
@@ -123,18 +144,54 @@ def freeze_doors(stage):
     return frozen
 
 
-def compute_building_centroid(building_prim, bbox_cache):
-    """Volume-weighted centroid of all mesh elements under the building.
+def hide_matching_prims(stage, patterns):
+    """Hide any prim under /World/Building whose path contains one of `patterns`.
 
-    The bounding-box midpoint can be far from the visual center when the
-    building has an irregular footprint (L-shaped, wings, etc.).  This
-    weights each mesh's bbox center by its bbox volume, giving a centroid
-    that tracks where actual geometry is concentrated.
+    Sets `visibility=invisible` on each match so it disappears from render.
+    Returns a set of hidden prim paths (strings). The caller passes this
+    set to compute_building_geometry() so hidden geometry is also excluded
+    from the camera-framing math.
     """
+    hidden = set()
+    if not patterns:
+        return hidden
+    per_pattern_counts = {p: 0 for p in patterns}
+    for prim in stage.Traverse():
+        path = str(prim.GetPath())
+        if not path.startswith("/World/Building"):
+            continue
+        for pat in patterns:
+            if pat and pat in path:
+                imageable = UsdGeom.Imageable(prim)
+                if imageable:
+                    imageable.CreateVisibilityAttr().Set(UsdGeom.Tokens.invisible)
+                hidden.add(path)
+                per_pattern_counts[pat] += 1
+                break
+    return hidden, per_pattern_counts
+
+
+def compute_building_geometry(building_prim, bbox_cache, hidden_paths=None):
+    """Iterate every mesh under the building, returning (centroid, mesh_corners_xy).
+
+    centroid -- volume-weighted center of mesh positions (more accurate
+    than the bbox midpoint for irregular footprints).
+    mesh_corners_xy -- shape (N*4, 2) array of the horizontal bbox
+    corners of every mesh, used later to compute per-angle facade distances.
+
+    If `hidden_paths` is provided, any mesh whose prim path starts with one
+    of those paths is excluded (so hidden site/landscape geometry doesn't
+    pull the centroid or inflate the orbit radius).
+    """
+    hidden_paths = hidden_paths or set()
     positions = []
     weights = []
+    corners_xy = []
     for prim in Usd.PrimRange(building_prim):
         if not prim.IsA(UsdGeom.Mesh):
+            continue
+        p = str(prim.GetPath())
+        if any(p == h or p.startswith(h + "/") for h in hidden_paths):
             continue
         elem_bbox = bbox_cache.ComputeWorldBound(prim)
         elem_range = elem_bbox.ComputeAlignedRange()
@@ -147,13 +204,47 @@ def compute_building_centroid(building_prim, bbox_cache):
         vol = max(extent[0] * extent[1] * extent[2], 0.001)
         positions.append(center)
         weights.append(vol)
+        corners_xy.append([emin[0], emin[1]])
+        corners_xy.append([emax[0], emin[1]])
+        corners_xy.append([emin[0], emax[1]])
+        corners_xy.append([emax[0], emax[1]])
 
     if len(positions) == 0:
-        return None
+        return None, None
 
     positions = np.array(positions)
     weights = np.array(weights)
-    return np.average(positions, axis=0, weights=weights)
+    centroid = np.average(positions, axis=0, weights=weights)
+    return centroid, np.array(corners_xy)
+
+
+def facade_distances(centroid_xy, mesh_corners_xy, angles):
+    """Per-angle max projection of mesh corners from centroid.
+
+    Returns the distance from the centroid to the farthest piece of building
+    geometry along each angle -- i.e., how far the facade extends outward
+    along that ray.  Vectorized: one matrix multiply over all corners x angles.
+    """
+    offsets = mesh_corners_xy - np.asarray(centroid_xy, dtype=float)
+    dirs = np.stack([np.cos(angles), np.sin(angles)], axis=0)  # (2, A)
+    projections = offsets @ dirs  # (N*4, A)
+    return projections.max(axis=0)  # (A,)
+
+
+def interpolate_facade(angle, sample_angles, sample_dists):
+    """Linear interpolation of facade distance at an arbitrary angle.
+
+    sample_angles are evenly spaced in [0, 2*pi).  angle is wrapped mod 2*pi.
+    """
+    TWO_PI = 2.0 * math.pi
+    a = angle % TWO_PI
+    n = len(sample_angles)
+    step = TWO_PI / n
+    idx = a / step
+    i0 = int(idx) % n
+    i1 = (i0 + 1) % n
+    frac = idx - int(idx)
+    return sample_dists[i0] * (1.0 - frac) + sample_dists[i1] * frac
 
 
 def look_at_orientation(cam_pos, target):
@@ -195,6 +286,18 @@ def main():
 
     setup_physics_scene(stage)
 
+    # Strip out trees/landscape/entourage before anything else — they bias
+    # the bbox, centroid, and facade distances, which pushes the camera
+    # orbit too close to the main building volume.
+    hide_patterns = [p.strip() for p in args.hide_patterns.split(",") if p.strip()]
+    hidden_paths = set()
+    if hide_patterns:
+        hidden_paths, per_pattern = hide_matching_prims(stage, hide_patterns)
+        log(f"\nHide patterns: {hide_patterns}")
+        for pat, count in per_pattern.items():
+            log(f"  '{pat}' -> {count} prims hidden")
+        log(f"Total prims hidden: {len(hidden_paths)}")
+
     building_prim = stage.GetPrimAtPath("/World/Building")
     bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
     bbox = bbox_cache.ComputeWorldBound(building_prim)
@@ -207,18 +310,42 @@ def main():
     horiz_diag = math.sqrt(float(bldg_extent[0])**2 + float(bldg_extent[1])**2)
     half_diag = horiz_diag / 2.0
 
-    # Use mesh-weighted centroid for camera orbit and ball targeting —
+    # Mesh-weighted centroid + mesh corners for per-angle facade distance —
     # the bbox midpoint can be far off for irregular building footprints.
-    centroid = compute_building_centroid(building_prim, bbox_cache)
+    # Hidden prims (trees/landscape) are excluded so the orbit math reflects
+    # the actual building volume, not surrounding site clutter.
+    centroid, mesh_corners_xy = compute_building_geometry(
+        building_prim, bbox_cache, hidden_paths=hidden_paths
+    )
     if centroid is not None:
         bldg_center = centroid
         offset = np.linalg.norm(centroid[:2] - bbox_center[:2])
         log(f"Mesh centroid: ({centroid[0]:.1f}, {centroid[1]:.1f}, {centroid[2]:.1f})")
         log(f"Bbox center:   ({bbox_center[0]:.1f}, {bbox_center[1]:.1f}, {bbox_center[2]:.1f})")
         log(f"XY offset between centroid and bbox center: {offset:.1f}")
+        log(f"Mesh corners collected: {len(mesh_corners_xy)}")
     else:
         bldg_center = bbox_center
+        mesh_corners_xy = None
         log("WARNING: centroid computation failed, falling back to bbox center")
+
+    # Precompute per-angle facade distance (how far the building extends
+    # outward from the centroid along each azimuth).  Used for ball launch
+    # positions only — camera keeps a fixed radius for a smooth orbit.
+    sample_angles = np.linspace(0.0, 2.0 * math.pi, FACADE_SAMPLES, endpoint=False)
+    if mesh_corners_xy is not None:
+        facade_dists = facade_distances(bldg_center[:2], mesh_corners_xy, sample_angles)
+        # Clip outlier meshes to the bbox half-diagonal — rare stray geometry
+        # can report distances beyond the aggregate bbox and would push the
+        # launch ring well outside the visible building.
+        clip_max = half_diag * 1.05
+        facade_dists = np.minimum(facade_dists, clip_max)
+        log(f"Facade distance range: min={facade_dists.min():.1f}, "
+            f"max={facade_dists.max():.1f}, mean={facade_dists.mean():.1f} "
+            f"(clipped at {clip_max:.1f})")
+    else:
+        # Fallback: use half-diagonal uniformly
+        facade_dists = np.full(FACADE_SAMPLES, half_diag)
 
     log(f"Building bbox: ({bb_min[0]:.1f}, {bb_min[1]:.1f}, {bb_min[2]:.1f}) "
         f"to ({bb_max[0]:.1f}, {bb_max[1]:.1f}, {bb_max[2]:.1f})")
@@ -239,14 +366,15 @@ def main():
 
     # --- Phase 2: Spawn ball grid ---
     log(f"\nSpawning {NUM_AZIMUTHS * HEIGHT_LAYERS * BALLS_PER_SITE // HEIGHT_LAYERS // 1} balls")
-    # All distances scale off half-diagonal, so balls always start just
-    # outside the building envelope and the camera sits a bit further out.
-    launch_radius = half_diag * LAUNCH_RADIUS_MULT
-    cam_radius = half_diag * CAM_RADIUS_MULT
     cam_height = float(bldg_center[2]) + float(bldg_extent[2]) * CAM_HEIGHT_MULT
 
-    # Storage position: far above, well out of view
-    storage_z = float(bb_max[2]) + 150.0
+    # Constant launch radius — every ball at the same distance from centroid.
+    # Tie it to the bbox half-diagonal so the ring sits snug against the
+    # bulk of the building; outlier-direction balls will spawn just inside
+    # stray geometry and collide on launch (visually hidden under the volley).
+    launch_radius = half_diag * LAUNCH_RADIUS_MULT + LAUNCH_MARGIN
+    log(f"Constant launch radius: {launch_radius:.1f} "
+        f"(half_diag {half_diag:.1f} * {LAUNCH_RADIUS_MULT} + {LAUNCH_MARGIN}m)")
 
     # Ball layout: site k has BALLS_PER_SITE balls across HEIGHT_LAYERS layers
     balls_per_layer = BALLS_PER_SITE // HEIGHT_LAYERS
@@ -264,7 +392,7 @@ def main():
 
             for b in range(balls_per_layer):
                 # Spread along the tangent direction for a wider volley
-                tangent_offset = (b - (balls_per_layer - 1) / 2.0) * 2.5
+                tangent_offset = (b - (balls_per_layer - 1) / 2.0) * 2.0
                 tx = -math.sin(angle) * tangent_offset
                 ty = math.cos(angle) * tangent_offset
 
@@ -273,26 +401,30 @@ def main():
                     float(bldg_center[1]) + launch_radius * math.sin(angle) + ty,
                     launch_z,
                 ])
-                # Velocity: toward building center, with small jitter
-                direction = bldg_center - fire_pos
-                direction[2] = 0.0
-                direction = direction / (np.linalg.norm(direction) + 1e-9)
+                # Ball flies toward the building along the centroid ray.
+                # Flight distance depends on the per-angle facade — ballistic
+                # arc is tuned so the ball arrives at the wall at launch height.
+                dx = float(bldg_center[0]) - fire_pos[0]
+                dy = float(bldg_center[1]) - fire_pos[1]
+                horiz_dist = math.sqrt(dx * dx + dy * dy)
+                horiz_dir = np.array([dx / horiz_dist, dy / horiz_dist, 0.0])
+                facade_r = float(interpolate_facade(angle, sample_angles, facade_dists))
+                flight_dist = max(launch_radius - facade_r, 0.5)
+                flight_time = flight_dist / LAUNCH_SPEED
+                v_z_compensation = 0.5 * GRAVITY * flight_time
                 jitter = (np.random.rand(3) - 0.5) * 2.0 * VELOCITY_JITTER
                 jitter[2] *= 0.3  # less vertical jitter
-                fire_vel = direction * LAUNCH_SPEED + jitter
+                fire_vel = (horiz_dir * LAUNCH_SPEED
+                            + np.array([0.0, 0.0, v_z_compensation])
+                            + jitter)
 
                 color = BALL_COLORS[(k + layer) % len(BALL_COLORS)]
-                storage_pos = np.array([
-                    fire_pos[0] + (np.random.rand() - 0.5) * 4.0,
-                    fire_pos[1] + (np.random.rand() - 0.5) * 4.0,
-                    storage_z + layer * 4.0 + b * 1.0,
-                ])
 
                 name = f"ball_{k:02d}_{layer}_{b}"
                 ball = world.scene.add(DynamicSphere(
                     prim_path=f"/World/Balls/{name}",
                     name=name,
-                    position=storage_pos,
+                    position=fire_pos,
                     radius=BALL_RADIUS,
                     color=np.array(color),
                     mass=BALL_MASS,
@@ -301,7 +433,6 @@ def main():
                     "obj": ball,
                     "fire_pos": fire_pos,
                     "fire_vel": fire_vel,
-                    "storage_pos": storage_pos,
                 })
                 total_spawned += 1
 
@@ -309,7 +440,9 @@ def main():
 
     log(f"Total balls: {total_spawned} across {NUM_AZIMUTHS} launch sites")
 
-    # Camera
+    # Camera — fixed orbit radius (IC style) so framing stays consistent.
+    cam_radius_mult = args.cam_radius_mult
+    cam_radius = half_diag * cam_radius_mult
     initial_pos = np.array([
         float(bldg_center[0]) + cam_radius,
         float(bldg_center[1]),
@@ -329,80 +462,66 @@ def main():
         fl_attr = cam_prim.GetAttribute("focalLength")
         if fl_attr:
             fl_attr.Set(CAM_FOCAL_LENGTH_MM)
-    log(f"Camera orbit radius={cam_radius:.1f}, height={cam_height:.1f}, "
-        f"focal={CAM_FOCAL_LENGTH_MM}mm")
+    log(f"Camera orbit radius={cam_radius:.1f} (mult={cam_radius_mult:.2f}), "
+        f"height={cam_height:.1f}, focal={CAM_FOCAL_LENGTH_MM}mm")
 
     # --- Phase 3: Reset & warm-up ---
     world.reset()
     camera.initialize()
 
-    # Freeze balls in storage: zero out velocity + disable gravity via kinematic
+    # Zero initial velocities — balls are visible at fire_pos from frame 0.
     for site in sites:
         for bd in site["balls"]:
             bd["obj"].set_linear_velocity(np.array([0.0, 0.0, 0.0]))
             bd["obj"].set_angular_velocity(np.array([0.0, 0.0, 0.0]))
 
-    log("\nWarming up (30 frames)...")
+    log("\nWarming up (30 frames, balls pinned at fire positions)...")
     for _ in range(30):
-        # Keep storage balls pinned by re-zeroing velocity each frame
+        # Pin balls at their fire positions so gravity doesn't pull them down
         for site in sites:
             for bd in site["balls"]:
-                bd["obj"].set_world_pose(position=bd["storage_pos"])
+                bd["obj"].set_world_pose(position=bd["fire_pos"])
                 bd["obj"].set_linear_velocity(np.array([0.0, 0.0, 0.0]))
                 bd["obj"].set_angular_velocity(np.array([0.0, 0.0, 0.0]))
         world.step(render=True)
 
-    # --- Phase 4: Orbit + fire ---
-    orbit_frames = 450
-    # Fire each site when camera has rotated to be ~90 deg ahead of it,
-    # so the camera sees balls streaking in toward the near facade.
-    fire_lead_frac = 0.15  # fraction of a full turn that camera leads the site
-    fire_schedule = {}
-    for k, site in enumerate(sites):
-        site_orbit_frac = k / NUM_AZIMUTHS
-        cam_at_fire = (site_orbit_frac + fire_lead_frac) % 1.0
-        fire_frame = int(cam_at_fire * orbit_frames)
-        fire_schedule[fire_frame] = fire_schedule.get(fire_frame, []) + [k]
+    # --- Phase 4: Orbit + single synchronized volley ---
+    orbit_frames = ORBIT_FRAMES
+    fired = False
 
     log(f"\nRecording {orbit_frames} frames ({orbit_frames/30:.0f}s @ 30fps)")
-    log(f"Launch schedule: {NUM_AZIMUTHS} volleys staggered every "
-        f"{orbit_frames // NUM_AZIMUTHS} frames")
+    log(f"Single volley: all {total_spawned} balls launch together at frame {FIRE_FRAME}")
 
-    fired_sites = set()
     with VideoRecorder(video_name, fps=30) as recorder:
         for i in range(orbit_frames):
-            # Camera position — pure circular orbit centered on building,
-            # constant altitude, always looking at the building center.
+            # Camera — pure circular orbit at fixed radius (IC style),
+            # with a gentle sinusoidal height bob for visual interest.
             angle = 2 * math.pi * i / orbit_frames
+            height_bob = float(bldg_extent[2]) * CAM_ZBOB_MULT * math.sin(2 * angle)
             cam_x = float(bldg_center[0]) + cam_radius * math.cos(angle)
             cam_y = float(bldg_center[1]) + cam_radius * math.sin(angle)
-            cam_z = cam_height
+            cam_z = cam_height + height_bob
             cam_pos = np.array([cam_x, cam_y, cam_z])
             orient = look_at_orientation(cam_pos, bldg_center)
             camera.set_world_pose(position=cam_pos, orientation=orient)
 
-            # Fire any sites scheduled for this frame
-            for k in fire_schedule.get(i, []):
-                site = sites[k]
-                for bd in site["balls"]:
-                    bd["obj"].set_world_pose(position=bd["fire_pos"])
-                    bd["obj"].set_linear_velocity(bd["fire_vel"])
-                    bd["obj"].set_angular_velocity(np.array([0.0, 0.0, 0.0]))
-                fired_sites.add(k)
-                # Verify first ball actually got velocity
-                if k < 3:
-                    vel_check = site["balls"][0]["obj"].get_linear_velocity()
-                    log(f"  [fire] site={k} frame={i} vel_cmd={site['balls'][0]['fire_vel'][:2]} "
-                        f"vel_read={vel_check[:2] if vel_check is not None else None}")
-
-            # Pin un-fired sites in storage
-            for k, site in enumerate(sites):
-                if k in fired_sites:
-                    continue
-                for bd in site["balls"]:
-                    bd["obj"].set_world_pose(position=bd["storage_pos"])
-                    bd["obj"].set_linear_velocity(np.array([0.0, 0.0, 0.0]))
-                    bd["obj"].set_angular_velocity(np.array([0.0, 0.0, 0.0]))
+            if i < FIRE_FRAME:
+                # Keep balls pinned at fire positions so they stay visible
+                # and stationary until the synchronized launch.
+                for site in sites:
+                    for bd in site["balls"]:
+                        bd["obj"].set_world_pose(position=bd["fire_pos"])
+                        bd["obj"].set_linear_velocity(np.array([0.0, 0.0, 0.0]))
+                        bd["obj"].set_angular_velocity(np.array([0.0, 0.0, 0.0]))
+            elif i == FIRE_FRAME and not fired:
+                # Fire every ball in the same physics step.
+                for site in sites:
+                    for bd in site["balls"]:
+                        bd["obj"].set_world_pose(position=bd["fire_pos"])
+                        bd["obj"].set_linear_velocity(bd["fire_vel"])
+                        bd["obj"].set_angular_velocity(np.array([0.0, 0.0, 0.0]))
+                fired = True
+                log(f"  [fire] frame={i} launched {total_spawned} balls simultaneously")
 
             world.step(render=True)
             rgba = camera.get_rgba()
@@ -410,7 +529,7 @@ def main():
                 recorder.capture_rgba(rgba)
 
             if i % 60 == 0:
-                log(f"  Frame {i}/{orbit_frames}  fired_sites={len(fired_sites)}/{NUM_AZIMUTHS}")
+                log(f"  Frame {i}/{orbit_frames}  fired={fired}")
 
     log("\nRecording complete.")
     log(f"  Video  -> videos/{video_name}.mp4")

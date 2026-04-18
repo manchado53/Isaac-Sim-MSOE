@@ -36,7 +36,7 @@ _project_dir = os.path.abspath(os.path.join(_script_dir, "..", ".."))
 sys.path.insert(0, _project_dir)
 
 from isaacsim.core.api import World
-from isaacsim.core.api.objects import DynamicSphere
+from isaacsim.core.api.objects import DynamicSphere, FixedCuboid
 from isaacsim.robot.wheeled_robots.controllers.differential_controller import (
     DifferentialController,
 )
@@ -85,74 +85,124 @@ def wrap_pi(a):
     return a
 
 
-def apply_goal_colliders(stage):
-    """Apply static triangle-mesh colliders to all Goal-related prims.
+def build_goal_colliders(world, target_goal, surface_z, approach_dir_x):
+    """Build a primitive-based soccer goal cage aligned to the Revit goal bbox.
 
-    Traverses the stage looking for prims whose name contains 'Goal' (netting,
-    posts, crossbar, etc.) and applies CollisionAPI + triangle-mesh approximation
-    so the ball bounces off the goal structure.
+    Two vertical posts, a crossbar, and a back wall — the open front faces
+    midfield so the ball rolls in and Carter can drive into the goal. The
+    Revit mesh stays as visual; these primitives provide the physics.
+
+    Args:
+        world: isaacsim World (for scene.add).
+        target_goal: dict from find_goals() with x_min/x_max/y_min/y_max/z_min/z_max.
+        surface_z: ground z-height.
+        approach_dir_x: +1 if Carter approaches from -x (goal front faces -x),
+                        -1 if Carter approaches from +x.
     """
-    count = 0
-    for prim in stage.Traverse():
-        name = prim.GetName()
-        if "Goal" not in name:
-            continue
-        # Only apply to prims that have renderable geometry (Mesh or Xform with children)
-        if not (prim.IsA(UsdGeom.Mesh) or prim.IsA(UsdGeom.Xform)):
-            continue
-        # Skip if already has collision
-        if prim.HasAPI(UsdPhysics.CollisionAPI):
-            continue
-        UsdPhysics.CollisionAPI.Apply(prim)
-        mesh_api = UsdPhysics.MeshCollisionAPI.Apply(prim)
-        mesh_api.CreateApproximationAttr("none")  # "none" = exact triangle mesh
-        count += 1
-    print(f"[physics] Applied static colliders to {count} Goal prims", flush=True)
+    g = target_goal
+    goal_y_center = 0.5 * (g["y_min"] + g["y_max"])
+    goal_width = g["y_max"] - g["y_min"]
+    POST_THICK = 0.12          # m — regulation-ish post diameter
+    CROSSBAR_H = 2.44          # m — regulation goal height
+    BACK_OFFSET = 0.1          # m — back wall inset from x_max/x_min
+
+    # Front = face closer to midfield. If Carter approaches from -x
+    # (approach_dir_x == +1), the front is at x_min. Otherwise x_max.
+    front_x = g["x_min"] if approach_dir_x > 0 else g["x_max"]
+    back_x  = g["x_max"] if approach_dir_x > 0 else g["x_min"]
+
+    # Post base z is on the field; post center z is half the post height up.
+    post_z = surface_z + CROSSBAR_H / 2.0
+    crossbar_z = surface_z + CROSSBAR_H + POST_THICK / 2.0
+
+    parts = [
+        # Left post (y_min side)
+        dict(name="goal_left_post", prim="/World/Goal/LeftPost",
+             position=[front_x, g["y_min"] + POST_THICK / 2.0, post_z],
+             scale=[POST_THICK, POST_THICK, CROSSBAR_H]),
+        # Right post (y_max side)
+        dict(name="goal_right_post", prim="/World/Goal/RightPost",
+             position=[front_x, g["y_max"] - POST_THICK / 2.0, post_z],
+             scale=[POST_THICK, POST_THICK, CROSSBAR_H]),
+        # Crossbar (horizontal, full width of goal)
+        dict(name="goal_crossbar", prim="/World/Goal/Crossbar",
+             position=[front_x, goal_y_center, crossbar_z],
+             scale=[POST_THICK, goal_width, POST_THICK]),
+        # Back wall — stops the ball after it rolls in
+        dict(name="goal_backwall", prim="/World/Goal/BackWall",
+             position=[back_x - approach_dir_x * BACK_OFFSET,
+                      goal_y_center, post_z],
+             scale=[POST_THICK, goal_width, CROSSBAR_H]),
+    ]
+    for p in parts:
+        world.scene.add(FixedCuboid(
+            prim_path=p["prim"],
+            name=p["name"],
+            position=np.array(p["position"]),
+            scale=np.array(p["scale"]),
+            color=np.array([1.0, 1.0, 1.0]),
+        ))
+    print(f"[physics] Built {len(parts)} goal primitives at "
+          f"front_x={front_x:.2f}, back_x={back_x:.2f}, "
+          f"y=[{g['y_min']:.2f}, {g['y_max']:.2f}]", flush=True)
 
 
 def find_goals(stage):
-    """Return a list of dicts {name, center_xy, x_min, x_max, y_min, y_max, z_min, z_max}
-    for each Goal_Netting prim found in the stage."""
+    """Locate the placed Soccer_Goal instances in the Revit export.
+
+    In the Viets Field USD each soccer goal is an Xform named like
+    Specialty_Equipment_NNNNNN sitting under
+    /Specialty_Equipment/Soccer_Goal/Soccer_Goal/. They're 2.5m deep x 7.6m
+    wide x 2.6m tall (regulation). The open front faces midfield. The outer
+    /Soccer_Goal parent wraps both instances and has a bbox spanning the whole
+    field, which is why we can't just match by the name 'Soccer_Goal'.
+    """
     cache = UsdGeom.BBoxCache(
         Usd.TimeCode.Default(), [UsdGeom.Tokens.default_, UsdGeom.Tokens.render]
     )
-    goals = []
-    seen_names = set()
+    # Find the Soccer_Goal folder(s) that hold the actual instance Xforms.
+    instance_parents = []
     for prim in stage.Traverse():
-        name = prim.GetName()
-        if "Goal_Netting" not in name:
+        if prim.GetName() != "Soccer_Goal":
             continue
-        # Dedup parent+child pairs: prefer the parent Xform (has the transform)
-        if name in seen_names:
+        if "/FamilyData/" in prim.GetPath().pathString:
             continue
-        try:
-            rng = cache.ComputeWorldBound(prim).ComputeAlignedRange()
-            bmin = rng.GetMin()
-            bmax = rng.GetMax()
-            # Reject bboxes expressed in un-scaled Revit units (~100x too big)
-            # or zero-extent un-placed instances. Netting can be <5 cm thin in
-            # one axis, so only require the largest dimension to be sensible.
-            extent = [bmax[i] - bmin[i] for i in range(3)]
-            if max(extent) > 200.0 or max(extent) < 1.0:
+        instance_parents.append(prim)
+
+    goals = []
+    seen_keys = set()
+    for parent in instance_parents:
+        for prim in parent.GetChildren():
+            try:
+                rng = cache.ComputeWorldBound(prim).ComputeAlignedRange()
+                if rng.IsEmpty():
+                    continue
+                bmin = rng.GetMin()
+                bmax = rng.GetMax()
+                extent = [bmax[i] - bmin[i] for i in range(3)]
+                # Regulation-ish dimensions: each axis roughly 2-8m.
+                if max(extent) > 15.0 or max(extent) < 1.0:
+                    continue
+                if bmax[2] < 2.0:  # skip anything parked at the origin
+                    continue
+            except Exception:
                 continue
-            # Reject prims whose bbox is entirely outside the VietsField stage
-            # bbox (mis-placed family-template geometry at the origin).
-            if bmax[0] < -130 or bmin[0] > 75 or bmax[1] < -50 or bmin[1] > 60:
+            key = (round(0.5 * (bmin[0] + bmax[0]), 1),
+                   round(0.5 * (bmin[1] + bmax[1]), 1))
+            if key in seen_keys:
                 continue
-        except Exception:
-            continue
-        seen_names.add(name)
-        goals.append({
-            "name": name,
-            "path": prim.GetPath().pathString,
-            "x_min": float(bmin[0]), "x_max": float(bmax[0]),
-            "y_min": float(bmin[1]), "y_max": float(bmax[1]),
-            "z_min": float(bmin[2]), "z_max": float(bmax[2]),
-            "center_xy": (
-                0.5 * (float(bmin[0]) + float(bmax[0])),
-                0.5 * (float(bmin[1]) + float(bmax[1])),
-            ),
-        })
+            seen_keys.add(key)
+            goals.append({
+                "name": prim.GetName(),
+                "path": prim.GetPath().pathString,
+                "x_min": float(bmin[0]), "x_max": float(bmax[0]),
+                "y_min": float(bmin[1]), "y_max": float(bmax[1]),
+                "z_min": float(bmin[2]), "z_max": float(bmax[2]),
+                "center_xy": (
+                    0.5 * (float(bmin[0]) + float(bmax[0])),
+                    0.5 * (float(bmin[1]) + float(bmax[1])),
+                ),
+            })
     return goals
 
 
@@ -220,11 +270,10 @@ def main():
     )
     setup_physics_scene(stage)
     add_field_lighting(stage)
-    apply_goal_colliders(stage)
 
     # --- Find goals -------------------------------------------------------
     goals = find_goals(stage)
-    print(f"[goals] Found {len(goals)} Goal_Netting prims:", flush=True)
+    print(f"[goals] Found {len(goals)} Soccer_Goal prims:", flush=True)
     for g in goals:
         cx, cy = g["center_xy"]
         print(f"  {g['name']}: center=({cx:.1f}, {cy:.1f}) "
@@ -288,6 +337,12 @@ def main():
     print(f"[spawn] robot at {robot_spawn.tolist()} yaw={math.degrees(robot_yaw):.1f}°",
           flush=True)
 
+    # --- Build primitive goal colliders -----------------------------------
+    # approach_dir_x: +1 if Carter comes from -x (goal front at x_min),
+    #                 -1 if Carter comes from +x (goal front at x_max).
+    approach_dir_x = 1 if tgt_x > midfield[0] else -1
+    build_goal_colliders(world, target_goal, surface_z, approach_dir_x)
+
     # --- Spawn ball -------------------------------------------------------
     ball = world.scene.add(DynamicSphere(
         prim_path="/World/SoccerBall",
@@ -320,12 +375,16 @@ def main():
     )
 
     # --- Follow camera ---------------------------------------------------
+    # Cinematic side-angle: starts wide (whole stadium in frame), then lerps
+    # to a medium distance that keeps Carter and the goal both framed.
+    CAM_OFFSET_START = np.array([-18.0, 30.0, 14.0])
+    CAM_OFFSET_END   = np.array([-7.0, 12.0, 5.0])
     follow_cam = FollowCamera(
         prim_path="/World/FollowCam",
-        local_offset=[-18.0, 0.0, 9.0],
+        local_offset=CAM_OFFSET_START.tolist(),
         resolution=(1920, 1080),
         fps=30,
-        z_clamp=(surface_z + 2.0, surface_z + 25.0),
+        z_clamp=(surface_z + 2.0, surface_z + 50.0),
         look_height=0.3,
     )
 
@@ -339,17 +398,23 @@ def main():
         world.step(render=True)
 
     # --- Run --------------------------------------------------------------
-    # Goal-detection geometry: target goal's x-plane + y-span
-    goal_x = tgt_x
-    goal_y_lo = target_goal["y_min"]
-    goal_y_hi = target_goal["y_max"]
-    goal_z_lim = surface_z + 3.0
-    # Direction from midfield to goal (unit vector) — used for "crossed plane" check
-    cross_sign = 1.0 if goal_x > midfield[0] else -1.0
+    # Goal-detection geometry: real Soccer_Goal bbox (2.5m deep × 7.6m wide
+    # × 2.6m tall). The open front faces midfield; ball is "in" the goal
+    # when it's inside this volume.
+    goal_x_lo, goal_x_hi = target_goal["x_min"], target_goal["x_max"]
+    goal_y_lo, goal_y_hi = target_goal["y_min"], target_goal["y_max"]
+    goal_z_lim = surface_z + (target_goal["z_max"] - target_goal["z_min"]) + 0.5
+    # Push target = dead center of the goal bbox so Carter ends up inside.
+    push_x = 0.5 * (goal_x_lo + goal_x_hi)
+    push_y = 0.5 * (goal_y_lo + goal_y_hi)
 
     phase = "approach"
     phase_start_frame = 0
     scored_frame = None
+    # Cinematic zoom: progress 0 at spawn → 1 when Carter reaches push target.
+    spawn_to_push_dist = math.hypot(
+        push_x - float(robot_spawn[0]), push_y - float(robot_spawn[1])
+    )
 
     video_name = "vietsfield_soccer_goal"
     print(f"[run] Recording {video_name}.mp4 ({MAX_FRAMES} frames max)", flush=True)
@@ -364,11 +429,13 @@ def main():
             rx, ry = float(r_pos[0]), float(r_pos[1])
             bx, by, bz = float(b_pos[0]), float(b_pos[1]), float(b_pos[2])
 
-            # Goal detection — ball has crossed the goal plane
-            crossed = cross_sign * (bx - goal_x) > 0.0
-            within_y = (goal_y_lo - 1.0) <= by <= (goal_y_hi + 1.0)
-            above_ground = bz < goal_z_lim
-            scored = crossed and within_y and above_ground
+            # Goal detection — ball has pushed past the midline of the goal
+            # (so Carter has time to drive all the way into the goal first).
+            goal_mid_x = 0.5 * (goal_x_lo + goal_x_hi)
+            past_mid = (bx > goal_mid_x) if approach_dir_x > 0 else (bx < goal_mid_x)
+            in_y = goal_y_lo <= by <= goal_y_hi
+            in_z = bz <= goal_z_lim
+            scored = past_mid and in_y and in_z
 
             if scored and phase != "celebrate":
                 phase = "celebrate"
@@ -388,7 +455,7 @@ def main():
                     print(f"[phase] approach→push at frame {frame} "
                           f"(dist_to_ball={dist_to_target:.2f})", flush=True)
             elif phase == "push":
-                tx, ty = goal_x, 0.5 * (goal_y_lo + goal_y_hi)
+                tx, ty = push_x, push_y
                 dist_to_target = math.hypot(tx - rx, ty - ry)
             else:  # celebrate
                 tx, ty = rx, ry
@@ -420,6 +487,23 @@ def main():
                 0.5 * (ry + by),
                 surface_z + 0.3,
             ])
+
+            # Cinematic zoom — interpolate camera offset based on how far
+            # Carter has progressed toward the push target. Holds at END
+            # once scoring fires so the celebration is framed consistently.
+            if scored_frame is not None:
+                progress = 1.0
+            elif spawn_to_push_dist > 0.1:
+                remaining = math.hypot(push_x - rx, push_y - ry)
+                progress = 1.0 - (remaining / spawn_to_push_dist)
+            else:
+                progress = 0.0
+            progress = max(0.0, min(1.0, progress))
+            # Smoothstep easing so the zoom feels organic
+            eased = progress * progress * (3.0 - 2.0 * progress)
+            offset = CAM_OFFSET_START + eased * (CAM_OFFSET_END - CAM_OFFSET_START)
+            follow_cam.set_local_offset(offset.tolist())
+
             # Use the robot's orientation so the cam stays behind it.
             follow_cam.update(focus_pos, r_quat)
 

@@ -26,12 +26,19 @@ simulation_app = SimulationApp({"headless": True})
 import omni
 import omni.kit.app
 import omni.timeline
-from pxr import Usd, UsdGeom, UsdPhysics, PhysxSchema, Sdf
+from pxr import Gf, Usd, UsdGeom, UsdPhysics, PhysxSchema, Sdf
 
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.abspath(os.path.join(PROJECT_DIR, "..")))
+from sim_utils.building_physics import (  # noqa: E402
+    PrimCategory,
+    apply_static_collider,
+    categorize_prim,
+    iter_building_elements,
+)
 # Write straight into the building-centric layout so downstream consumers
 # (auto_graph_generator.py, Nav2 map_server, plot_graph_with_axes.py) read
 # from a single canonical location.
@@ -180,6 +187,251 @@ def save_floor(grid, dims, floor_name, meta_base):
         json.dump(meta, f, indent=2)
 
 
+# ---------------------------------------------------------------------------
+# Glass + door preparation (pre-physics)
+# ---------------------------------------------------------------------------
+# The _omap.Generator raycasts PhysX collision shapes, NOT visual materials,
+# so OmniGlass alpha/opacity is irrelevant to whether glass blocks rays. Some
+# glass prims in the Revit-exported USD are nested Xforms whose meshes aren't
+# reached by a simple `prim.IsA(UsdGeom.Mesh)` traversal, so we run a
+# dedicated pass using apply_static_collider(..., deep_search=True,
+# all_meshes=True) to guarantee every glass panel contributes a collider.
+
+GLASS_NAME_SUBSTRINGS = (
+    "GL_",
+    "Glass",
+    "Curtain",
+    "System_Panel_Glazed",
+    "Glazing",
+    "Storefront",
+    "Sidelite",
+)
+
+
+def enumerate_operable_door_paths(stage):
+    """Return set of prim paths belonging to operable (hinged) door leaves.
+
+    Resolves each HingeJoint's body1 relationship to find the door prim and
+    includes every descendant path. This is more reliable than a path-
+    substring or fixed-depth parent walk — doors may live under any folder
+    structure (Revit exports vary between Innovation Center / Engineering
+    building layouts), and the joint's body1 pointer is authoritative.
+    """
+    operable_paths = set()
+    door_roots = []
+    for prim in stage.Traverse():
+        if prim.GetName() != "HingeJoint":
+            continue
+        joint = UsdPhysics.RevoluteJoint.Get(stage, prim.GetPath())
+        if not joint:
+            continue
+        body1_targets = joint.GetBody1Rel().GetTargets() if joint.GetBody1Rel() else []
+        for target in body1_targets:
+            door_prim = stage.GetPrimAtPath(target)
+            if not door_prim or not door_prim.IsValid():
+                continue
+            door_roots.append(door_prim)
+            for desc in Usd.PrimRange(door_prim):
+                operable_paths.add(str(desc.GetPath()))
+    return operable_paths, door_roots
+
+
+def disable_operable_door_collision(stage, door_roots):
+    """Turn off physics:collisionEnabled on every operable-door descendant.
+
+    MSOEBuildingV4_physics.usd pre-bakes CollisionAPI on door leaves via
+    sim_utils.building_physics.apply_dynamic_rigid_body. Without this pass,
+    those colliders ride along as the doors rotate under DriveAPI control
+    during the brief physics ticks before the first scan, leaving
+    swing-arc blobs in the occupancy map. Disabling collision is enough —
+    we don't need to remove the schema or touch the rigid body.
+
+    Also flips each door's RigidBodyAPI to kinematic so even if residual
+    collision lingers on some descendant we missed, the body itself can't
+    move under forces.
+    """
+    collision_disabled = 0
+    kinematic_set = 0
+    for root in door_roots:
+        # Kinematic flip — prevents any physics-driven motion of the door
+        if root.HasAPI(UsdPhysics.RigidBodyAPI):
+            rb = UsdPhysics.RigidBodyAPI(root)
+            kin_attr = rb.GetKinematicEnabledAttr()
+            if not kin_attr:
+                kin_attr = rb.CreateKinematicEnabledAttr(True)
+            else:
+                kin_attr.Set(True)
+            kinematic_set += 1
+        # Disable collision on every descendant (door leaf + frame + glass)
+        for desc in Usd.PrimRange(root):
+            if desc.HasAPI(UsdPhysics.CollisionAPI):
+                col = UsdPhysics.CollisionAPI(desc)
+                enabled_attr = col.GetCollisionEnabledAttr()
+                if not enabled_attr:
+                    enabled_attr = col.CreateCollisionEnabledAttr(False)
+                else:
+                    enabled_attr.Set(False)
+                collision_disabled += 1
+    print(f"  Disabled collision on {collision_disabled} operable-door descendants, "
+          f"flipped {kinematic_set} doors to kinematic")
+
+
+def force_glass_colliders(stage, building_path="/World/Building",
+                          operable_door_paths=None):
+    """Apply a static collider to every glass panel in the building.
+
+    Runs two passes:
+      1. Category pass: iter_building_elements -> STATIC_GLAZING -> apply_static_collider
+      2. Name pass: stage.Traverse() matching GLASS_NAME_SUBSTRINGS on the prim path,
+         catching glazed elements exported under non-glass categories.
+    """
+    operable_door_paths = operable_door_paths or set()
+    building_prim = stage.GetPrimAtPath(building_path)
+    cat_hits = 0
+    cat_applied = 0
+    cat_door_skipped = 0
+    if building_prim and building_prim.IsValid():
+        for _level, category_name, element in iter_building_elements(stage, building_prim):
+            if str(element.GetPath()) in operable_door_paths:
+                cat_door_skipped += 1
+                continue
+            category = categorize_prim(element.GetName(), category_hint=category_name)
+            if category is not PrimCategory.STATIC_GLAZING:
+                continue
+            cat_hits += 1
+            if apply_static_collider(
+                stage, element, approx="none", deep_search=True, all_meshes=True
+            ):
+                cat_applied += 1
+
+    name_hits = 0
+    name_applied = 0
+    name_door_skipped = 0
+    seen_paths = set()
+    for prim in stage.Traverse():
+        path_str = str(prim.GetPath())
+        if path_str in seen_paths:
+            continue
+        # Skip anything that belongs to an operable door (identified by
+        # HingeJoint -> body1 ancestry). Door leaves often carry glass
+        # panels (door windows, curtain-wall doors). If we let the glass
+        # pass apply collision to them, the collision rotates with the
+        # door at scan time and leaves swing-arc artifacts in the map.
+        if path_str in operable_door_paths:
+            if any(sub in path_str for sub in GLASS_NAME_SUBSTRINGS):
+                name_door_skipped += 1
+            continue
+        if not any(sub in path_str for sub in GLASS_NAME_SUBSTRINGS):
+            continue
+        if prim.IsA(UsdGeom.Mesh) or prim.IsA(UsdGeom.Xform):
+            name_hits += 1
+            if apply_static_collider(
+                stage, prim, approx="none", deep_search=True, all_meshes=True
+            ):
+                name_applied += 1
+                seen_paths.add(path_str)
+
+    print(
+        f"  Glass colliders forced: {cat_hits + name_hits} elements "
+        f"(category pass {cat_applied}/{cat_hits} [door-skipped {cat_door_skipped}], "
+        f"name pass {name_applied}/{name_hits} [door-skipped {name_door_skipped}])"
+    )
+
+
+def close_all_doors(stage):
+    """Ensure every operable door starts at 0 degrees before physics ticks.
+
+    Zeros:
+      - UsdPhysics.DriveAPI angular targetPosition on every HingeJoint prim
+      - PhysxSchema.JointStateAPI angular position if present
+      - xformOp:orient / xformOp:rotateZ on door-leaf Xforms under /Doors/
+        whose ancestor Xform carries an operable HingeJoint (same detection
+        as the raycast-skip logic)
+    """
+    doors_closed = 0
+    drives_reset = 0
+    states_reset = 0
+    xforms_reset = 0
+
+    for prim in stage.Traverse():
+        if prim.GetName() != "HingeJoint":
+            continue
+        doors_closed += 1
+
+        drive = UsdPhysics.DriveAPI.Get(prim, "angular")
+        if not drive or not drive.GetTargetPositionAttr():
+            drive = UsdPhysics.DriveAPI.Apply(prim, "angular")
+        target_attr = drive.GetTargetPositionAttr()
+        if not target_attr:
+            target_attr = drive.CreateTargetPositionAttr(0.0)
+        else:
+            target_attr.Set(0.0)
+        drives_reset += 1
+
+        try:
+            state = PhysxSchema.JointStateAPI.Get(prim, "angular")
+            if not state or not state.GetPositionAttr():
+                state = PhysxSchema.JointStateAPI.Apply(prim, "angular")
+            pos_attr = state.GetPositionAttr()
+            if not pos_attr:
+                pos_attr = state.CreatePositionAttr(0.0)
+            else:
+                pos_attr.Set(0.0)
+            vel_attr = state.GetVelocityAttr() or state.CreateVelocityAttr(0.0)
+            vel_attr.Set(0.0)
+            states_reset += 1
+        except Exception:
+            pass
+
+    identity_quat = Gf.Quatf(1.0, 0.0, 0.0, 0.0)
+    identity_quatd = Gf.Quatd(1.0, 0.0, 0.0, 0.0)
+    for prim in stage.Traverse():
+        path_str = str(prim.GetPath())
+        if "/Doors/" not in path_str:
+            continue
+        if not prim.IsA(UsdGeom.Xform):
+            continue
+        p = prim
+        has_hinge = False
+        for _ in range(6):
+            p = p.GetParent()
+            if not p or not p.IsValid():
+                break
+            if any(c.GetName() == "HingeJoint" for c in p.GetChildren()):
+                has_hinge = True
+                break
+        if not has_hinge:
+            continue
+
+        xformable = UsdGeom.Xformable(prim)
+        reset_any = False
+        for op in xformable.GetOrderedXformOps():
+            name = op.GetOpName()
+            try:
+                if name.endswith("xformOp:orient"):
+                    if op.GetPrecision() == UsdGeom.XformOp.PrecisionDouble:
+                        op.Set(identity_quatd)
+                    else:
+                        op.Set(identity_quat)
+                    reset_any = True
+                elif name.endswith("xformOp:rotateZ") or name.endswith("xformOp:rotateY") or name.endswith("xformOp:rotateX"):
+                    op.Set(0.0)
+                    reset_any = True
+                elif name.endswith("xformOp:rotateXYZ") or name.endswith("xformOp:rotateZYX") or name.endswith("xformOp:rotateXZY") or name.endswith("xformOp:rotateYXZ") or name.endswith("xformOp:rotateYZX") or name.endswith("xformOp:rotateZXY"):
+                    op.Set(Gf.Vec3f(0.0, 0.0, 0.0))
+                    reset_any = True
+            except Exception:
+                continue
+        if reset_any:
+            xforms_reset += 1
+
+    print(
+        f"  Closed {doors_closed} operable doors "
+        f"({drives_reset} drive targets reset, {states_reset} joint states reset, "
+        f"{xforms_reset} xforms reset)"
+    )
+
+
 def main():
     print("=" * 60)
     print("Multi-Origin Occupancy Map Generator")
@@ -212,6 +464,26 @@ def main():
     sys.stdout.flush()
 
     # ------------------------------------------------------------------
+    # Step 2a: Enumerate operable door prim paths (HingeJoint -> body1)
+    # ------------------------------------------------------------------
+    # Must run BEFORE the collision pass so we know which meshes to skip.
+    # Joint body1 pointer is authoritative and works regardless of folder
+    # structure (Innovation Center / Engineering building use different
+    # Revit hierarchies — a fixed-depth parent walk misses some doors).
+    print("\nEnumerating operable-door prim paths...")
+    operable_door_paths, door_roots = enumerate_operable_door_paths(stage)
+    print(f"  {len(door_roots)} HingeJoint -> body1 roots, "
+          f"{len(operable_door_paths)} descendant paths marked as operable")
+    sys.stdout.flush()
+
+    # Disable pre-baked collision + flip to kinematic so rays pass through
+    # doorways even if setup_building_physics.py already applied colliders
+    # to door leaves, and so doors can't drift under physics.
+    print("\nDisabling collision on operable doors...")
+    disable_operable_door_collision(stage, door_roots)
+    sys.stdout.flush()
+
+    # ------------------------------------------------------------------
     # Step 2: Apply collision (only to architectural meshes, skip HVAC/steel)
     # ------------------------------------------------------------------
     print("\nApplying collision to architectural mesh prims...")
@@ -230,25 +502,15 @@ def main():
         if prim.IsA(UsdGeom.Mesh):
             path_str = str(prim.GetPath())
             name = prim.GetName()
-            # Door handling: only skip OPERABLE (hinged-single) doors so raycasts
-            # pass through real doorways. Non-hinged "doors" (sliding glass walls,
-            # sidelight panels, double curtain-wall panels) are glass walls for
-            # navigation purposes and must block raycasts. Detect operable doors
-            # by looking for a HingeJoint child on the door-instance Xform — our
-            # physics pipeline creates that prim only for HINGED_SINGLE doors.
+            # Door handling: skip OPERABLE doors (identified via
+            # HingeJoint body1 descent) so raycasts pass through real
+            # doorways. Non-hinged "doors" (sliding glass walls, sidelight
+            # panels, double curtain-wall panels) are glass walls for
+            # navigation purposes and must block raycasts.
+            if path_str in operable_door_paths:
+                door_skipped += 1
+                continue
             if "/Doors/" in path_str:
-                p = prim
-                is_operable = False
-                for _ in range(6):
-                    p = p.GetParent()
-                    if not p or not p.IsValid():
-                        break
-                    if any(c.GetName() == "HingeJoint" for c in p.GetChildren()):
-                        is_operable = True
-                        break
-                if is_operable:
-                    door_skipped += 1
-                    continue
                 door_kept += 1
             if any(name.startswith(prefix) for prefix in SKIP_PREFIXES):
                 skipped += 1
@@ -258,6 +520,27 @@ def main():
                 UsdPhysics.CollisionAPI.Apply(prim)
     print(f"  Meshes with collision: {mesh_count} (skipped {skipped} non-architectural, "
           f"{door_skipped} operable doors, kept {door_kept} non-hinged door meshes)")
+    sys.stdout.flush()
+
+    # ------------------------------------------------------------------
+    # Step 2b: Force colliders on every glass prim (deep + name-based)
+    # ------------------------------------------------------------------
+    # The per-Mesh loop above misses glass wrapped in nested Xforms or hidden
+    # inside instanced prototypes. Without this pass, curtain panels and
+    # glazed partitions leave phantom corridors in the occupancy map.
+    print("\nForcing colliders on glass panels...")
+    force_glass_colliders(stage, operable_door_paths=operable_door_paths)
+    sys.stdout.flush()
+
+    # ------------------------------------------------------------------
+    # Step 2c: Auto-close all operable doors
+    # ------------------------------------------------------------------
+    # timeline.play() + the two update ticks below would otherwise let any
+    # door authored with a nonzero drive target or xform rotation swing open,
+    # corrupting the raycast. Deterministically zero every HingeJoint drive
+    # target, joint state, and door-leaf xform rotation.
+    print("\nAuto-closing operable doors...")
+    close_all_doors(stage)
     sys.stdout.flush()
 
     # ------------------------------------------------------------------
