@@ -1,0 +1,11 @@
+[
+  {
+    "x": -42.15,
+    "y": 68.44,
+    "height": 16.44,
+    "yaw": 45.0,
+    "pitch": -15.0,
+    "focal_length": 12.0,
+    "_note": "Security-cam position matching TEST_CAMERAS['G'] from sim_utils/test_cameras.py. IRA places the camera at (x, y, height) with Euler (yaw, pitch). Since IRA auto-aims cameras at characters (aim_cameras_at_characters=true by default), the yaw/pitch are overridden at runtime and the camera tracks Character_0. If you want fixed pose, set /persistent/exts/isaacsim.replicator.agent/aim_cameras_at_characters=false before run."
+  }
+]

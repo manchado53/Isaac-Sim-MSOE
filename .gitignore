@@ -7,8 +7,11 @@ tb_logs/
 .claude/
 docs/
 images/
+datasets/
 *.usd
 *.ifc
 *.log
 /logs/
-datasets/
+
+# Isaac Sim WebRTC streaming client trace logs
+NvStreamer-*.etli

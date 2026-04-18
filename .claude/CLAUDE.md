@@ -187,7 +187,8 @@ cd ~/isaacsim/isaac-sim-msoe
 │   │   ├── validate_building_stats.py          # Validation: prim/collider/joint stats + PhysX scene stats + solver residuals + compute cost
 │   │   ├── validate_cube_drop.py               # Validation: 9 cubes per camera, velocity tracking, sleep-based settle, floor raycast
 │   │   ├── validate_robot_movement.py          # Validation: Nova Carter patrol, velocity/speed, ground clearance raycast
-│   │   └── validate_door_physics.py            # Validation: door swing + contact reports, angular velocity, torque, stall detection
+│   │   ├── validate_door_physics.py            # Validation: door swing + contact reports, angular velocity, torque, stall detection
+│   │   └── people_demo.py                      # Static human character on ground floor (Option A — USD reference, no animation)
 │   └── jetbot_hospital_overhead.py     # Hospital overhead view demo
 ├── sim_utils/                           # Shared Python utilities
 │   ├── __init__.py
@@ -294,6 +295,30 @@ The project includes MSOE building models exported from Revit:
 
 Located in `assets/environments/msoe_building/`. See [physics.md](.claude/docs/physics.md) for details on the physics pipeline.
 
+### ⚠️ CRITICAL: `metersPerUnit` varies per USD
+
+Different files in this repo use different USD stage units. ALWAYS verify with `UsdGeom.GetStageMetersPerUnit(stage)` before writing any code that assumes "coords are in feet/meters/etc." Hard-won lesson: `MSOEBuildingV4_physics.usd` is labeled meters while the raw Revit export is in centimeters.
+
+| File | `metersPerUnit` | 1 unit = |
+|---|---|---|
+| `MSOEBuildingV4.usd` (raw Revit) | `0.01` | 1 cm |
+| `MSOEBuildingV4_physics.usd` (physics-applied) | `1.0` | 1 m |
+| NVIDIA character USDs (People/Characters/) | `1.0` | 1 m |
+
+**Consequences when `V4_physics.usd` is the stage**:
+- `TEST_CAMERAS` coordinates (e.g. `"G"` target `(-27.42, 83.72, 14.56)`) are in **meters**, not feet. A Z of 14.56 m ≈ 47.8 ft above the USD origin is the ground-floor elevation in that model
+- Characters loaded with `prims.create_prim(usd_path=...)` have metersPerUnit=1.0 too → **no manual scale needed**. Keep `PERSON_SCALE = 1.0`. Applying `1/0.3048` (≈ 3.28×) produces 18.6-ft-tall giants
+- Real walkable floor Z via raycast: 13.56 (meters)
+- Character bbox at `translate_Z=14.56, scale=1.0`: feet at 14.435m → need offset `-0.875` to plant on floor at 13.56m
+
+**How this bug happens**: The Revit export is in centimeters (`metersPerUnit=0.01`). The physics pipeline (`setup_building_physics.py`) converts to metric 1.0 during processing. Neither is "feet" — earlier docs in this file saying "metersPerUnit=0.3048 from Revit" are wrong and should be ignored when working with V4 assets.
+
+**Defensive pattern**:
+```python
+mpu = UsdGeom.GetStageMetersPerUnit(stage)
+# Write math in meters; only convert at boundaries (UI, reports)
+```
+
 ## Door Physics & DriveAPI
 
 Doors use a three-stage pipeline defined in `sim_utils/building_physics.py`:
@@ -373,9 +398,36 @@ These functions query the PhysX simulation engine for data only available **afte
 
 **Options**: `--margin FLOAT` (collision filter margin), `--mem SIZE`, `--time DURATION`, `--partition NAME`, `--output PATH`
 
+## People / Human Characters
+
+Isaac Sim 5.1.0 ships with people simulation support via two extensions (both installed):
+- `isaacsim.replicator.agent.core` 0.7.28 — main IRA system + synthetic data generation
+- `omni.anim.people` 0.7.9 — character animation engine (NavMesh walking, behaviors)
+
+Character assets (male/female in police/doctor/construction/casual outfits) are hosted on NVIDIA's S3 and resolved via `get_assets_root_path() + "/Isaac/People/Characters/<name>/<name>.usd"` — same pattern as robot USDs.
+
+**Three placement approaches** (see [.claude/docs/people.md](.claude/docs/people.md) for details):
+- **Option A (static)**: USD reference with position/orientation — no NavMesh, no animation extensions. Used by `simulations/environment/people_demo.py`.
+- **Option B (custom pose)**: Manipulate `UsdSkel.Animation` joint rotations — for lying-down/fallen-person anomalies.
+- **Option C (animated/walking)**: Full IRA system via `~/isaacsim/tools/actor_sdg/sdg_scheduler.py` + YAML config. Requires NavMesh baked on floors.
+
+**Research goal**: anomaly detection training data — student flow (Option C, future) + injured person on floor (Option B, future). Current status: Option A ground floor demo (`people_demo.py`).
+
+## Cracked Glass Anomaly Dataset
+
+Second anomaly class for the visual anomaly detector, alongside the fallen-person pipeline. Visual-only (no geometry fracture) — a Replicator graph swaps a random subset of glass panels to cracked OmniPBR materials per frame and emits RGB + semantic segmentation labels.
+
+- **Module**: `sim_utils/glass_anomaly.py` — `enumerate_glass_prims()`, `create_cracked_glass_materials()`, `bind_visual_material()`, `apply_semantic_label()`, `label_glass_prims()`
+- **Dataset script**: `simulations/dataset/cracked_glass_dataset.py`
+- **SLURM wrapper**: `submit_cracked_glass_dataset.sh`
+- **Textures**: `assets/materials/cracked_glass/crack_normal_v{1,2,3}.png` + `crack_opacity_v{1,2,3}.png` (see README there for authoring notes — pipeline tolerates missing files)
+- **Scope**: GL_1 double-pane + curtain wall panels. GL_3 shadowbox and GL_1_1 laminated are excluded by default.
+- **Output**: `datasets/cracked_glass/<timestamp>/<cam_key>/{rgb,semantic_segmentation,bounding_box_2d_tight}/`
+- **Run**: `sbatch submit_cracked_glass_dataset.sh --frames 500 --fraction 0.2 --cameras G,1,2,3`
+
 ## Test Camera Positions — Innovation Center
 
-Verified security-camera-style positions for visual testing on each floor of `MSOEBuildingTake2.usd`. Top corner of room, 12mm wide-angle lens, looking down diagonally. Coordinates in stage units (feet).
+Verified security-camera-style positions for visual testing on each floor of the Innovation Center. Top corner of room, 12mm wide-angle lens, looking down diagonally. Coordinates in stage units — **units depend on the loaded USD**; see "CRITICAL: metersPerUnit varies per USD" above. For `MSOEBuildingV4_physics.usd` these values are meters.
 
 ```python
 TEST_CAMERAS = {
@@ -424,6 +476,54 @@ python validate_physics.py --usd my_physics.usd --dry-run   # preview without su
 - `--skip <tests>` — comma-separated test names to skip
 - `--dry-run` — print sbatch commands without submitting
 
+## Navigation Pipeline (Nova Carter + Nav2)
+
+The full navigation stack for driving Nova Carter around the Innovation Center in Isaac Sim. Two READMEs document it end-to-end:
+
+- **[navigation/README.md](../navigation/README.md)** — runtime entry point: `nav2_orchestrator.py` + Nav2 launch + params + visualization. Start here for any "how do I drive the robot" question.
+- **[floorplan_vision/README.md](../floorplan_vision/README.md)** — map generation pipeline: `generate_occupancy_map.py` → `auto_graph_generator.py` → `verify_orientation.py`. Start here for any "how do I regenerate the occupancy map / navgraph" question.
+
+**Three things to remember** before touching this stack:
+
+1. **Occupancy map orientation is ROS `map_server` convention**: `row 0 = world y_max`, `origin: [x_min, y_min, yaw]` is the world pose of the **bottom-left** pixel. `nav2_map_server/src/map_io.cpp:326` internally reverses the image rows after loading. If you save a PNG with `row 0 = y_min` (the natural visual orientation), Nav2 publishes a Y-mirrored static map and AMCL can't localize. `generate_occupancy_map.py::save_floor` applies `np.fliplr` + `np.flipud` to end up in the ROS convention. Run `verify_orientation.py` after any change to the generator.
+
+2. **NVIDIA's upstream `carter_navigation_params.yaml` has gotchas we patch in `kern_navigation_params.yaml`**: `collision_monitor.FootprintApproach.min_points` is `6000000000` in the reference (effectively disables the emergency stop — we use `4`), and `DWB.FollowPath.BaseObstacle.scale` is `0.02` in the reference (path-following critics outweigh obstacle avoidance 1600:1 — we use `15.0`). If someone copies a fresh upstream params file, they'll hit both.
+
+3. **Visualization: Foxglove over RViz for headless setups.** `foxglove_bridge` is installed on rosita; run `ros2 run foxglove_bridge foxglove_bridge --ros-args -p port:=8765` alongside Nav2 and connect from a laptop browser to `ws://<host>:8765`. RViz via SSH `-Y` X11 forwarding works but needs an X server on the client side (XQuartz on Mac, VcXsrv on Windows with `$env:DISPLAY = "localhost:0.0"`).
+
+**Quick runtime reference**:
+
+```bash
+# Isaac Sim + robot + ROS bridge
+~/isaacsim/python.sh navigation/nav2_orchestrator.py --floor 4 --stream --stream-ip 100.107.199.57
+# Optional: spawn a test obstacle cube at world coords (use = for negative values)
+~/isaacsim/python.sh navigation/nav2_orchestrator.py --floor 4 --stream --obstacle=-24.25,81.69
+
+# Nav2 stack (separate terminal, after "Scene ready")
+source /opt/ros/jazzy/setup.bash
+source ~/IsaacSim-ros_workspaces/jazzy_ws/install/setup.bash
+ros2 launch kern_navigation kern_navigation.launch.py
+
+# Send a goal
+ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose \
+  "{pose: {header: {frame_id: map}, pose: {position: {x: -7.30, y: 78.09, z: 0.0}, orientation: {w: 1.0}}}}"
+```
+
+**File layout** (post-reorg):
+
+- `navigation/nav2_orchestrator.py` — Isaac Sim entry point (was `simulations/robot/nav2_orchestrator.py` pre-reorg)
+- `navigation/params/kern_navigation_params.yaml` — all Nav2 params
+- `navigation/launch/kern_navigation.launch.py` — Nav2 bringup
+- `navigation/rviz2/kern_navigation.rviz` — RViz layout
+- `floorplan_vision/generate_occupancy_map.py` — occupancy scanner (was `test_building/generate_occupancy_map.py` pre-reorg)
+- `floorplan_vision/auto_graph_generator.py` — skeleton → navgraph
+- `floorplan_vision/verify_orientation.py` — Y-flip correctness check
+- `floorplan_vision/plot_graph_with_axes.py` — labeled-axis visualization
+- `assets/environments/InnovationCenter/maps/floor_{1-4}_occupancy.{png,npy}` — occupancy outputs
+- `assets/environments/InnovationCenter/navgraphs/floor_{1-4}_auto_navgraph.{json,gml}` — navgraph outputs
+- `assets/environments/InnovationCenter/navgraphs/floor_{1-4}_map_metadata.yaml` — **authoritative Nav2 map YAML** (points at `../maps/floor_N_occupancy.png`)
+- `assets/environments/InnovationCenter/building_info.json` — floor/bounds/spawn metadata
+
 ## GPU Partitions on Rosie
 
 | Partition | GPU Type | Time Limit | Use Case |
@@ -446,7 +546,7 @@ python validate_physics.py --usd my_physics.usd --dry-run   # preview without su
 6. **Objects falling through floors** -> Check that static colliders are applied; see physics.md for collision setup.
 7. **Doors not swinging** -> Verify revolute joint has correct hinge position/axis, DriveAPI is applied with `"angular"` mode, and `set_drive_target()` is called each step. Check that `deep_search=True` is used for instanced meshes.
 8. **Black screen video** -> Never use `omni.usd.get_context().open_stage()` to load building USDs — it bypasses Isaac Sim's renderer initialization. Instead, create `World()` first, then load via `stage.DefinePrim(...).GetReferences().AddReference(usd_path, primPath=Sdf.Path("/World/Building"))`. See `engineering_physics_demo.py` for the correct pattern.
-9. **Camera sees wrong part of building / all red** -> Building coordinates are in **feet** (metersPerUnit=0.3048 from Revit). Camera offsets must be in feet too. Use the target element's bounding box to position the camera relative to it — ~12 feet offset for a close-up.
+9. **Camera sees wrong part of building / all red** -> Check `UsdGeom.GetStageMetersPerUnit(stage)` — units vary per USD (see "CRITICAL: metersPerUnit" section). `V4_physics.usd` is in meters (`mpu=1.0`); raw `V4.usd` is in cm (`mpu=0.01`). Camera offsets must match stage units. Use the target element's bounding box to position the camera relative to it.
 10. **"Unresolved reference prim path" warning** -> When loading a physics USD via `AddReference`, always specify `primPath=Sdf.Path("/World/Building")` so USD composition resolves the internal hierarchy correctly.
 
 **Verification**:
