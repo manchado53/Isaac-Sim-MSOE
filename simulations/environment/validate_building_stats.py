@@ -38,7 +38,7 @@ sys.path.insert(0, _project_dir)
 from isaacsim.core.api import World
 from isaacsim.sensors.camera import Camera
 from sim_utils.test_cameras import (
-    TEST_CAMERAS, create_test_camera, add_interior_lighting, look_at_orientation,
+    discover_test_cameras, create_test_camera, add_interior_lighting, look_at_orientation,
     set_focal_length_on_prim,
 )
 from sim_utils.building_physics import (
@@ -88,7 +88,10 @@ def main():
     )
 
     setup_physics_scene(stage)
-    add_interior_lighting(stage)
+    TEST_CAMERAS = discover_test_cameras(stage)
+    print(f"[building_stats] Discovered {len(TEST_CAMERAS)} test cameras: "
+          f"{list(TEST_CAMERAS.keys())}", flush=True)
+    add_interior_lighting(stage, TEST_CAMERAS)
 
     # --- Count stats ---
     print("[building_stats] Counting prims...", flush=True)
@@ -150,7 +153,7 @@ def main():
             "min": [float(bb_min[i]) for i in range(3)],
             "max": [float(bb_max[i]) for i in range(3)],
         },
-        "building_dimensions_ft": [round(d, 1) for d in dims],
+        "building_dimensions_m": [round(d, 1) for d in dims],
     }
 
     print(f"[building_stats] Prims: {total_prims}", flush=True)
@@ -161,7 +164,7 @@ def main():
     print(f"[building_stats] Meshes: {mesh_count}", flush=True)
     print(f"[building_stats] Floor elements: {floor_element_count}", flush=True)
     print(f"[building_stats] Door elements: {door_element_count}", flush=True)
-    print(f"[building_stats] Dimensions: {dims[0]:.1f} x {dims[1]:.1f} x {dims[2]:.1f} ft", flush=True)
+    print(f"[building_stats] Dimensions: {dims[0]:.1f} x {dims[1]:.1f} x {dims[2]:.1f} m", flush=True)
 
     # --- Camera screenshots ---
     print("[building_stats] Creating cameras...", flush=True)

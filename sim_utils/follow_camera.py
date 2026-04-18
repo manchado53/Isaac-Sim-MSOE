@@ -95,6 +95,10 @@ class FollowCamera:
         """Call once after world.reset() + simulation_app.update()."""
         self._camera.initialize()
 
+    def set_local_offset(self, offset):
+        """Update the camera's target-local offset (for cinematic zooms)."""
+        self._offset = np.array(offset, dtype=float)
+
     def update(self, target_pos, target_quat):
         """Reposition and reorient the camera to follow target_pos/target_quat.
 

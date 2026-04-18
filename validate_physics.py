@@ -297,9 +297,10 @@ def generate_report(usd_path, test_results, job_exit_info, skip_list):
                 lines.append(f"    Meshes: {stats.get('mesh_count', '?')}")
                 lines.append(f"    Floor elements: {stats.get('floor_element_count', '?')}")
                 lines.append(f"    Door elements: {stats.get('door_element_count', '?')}")
-                dims = stats.get("building_dimensions_ft", [])
+                dims = stats.get("building_dimensions_m",
+                                 stats.get("building_dimensions_ft", []))
                 if dims:
-                    lines.append(f"    Building size: {dims[0]} x {dims[1]} x {dims[2]} ft")
+                    lines.append(f"    Building size: {dims[0]} x {dims[1]} x {dims[2]} m")
 
         # Add element preservation details
         if test_name == "element_preservation":
