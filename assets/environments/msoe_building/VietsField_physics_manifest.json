@@ -1,0 +1,41 @@
+{
+  "source_usd": "VietsField.usd",
+  "total_elements": 2063,
+  "mesh_count": 2337,
+  "bounding_box": {
+    "min": [
+      -127.3762548828125,
+      -47.4822412109375,
+      -2.4383999633789064
+    ],
+    "max": [
+      69.3432470703125,
+      56.40974628448487,
+      32.43579833984375
+    ]
+  },
+  "categories": {
+    "STATIC_STRUCTURAL": 416,
+    "STATIC_GLAZING": 1117,
+    "STATIC_STAIR": 195,
+    "DYNAMIC_DOOR": 12,
+    "SKIP": 323
+  },
+  "per_level": {
+    "default": {
+      "STATIC_STRUCTURAL": 416,
+      "STATIC_GLAZING": 1117,
+      "STATIC_STAIR": 195,
+      "DYNAMIC_DOOR": 12,
+      "SKIP": 323
+    }
+  },
+  "physics_applied": {
+    "static_colliders": 1728,
+    "dynamic_rigid_bodies": 12,
+    "revolute_joints": 12,
+    "drives": 12,
+    "collision_filter_pairs": 318,
+    "skipped_no_mesh": 0
+  }
+}

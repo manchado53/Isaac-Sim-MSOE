@@ -73,11 +73,13 @@ def extract_building_stats(before, after):
         a_val = safe_get(after, "stats", field, default="N/A")
         rows.append({"metric": field, "before": b_val, "after": a_val})
 
-    # Building dimensions
-    b_dims = safe_get(before, "stats", "building_dimensions_ft", default=[])
-    a_dims = safe_get(after, "stats", "building_dimensions_ft", default=[])
+    # Building dimensions (meters; older JSONs used "_ft" label)
+    b_dims = (safe_get(before, "stats", "building_dimensions_m", default=None)
+              or safe_get(before, "stats", "building_dimensions_ft", default=[]))
+    a_dims = (safe_get(after, "stats", "building_dimensions_m", default=None)
+              or safe_get(after, "stats", "building_dimensions_ft", default=[]))
     rows.append({
-        "metric": "building_dimensions_ft",
+        "metric": "building_dimensions_m",
         "before": f"{b_dims[0]} x {b_dims[1]} x {b_dims[2]}" if len(b_dims) == 3 else "N/A",
         "after": f"{a_dims[0]} x {a_dims[1]} x {a_dims[2]}" if len(a_dims) == 3 else "N/A",
     })

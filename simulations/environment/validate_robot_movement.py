@@ -42,7 +42,7 @@ from isaacsim.robot.wheeled_robots.robots import WheeledRobot
 from isaacsim.storage.native import get_assets_root_path
 from isaacsim.sensors.camera import Camera
 from sim_utils.test_cameras import (
-    TEST_CAMERAS, create_test_camera, add_interior_lighting,
+    discover_test_cameras, create_test_camera, add_interior_lighting,
     set_focal_length_on_prim, look_at_orientation,
     CAMERA_FREQUENCY, CAMERA_RESOLUTION,
 )
@@ -109,7 +109,10 @@ def main():
     )
 
     setup_physics_scene(stage)
-    add_interior_lighting(stage)
+    TEST_CAMERAS = discover_test_cameras(stage)
+    print(f"[robot_movement] Discovered {len(TEST_CAMERAS)} test cameras: "
+          f"{list(TEST_CAMERAS.keys())}", flush=True)
+    add_interior_lighting(stage, TEST_CAMERAS)
 
     # Ground plane
     building_prim = stage.GetPrimAtPath("/World/Building")

@@ -1,0 +1,41 @@
+{
+  "source_usd": "DierksHallV2.usd",
+  "total_elements": 6447,
+  "mesh_count": 8189,
+  "bounding_box": {
+    "min": [
+      -0.009999999999969898,
+      -0.010000000000017587,
+      2.3599019107589396
+    ],
+    "max": [
+      166.84759765625,
+      258.42169921875,
+      37.33799835205078
+    ]
+  },
+  "categories": {
+    "STATIC_STRUCTURAL": 1530,
+    "STATIC_GLAZING": 4040,
+    "STATIC_STAIR": 212,
+    "DYNAMIC_DOOR": 72,
+    "SKIP": 593
+  },
+  "per_level": {
+    "default": {
+      "STATIC_STRUCTURAL": 1530,
+      "STATIC_GLAZING": 4040,
+      "STATIC_STAIR": 212,
+      "DYNAMIC_DOOR": 72,
+      "SKIP": 593
+    }
+  },
+  "physics_applied": {
+    "static_colliders": 5782,
+    "dynamic_rigid_bodies": 72,
+    "revolute_joints": 72,
+    "drives": 72,
+    "collision_filter_pairs": 1879,
+    "skipped_no_mesh": 0
+  }
+}

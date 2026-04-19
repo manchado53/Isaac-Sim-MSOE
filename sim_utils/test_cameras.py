@@ -2,21 +2,27 @@
 Shared test camera definitions and helpers for the validation pipeline.
 
 Provides:
-  - TEST_CAMERAS: verified security-cam positions for the Innovation Center
+  - discover_test_cameras(stage): building-agnostic, auto-places a camera
+    above each floor level of any physics USD (meters)
   - create_test_camera(): create an Isaac Sim Camera at a test position
   - add_interior_lighting(): add DistantLight + DomeLight + SphereLight per camera
   - look_at_orientation(): compute quaternion from position to target
+
+TEST_CAMERAS (deprecated): legacy hardcoded Innovation Center security-cam
+positions in feet. Kept only as a fallback so old scripts that import the
+name don't crash; new code should call discover_test_cameras(stage).
 """
 
 import math
 import numpy as np
 import isaacsim.core.utils.numpy.rotations as rot_utils
 
-from pxr import Sdf, UsdLux, UsdGeom
+from pxr import Sdf, Usd, UsdLux, UsdGeom
 
 
 # ---------------------------------------------------------------------------
-# Test Camera Positions (Innovation Center — feet)
+# Legacy hardcoded positions (Innovation Center raw USD, feet units).
+# All current physics USDs are in meters — prefer discover_test_cameras().
 # ---------------------------------------------------------------------------
 
 TEST_CAMERAS = {
@@ -117,7 +123,90 @@ def set_focal_length_on_prim(stage, camera):
     UsdGeom.Camera(cam_prim).CreateFocalLengthAttr(CAMERA_FOCAL_LENGTH)
 
 
-def add_interior_lighting(stage):
+def discover_test_cameras(
+    stage,
+    n_cameras=4,
+    building_path="/World/Building",
+    offset_frac=0.3,
+    z_offset=3.0,
+):
+    """Auto-discover camera positions from a building's floor geometry.
+
+    Building-agnostic replacement for the hardcoded TEST_CAMERAS dict.
+    Returns a dict with the same {pos, target, room} structure, keyed by
+    floor name. All coordinates are in the stage's native units — works
+    correctly for any physics USD (all of ours are in meters after
+    setup_building_physics.py).
+
+    Algorithm:
+      1. Call discover_floor_levels(stage) to get per-floor centroids.
+      2. Pick n_cameras evenly-spaced floors (bottom, 1/3, 2/3, top).
+      3. Each camera: offset_frac * building_half_size away from the floor
+         centroid toward one bbox corner, raised z_offset above the floor.
+      4. Target = floor centroid.
+
+    Args:
+        stage: Composed USD stage (after add_reference).
+        n_cameras: How many floors to sample (clamped to floors available).
+        building_path: Root prim of the building.
+        offset_frac: Fraction of building half-extent to shift the camera
+            horizontally away from the centroid.
+        z_offset: Height above the floor for the camera (stage units).
+
+    Returns:
+        dict[str, dict]: {floor_name: {"pos": (x,y,z), "target": (x,y,z),
+        "room": str}}. Returns the static TEST_CAMERAS dict as a fallback
+        if discovery fails (no /World/Building prim, no floors, etc).
+    """
+    # Import here to avoid circular import at module load time.
+    from sim_utils.building_physics import discover_floor_levels
+
+    building_prim = stage.GetPrimAtPath(building_path)
+    if not building_prim or not building_prim.IsValid():
+        return dict(TEST_CAMERAS)
+
+    levels = discover_floor_levels(stage, building_path=building_path)
+    if not levels:
+        return dict(TEST_CAMERAS)
+
+    # Building bbox → half extents for camera offset.
+    bbox_cache = UsdGeom.BBoxCache(
+        Usd.TimeCode.Default(), [UsdGeom.Tokens.default_]
+    )
+    bbox = bbox_cache.ComputeWorldBound(building_prim).ComputeAlignedRange()
+    bb_min, bb_max = bbox.GetMin(), bbox.GetMax()
+    half_x = (bb_max[0] - bb_min[0]) / 2.0
+    half_y = (bb_max[1] - bb_min[1]) / 2.0
+
+    # Pick n evenly-spaced floor indices.
+    n = min(n_cameras, len(levels))
+    if n == 1:
+        indices = [0]
+    else:
+        indices = [round(i * (len(levels) - 1) / (n - 1)) for i in range(n)]
+
+    cameras = {}
+    # Rotate through 4 corners so cameras don't all face from the same side.
+    corners = [(-1, -1), (1, -1), (-1, 1), (1, 1)]
+    for slot, idx in enumerate(indices):
+        lvl = levels[idx]
+        cx, cy, cz = lvl["center_x"], lvl["center_y"], lvl["z"]
+        sx, sy = corners[slot % 4]
+        pos = (
+            cx + sx * offset_frac * half_x,
+            cy + sy * offset_frac * half_y,
+            cz + z_offset,
+        )
+        target = (cx, cy, cz)
+        cameras[lvl["name"]] = {
+            "pos": pos,
+            "target": target,
+            "room": f"{lvl['name']} (z={cz:.1f}m)",
+        }
+    return cameras
+
+
+def add_interior_lighting(stage, cameras=None):
     """Add lighting suitable for interior building scenes.
 
     Enclosed rooms need strong fill light.  Uses a combination of:
@@ -125,7 +214,15 @@ def add_interior_lighting(stage):
       - DomeLight (ambient fill) for overall brightness
       - SphereLight at each camera position for local fill
       - RectLight at each camera target (floor center) for even coverage
+
+    Args:
+        stage: USD stage to add lights to.
+        cameras: Camera dict (same shape as TEST_CAMERAS). If None,
+            falls back to the static TEST_CAMERAS for backward compat.
     """
+    if cameras is None:
+        cameras = TEST_CAMERAS
+
     distant = UsdLux.DistantLight.Define(stage, Sdf.Path("/World/Val_Sun"))
     distant.CreateIntensityAttr(2000)
     distant.CreateAngleAttr(1.0)
@@ -136,7 +233,7 @@ def add_interior_lighting(stage):
         stage, Sdf.Path("/World/Val_DomeLight")
     ).CreateIntensityAttr(1000)
 
-    for key, cam in TEST_CAMERAS.items():
+    for key, cam in cameras.items():
         # Sphere light at camera position (overhead fill)
         light = UsdLux.SphereLight.Define(
             stage, Sdf.Path(f"/World/Val_CamLight_{key}")

@@ -43,11 +43,11 @@ from sim_utils.building_physics import (  # noqa: E402
 # (auto_graph_generator.py, Nav2 map_server, plot_graph_with_axes.py) read
 # from a single canonical location.
 OUTPUT_DIR = os.path.abspath(os.path.join(
-    PROJECT_DIR, "..", "assets", "environments", "InnovationCenter", "maps"
+    PROJECT_DIR, "..", "assets", "environments", "msoe_building", "maps"
 ))
 USD_PATH = os.path.abspath(os.path.join(
-    PROJECT_DIR, "..", "assets", "environments", "InnovationCenter",
-    "InnovationCenter.usd"
+    PROJECT_DIR, "..", "assets", "environments", "msoe_building",
+    "MSOEBuildingV4_physics.usd"
 ))
 
 CELL_SIZE = 0.05  # 5 cm per cell — V4 stage units are meters

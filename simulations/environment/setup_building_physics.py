@@ -189,15 +189,28 @@ def main():
                 continue
             mechanism = classify_door_mechanism(element)
             if mechanism != DoorMechanism.HINGED_SINGLE:
-                counts[PrimCategory.SKIP] += 1
-                level_counts[level_name][PrimCategory.SKIP] = level_counts[level_name].get(PrimCategory.SKIP, 0) + 1
-                if mechanism == DoorMechanism.HINGED_DOUBLE:
-                    log(f"  Skipping double door: {element.GetName()}")
+                # Non-hinged doors (SLIDING, HINGED_DOUBLE, OVERHEAD, UNKNOWN) don't get
+                # a revolute joint/drive, but their glass and frame meshes still need to
+                # act as walls for navigation raycasts. Apply a static triangle-mesh
+                # collider to EVERY mesh in the assembly (all_meshes=True) — these
+                # families typically contain separate glass, frame, and hardware meshes.
+                if apply_static_collider(stage, element, approx="none", all_meshes=True):
+                    applied_collider += 1
+                    level_colliders[level_name] = level_colliders.get(level_name, 0) + 1
+                    mat_name = CATEGORY_MATERIALS.get(PrimCategory.STATIC_GLAZING)
+                    if mat_name and mat_name in material_paths:
+                        bind_physics_material(stage, element, material_paths[mat_name])
+                    log(f"  Static collider on non-hinged door ({mechanism.name}): {element.GetName()}")
                 else:
-                    log(f"  Skipping non-hinged door ({mechanism.name}): {element.GetName()}")
+                    skipped_no_mesh += 1
+                    log(f"  No mesh found on non-hinged door ({mechanism.name}): {element.GetName()}")
                 continue
             door_mass = 15.0
-            if apply_dynamic_rigid_body(stage, element, mass=door_mass, deep_search=True):
+            # all_meshes=True: multi-mesh door assemblies (e.g. Curtain_Wall_Type_FG has
+            # a frame + glass panel) need every mesh tagged as a collision shape, else
+            # raycasts pass through the glass even though the door itself has physics.
+            if apply_dynamic_rigid_body(stage, element, mass=door_mass,
+                                        deep_search=True, all_meshes=True):
                 applied_rigid_body += 1
                 door_prims.append((level_name, element, mechanism))
                 mat_name = CATEGORY_MATERIALS.get(category)
