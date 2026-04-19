@@ -61,9 +61,10 @@ W   = 55.0         # horizontal spread radius
 HI  = 5.5          # height above water where drops spawn
 CYC = 20           # frames per drop cycle (~0.67s fall)
 
-xs     = [random.uniform(-W, W - 30)  for _ in range(N)]
-ys     = [random.uniform(20, 90)       for _ in range(N)]
-phases = [random.randint(0, CYC - 1)   for _ in range(N)]
+# World-space coords centered over the flood corridor
+xs     = [random.uniform(-60, 20)   for _ in range(N)]
+ys     = [random.uniform(20, 110)   for _ in range(N)]
+phases = [random.randint(0, CYC-1)  for _ in range(N)]
 
 # Slight tilt on drops (fixed orientation)
 import math
@@ -79,7 +80,7 @@ for frame in range(TOTAL_FRAMES + 1):
     for i in range(N):
         t = ((frame + phases[i]) % CYC) / CYC   # 0→1 within cycle
         z = wz + HI - t * (HI + 0.3)            # spawn hi, land at water
-        pos.append(Gf.Vec3f(xs[i] - 20.0, ys[i] + 65.0, z))
+        pos.append(Gf.Vec3f(xs[i], ys[i], z))
     instancer.GetPositionsAttr().Set(Vt.Vec3fArray(pos), frame)
 
 print("Rain baked")
