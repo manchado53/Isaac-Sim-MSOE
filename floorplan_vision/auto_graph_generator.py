@@ -241,54 +241,68 @@ def sample_nodes(skeleton_G, skeleton, junctions, endpoints, meta, sample_dist_m
     if skeleton_G.number_of_nodes() == 0:
         return []
 
-    components = sorted(nx.connected_components(skeleton_G), key=len, reverse=True)
-    main_cc    = skeleton_G.subgraph(components[0]).copy()
-    print(f"  Largest CC: {main_cc.number_of_nodes():,} nodes "
+    # Keep every connected component above a small-noise floor so interior
+    # rooms survive when the occupancy map has extra walls (e.g. glass)
+    # that fragment the skeleton. Previously this kept only the largest CC,
+    # which collapses to just the outdoor ring in heavily-walled maps.
+    MIN_CC_PIXELS = 100   # ~5 m of 0.05 m/px skeleton — drops only noise blobs
+    components = sorted(nx.connected_components(skeleton_G),
+                        key=len, reverse=True)
+    kept_ccs = [c for c in components if len(c) >= MIN_CC_PIXELS]
+    dropped = len(components) - len(kept_ccs)
+    kept_pixels = sum(len(c) for c in kept_ccs)
+    print(f"  Largest CC: {len(components[0]):,} nodes "
           f"(of {skeleton_G.number_of_nodes():,} total)")
+    print(f"  CCs kept: {len(kept_ccs)} of {len(components)} "
+          f"(>= {MIN_CC_PIXELS} px)   "
+          f"dropped: {dropped}   kept-pixels: {kept_pixels:,}")
 
-    nodes_set  = set()
-    main_nodes = set(main_cc.nodes())
+    nodes_set = set()
 
-    for px in key_pixels:
-        if px in main_nodes:
-            nodes_set.add(px)
+    for cc in kept_ccs:
+        main_cc    = skeleton_G.subgraph(cc).copy()
+        main_nodes = set(main_cc.nodes())
 
-    visited_edges = set()
+        for px in key_pixels:
+            if px in main_nodes:
+                nodes_set.add(px)
 
-    def walk_branch(start, via):
-        path = [start, via]
-        dist = main_cc[start][via]["weight"] if main_cc.has_edge(start, via) else 1.0
-        prev, cur = start, via
-        while cur not in key_pixels:
-            nbrs = [n for n in main_cc.neighbors(cur) if n != prev]
-            if not nbrs:
-                break
-            nxt = nbrs[0]
-            path.append(nxt)
-            if main_cc.has_edge(cur, nxt):
-                dist += main_cc[cur][nxt]["weight"]
-            prev, cur = cur, nxt
-        return path, dist
+        visited_edges = set()
 
-    for start in key_pixels:
-        if start not in main_nodes:
-            continue
-        for via in list(main_cc.neighbors(start)):
-            edge_key = (min(start, via), max(start, via))
-            if edge_key in visited_edges:
+        def walk_branch(start, via):
+            path = [start, via]
+            dist = main_cc[start][via]["weight"] if main_cc.has_edge(start, via) else 1.0
+            prev, cur = start, via
+            while cur not in key_pixels:
+                nbrs = [n for n in main_cc.neighbors(cur) if n != prev]
+                if not nbrs:
+                    break
+                nxt = nbrs[0]
+                path.append(nxt)
+                if main_cc.has_edge(cur, nxt):
+                    dist += main_cc[cur][nxt]["weight"]
+                prev, cur = cur, nxt
+            return path, dist
+
+        for start in key_pixels:
+            if start not in main_nodes:
                 continue
-            visited_edges.add(edge_key)
-            path, total_px = walk_branch(start, via)
-            if total_px > sample_dist_px:
-                acc         = 0.0
-                last_placed = 0.0
-                for i in range(1, len(path)):
-                    seg = main_cc[path[i-1]][path[i]]["weight"] \
-                          if main_cc.has_edge(path[i-1], path[i]) else 1.0
-                    acc += seg
-                    if acc - last_placed >= sample_dist_px:
-                        nodes_set.add(path[i])
-                        last_placed = acc
+            for via in list(main_cc.neighbors(start)):
+                edge_key = (min(start, via), max(start, via))
+                if edge_key in visited_edges:
+                    continue
+                visited_edges.add(edge_key)
+                path, total_px = walk_branch(start, via)
+                if total_px > sample_dist_px:
+                    acc         = 0.0
+                    last_placed = 0.0
+                    for i in range(1, len(path)):
+                        seg = main_cc[path[i-1]][path[i]]["weight"] \
+                              if main_cc.has_edge(path[i-1], path[i]) else 1.0
+                        acc += seg
+                        if acc - last_placed >= sample_dist_px:
+                            nodes_set.add(path[i])
+                            last_placed = acc
 
     print(f"  Sampled nodes: {len(nodes_set)} total")
     return list(nodes_set)
@@ -377,13 +391,39 @@ def build_waypoint_graph(node_pixels, skeleton_G, meta, merge_dist_m, min_stub_m
                     G.remove_node(nid)
                     changed = True
 
-    # Remove small disconnected fragments
-    for comp in list(nx.connected_components(G)):
-        sub = G.subgraph(comp)
-        total_len = sum(d["weight"] for _, _, d in sub.edges(data=True))
-        if len(comp) < 3 or total_len < min_stub_m * 3:
-            if len(comp) < max(nx.connected_components(G), key=len):
-                G.remove_nodes_from(comp)
+    # Remove small disconnected fragments (but always keep the biggest CC)
+    all_ccs = list(nx.connected_components(G))
+    if all_ccs:
+        largest_cc_size = max(len(c) for c in all_ccs)
+        for comp in all_ccs:
+            sub = G.subgraph(comp)
+            total_len = sum(d["weight"] for _, _, d in sub.edges(data=True))
+            if len(comp) < 3 or total_len < min_stub_m * 3:
+                if len(comp) < largest_cc_size:
+                    G.remove_nodes_from(comp)
+
+    # Drop the outdoor-ring CC: its bounding-box area dwarfs every interior
+    # CC because it wraps the whole building footprint. Heuristic: if the
+    # single largest-bbox CC is more than 2× the next-largest's bbox area,
+    # it's the outdoor ring and we discard it. With only one CC left there
+    # is nothing to compare against — skip the filter.
+    ccs_now = list(nx.connected_components(G))
+    if len(ccs_now) >= 2:
+        def _bbox_area(comp):
+            xs = [G.nodes[n]["x"] for n in comp]
+            ys = [G.nodes[n]["y"] for n in comp]
+            return (max(xs) - min(xs)) * (max(ys) - min(ys))
+        sized = sorted(ccs_now, key=_bbox_area, reverse=True)
+        largest_area  = _bbox_area(sized[0])
+        runner_up     = _bbox_area(sized[1])
+        if largest_area > 2.0 * runner_up:
+            print(f"  Dropping outdoor-ring CC: "
+                  f"{len(sized[0])} nodes, bbox {largest_area:.0f} m^2 "
+                  f"(next CC bbox {runner_up:.0f} m^2)")
+            G.remove_nodes_from(sized[0])
+        else:
+            print(f"  Not dropping any CC (largest bbox {largest_area:.0f} m^2 "
+                  f"only {largest_area/max(runner_up, 1):.1f}x runner-up)")
 
     G = nx.convert_node_labels_to_integers(G)
     print(f"  Final graph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")

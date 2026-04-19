@@ -236,11 +236,40 @@ def _find_mesh_descendant(prim, max_depth: int = 3) -> Optional[Usd.Prim]:
     return None
 
 
+def _find_all_mesh_descendants(prim, max_depth: int = 4):
+    """Yield every Mesh descendant of *prim* up to *max_depth* levels.
+
+    Unlike ``_find_mesh_descendant`` (first match), this walks the whole subtree.
+    Needed for multi-mesh assemblies like non-hinged door families where a single
+    element prim contains several separate meshes (glass panel, frame, hardware)
+    that all need colliders for navigation raycasts to see them.
+    """
+    if prim.IsInstanceable():
+        prim.SetInstanceable(False)
+    if max_depth <= 0:
+        return
+    for child in prim.GetChildren():
+        if child.IsA(UsdGeom.Mesh):
+            yield child
+        yield from _find_all_mesh_descendants(child, max_depth - 1)
+
+
 # ---------------------------------------------------------------------------
 # Physics Application
 # ---------------------------------------------------------------------------
 
-def apply_static_collider(stage, prim, approx="none", deep_search=False):
+def _apply_mesh_collider(mesh_prim, approx="none"):
+    """Apply CollisionAPI + MeshCollisionAPI (+ PhysX variants) to a Mesh prim."""
+    UsdPhysics.CollisionAPI.Apply(mesh_prim)
+    mesh_collision = UsdPhysics.MeshCollisionAPI.Apply(mesh_prim)
+    mesh_collision.CreateApproximationAttr(approx)
+    if _HAS_PHYSX_SCHEMA:
+        PhysxSchema.PhysxCollisionAPI.Apply(mesh_prim)
+        if approx == "none":
+            PhysxSchema.PhysxTriangleMeshCollisionAPI.Apply(mesh_prim)
+
+
+def apply_static_collider(stage, prim, approx="none", deep_search=False, all_meshes=False):
     """
     Apply static collision to a prim (no RigidBodyAPI = infinite mass, immovable).
 
@@ -254,9 +283,19 @@ def apply_static_collider(stage, prim, approx="none", deep_search=False):
                  "convexHull", "convexDecomposition", "boundingCube", "boundingSphere"
         deep_search: If True, use _find_mesh_descendant() to search nested/instanced
                      hierarchies. Default False preserves backward compatibility.
+        all_meshes: If True, apply collider to EVERY Mesh descendant (needed for
+                    multi-mesh assemblies like door families with separate glass,
+                    frame, and hardware meshes). Requires deep_search=True.
     Returns:
         True if collision was applied, False if no mesh child found
     """
+    if all_meshes:
+        found = False
+        for mesh_prim in _find_all_mesh_descendants(prim):
+            _apply_mesh_collider(mesh_prim, approx=approx)
+            found = True
+        return found
+
     if deep_search:
         mesh_prim = _find_mesh_descendant(prim)
     else:
@@ -264,22 +303,11 @@ def apply_static_collider(stage, prim, approx="none", deep_search=False):
     if mesh_prim is None:
         return False
 
-    # CollisionAPI + MeshCollisionAPI both on the Mesh child (where geometry lives).
-    # The physics engine needs CollisionAPI on the prim with actual geometry data.
-    UsdPhysics.CollisionAPI.Apply(mesh_prim)
-    mesh_collision = UsdPhysics.MeshCollisionAPI.Apply(mesh_prim)
-    mesh_collision.CreateApproximationAttr(approx)
-
-    # Apply PhysxCollisionAPI for contact/rest offsets (matches NVIDIA setCollider pattern)
-    if _HAS_PHYSX_SCHEMA:
-        PhysxSchema.PhysxCollisionAPI.Apply(mesh_prim)
-        if approx == "none":
-            PhysxSchema.PhysxTriangleMeshCollisionAPI.Apply(mesh_prim)
-
+    _apply_mesh_collider(mesh_prim, approx=approx)
     return True
 
 
-def apply_dynamic_rigid_body(stage, prim, mass=15.0, deep_search=False):
+def apply_dynamic_rigid_body(stage, prim, mass=15.0, deep_search=False, all_meshes=False):
     """
     Apply dynamic rigid body physics to a prim (e.g. a door).
 
@@ -292,15 +320,28 @@ def apply_dynamic_rigid_body(stage, prim, mass=15.0, deep_search=False):
         mass: Mass in kg
         deep_search: If True, use _find_mesh_descendant() to search nested/instanced
                      hierarchies. Default False preserves backward compatibility.
+        all_meshes: If True, apply a convex-hull collider to EVERY mesh descendant
+                    (frame, glass, hardware, …) so they all participate as shapes
+                    under the rigid body. Without this, multi-mesh doors like
+                    Curtain_Wall_Type_FG have only the first mesh (the frame)
+                    blocking raycasts — the glass panel stays invisible.
     Returns:
         True if physics was applied, False if no mesh child found
     """
-    if deep_search:
-        mesh_prim = _find_mesh_descendant(prim)
+    if all_meshes:
+        mesh_prims = list(_find_all_mesh_descendants(prim))
+        if not mesh_prims:
+            return False
+        mesh_prim = mesh_prims[0]  # for material binding / primary shape reference
     else:
-        mesh_prim = _find_mesh_child(prim)
-    if mesh_prim is None:
-        return False
+        if deep_search:
+            found = _find_mesh_descendant(prim)
+        else:
+            found = _find_mesh_child(prim)
+        if found is None:
+            return False
+        mesh_prims = [found]
+        mesh_prim = found
 
     # RigidBodyAPI on the Xform (makes it a dynamic body)
     UsdPhysics.RigidBodyAPI.Apply(prim)
@@ -313,15 +354,15 @@ def apply_dynamic_rigid_body(stage, prim, mass=15.0, deep_search=False):
         physx_rb.CreateSolverVelocityIterationCountAttr(4)
         physx_rb.CreateEnableCCDAttr(True)
 
-    # CollisionAPI + MeshCollisionAPI on the Mesh child (where geometry lives)
+    # CollisionAPI + MeshCollisionAPI on every mesh that should act as a shape.
     # convexHull is fast to cook; convexDecomposition is more accurate but
     # takes hours on T4 GPUs with large buildings — not worth the tradeoff.
-    UsdPhysics.CollisionAPI.Apply(mesh_prim)
-    mesh_collision = UsdPhysics.MeshCollisionAPI.Apply(mesh_prim)
-    mesh_collision.CreateApproximationAttr("convexHull")
-
-    if _HAS_PHYSX_SCHEMA:
-        PhysxSchema.PhysxCollisionAPI.Apply(mesh_prim)
+    for m in mesh_prims:
+        UsdPhysics.CollisionAPI.Apply(m)
+        mesh_collision = UsdPhysics.MeshCollisionAPI.Apply(m)
+        mesh_collision.CreateApproximationAttr("convexHull")
+        if _HAS_PHYSX_SCHEMA:
+            PhysxSchema.PhysxCollisionAPI.Apply(m)
 
     # MassAPI on the Xform
     mass_api = UsdPhysics.MassAPI.Apply(prim)
@@ -1234,9 +1275,17 @@ def _iter_leaf_elements(prim, max_depth: int = 6):
     if max_depth <= 0:
         return
     for child in prim.GetChildren():
-        if child.GetTypeName() == "Scope":
-            continue
-        if not child.IsA(UsdGeom.Xform):
+        type_name = child.GetTypeName()
+        # Skip only non-container types. Untyped prims (empty typeName) act as
+        # Xform containers in Revit exports — some door families wrap instances
+        # in an untyped family-template prim (e.g. `_4000_x_3000_4_Panel`,
+        # `NEW___HM_Frame___36_x96____18__Sidelite`). If we required
+        # IsA(UsdGeom.Xform) those whole subtrees would be skipped, leaving
+        # glass/frame meshes without any physics.
+        if type_name in ("Scope", "Mesh", "Camera", "Light",
+                         "DistantLight", "SphereLight", "DomeLight",
+                         "RectLight", "DiskLight", "CylinderLight",
+                         "Material", "Shader"):
             continue
         if child.IsInstanceable():
             yield child
