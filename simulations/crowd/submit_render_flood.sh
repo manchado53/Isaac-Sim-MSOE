@@ -2,7 +2,7 @@
 #SBATCH --job-name=render-flood
 #SBATCH --partition=teaching
 #SBATCH --gres=gpu:t4:1
-#SBATCH --time=0:40:00
+#SBATCH --time=1:00:00
 #SBATCH --mem=32G
 #SBATCH --output=%x_%j.out
 #SBATCH --error=%x_%j.err

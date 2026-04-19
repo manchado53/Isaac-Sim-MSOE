@@ -20,7 +20,10 @@ OUT_MP4 = os.path.join(PROJECT_DIR, "videos/flood_render.mp4")
 sys.path.insert(0, PROJECT_DIR)
 from sim_utils.video_capture import VideoRecorder
 
-FPS = 30; DURATION_S = 20; FRAMES = FPS * DURATION_S
+FPS = 30
+RISE_FRAMES  = 30 * 20   # 20s water rises
+HOLD_FRAMES  = 30 * 10   # 10s waves keep flowing at peak
+TOTAL_FRAMES = RISE_FRAMES + HOLD_FRAMES  # 900 frames total
 FLOOR_Z = 26.9; FLOOD_RISE = 1.5
 WAVE_AMP = 0.35; WAVE_FREQ = 0.10; WAVE_SPEED = 1.8
 
@@ -30,7 +33,7 @@ app.update()
 
 stage = omni.usd.get_context().get_stage()
 stage.SetStartTimeCode(0)
-stage.SetEndTimeCode(FRAMES)
+stage.SetEndTimeCode(TOTAL_FRAMES)
 stage.SetTimeCodesPerSecond(FPS)
 
 # ── Water mesh ────────────────────────────────────────────────────────────────
@@ -59,10 +62,12 @@ mesh.CreateDoubleSidedAttr(True)
 xform = UsdGeom.Xformable(mesh.GetPrim())
 t_op  = xform.AddTranslateOp()
 
-print(f"Baking {FRAMES+1} frames of wave animation...")
-for frame in range(FRAMES + 1):
-    frac = frame / FRAMES
+print(f"Baking {TOTAL_FRAMES+1} frames (rise={RISE_FRAMES} + hold={HOLD_FRAMES})...")
+for frame in range(TOTAL_FRAMES + 1):
+    # Water rises during RISE_FRAMES then holds at peak
+    frac = min(frame / RISE_FRAMES, 1.0)
     t_op.Set(Gf.Vec3d(-20.0, 65.0, FLOOR_Z + frac * FLOOD_RISE), frame)
+    # Waves continue for the full duration
     time_rad = frame / FPS * WAVE_SPEED
     pts = []
     for (x, y) in base_xy:
@@ -82,13 +87,15 @@ material = UsdShade.Material.Define(stage, mat_path)
 shader   = UsdShade.Shader.Define(stage, mat_path + "/Shader")
 shader.CreateIdAttr("UsdPreviewSurface")
 shader.CreateInput("diffuseColor",       Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.02, 0.18, 0.55))
-shader.CreateInput("opacity",            Sdf.ValueTypeNames.Float).Set(0.65)
+shader.CreateInput("opacity",            Sdf.ValueTypeNames.Float).Set(0.72)
 shader.CreateInput("roughness",          Sdf.ValueTypeNames.Float).Set(0.03)
 shader.CreateInput("metallic",           Sdf.ValueTypeNames.Float).Set(0.0)
 shader.CreateInput("ior",                Sdf.ValueTypeNames.Float).Set(1.33)
 shader.CreateInput("specularColor",      Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.9, 0.95, 1.0))
 shader.CreateInput("clearcoat",         Sdf.ValueTypeNames.Float).Set(1.0)
 shader.CreateInput("clearcoatRoughness",Sdf.ValueTypeNames.Float).Set(0.02)
+# Emissive blue glow keeps water visible when camera is submerged
+shader.CreateInput("emissiveColor",      Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.0, 0.08, 0.30))
 material.CreateSurfaceOutput().ConnectToSource(shader.ConnectableAPI(), "surface")
 UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(material)
 
@@ -123,14 +130,14 @@ import omni.kit.viewport.utility as vp_util
 viewport = vp_util.get_active_viewport()
 viewport.camera_path = cam_path
 
-print(f"Rendering {FRAMES} frames → {OUT_MP4}")
+print(f"Rendering {TOTAL_FRAMES} frames → {OUT_MP4}")
 with VideoRecorder(os.path.splitext(os.path.basename(OUT_MP4))[0]) as recorder:
-    for frame in range(FRAMES + 1):
+    for frame in range(TOTAL_FRAMES + 1):
         timeline.set_current_time(frame / FPS)
         app.update()
         recorder.capture()
         if frame % 60 == 0:
-            print(f"  Frame {frame}/{FRAMES}")
+            print(f"  Frame {frame}/{TOTAL_FRAMES}")
 
 print(f"\nDone → {OUT_MP4}")
 app.close()
