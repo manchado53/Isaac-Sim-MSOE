@@ -45,7 +45,7 @@ else:
     xf.ClearXformOpOrder()
     t_op = xf.AddTranslateOp()
     xf.AddRotateXYZOp().Set(Gf.Vec3f(-90.0, 0.0, 0.0))
-    xf.AddScaleOp().Set(Gf.Vec3f(0.30, 0.15, 0.30))  # calm waves, wide coverage
+    xf.AddScaleOp().Set(Gf.Vec3f(0.08, 0.08, 0.08))  # smaller scale — proportional to building
 
     print(f"Baking {TOTAL_FRAMES+1} keyframes...")
     for frame in range(TOTAL_FRAMES + 1):
