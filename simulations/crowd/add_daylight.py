@@ -21,7 +21,7 @@ dome.CreateColorAttr(Gf.Vec3f(0.85, 0.92, 1.0))  # soft blue sky
 
 # Directional sun
 sun = UsdLux.DistantLight.Define(stage, "/World/SunLight")
-sun.CreateIntensityAttr(5000.0)
+sun.CreateIntensityAttr(1500.0)
 sun.CreateColorAttr(Gf.Vec3f(1.0, 0.95, 0.85))   # warm sunlight
 sun.CreateAngleAttr(0.53)
 
