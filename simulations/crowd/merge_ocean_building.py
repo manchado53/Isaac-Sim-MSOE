@@ -1,13 +1,6 @@
 """Merge Warp ocean.usda into building stage as a sublayer.
 
-After rotating MeshOut -90 on X:
-  local_x = world_x
-  local_y = -world_z   (so to rise in world Z, decrease local Y)
-  local_z =  world_y
-
-Translates use local-space coords to position correctly in Z-up building.
-
-IMPORTANT: Load the building USD first, then run this script.
+Computes building bounds dynamically so ocean spawns just below floor immediately.
 
 exec(open('/home/ad.msoe.edu/somed/isaac-sim-msoe/simulations/crowd/merge_ocean_building.py').read())
 """
@@ -17,16 +10,8 @@ from pxr import UsdGeom, Gf
 OCEAN_USD = "/home/ad.msoe.edu/somed/isaacsim/extscache/omni.warp-1.8.2/data/scenes/ocean.usda"
 
 FPS          = 30
-RISE_FRAMES  = 600
-TOTAL_FRAMES = 900
-
-# Building world Z: -8193 to 8192 — water rises through this range
-WORLD_Z_START = -8500.0
-WORLD_Z_END   =  9000.0
-
-# Building world XY center (from check_bounds): X=-60, Y=3479
-WORLD_CX = -60.0
-WORLD_CY = 3479.0
+RISE_FRAMES  = 600    # 20 seconds — fast dramatic rise
+TOTAL_FRAMES = 900    # 30s total, 10s fully flooded at end
 
 stage = omni.usd.get_context().get_stage()
 root_layer = stage.GetRootLayer()
@@ -37,6 +22,21 @@ if OCEAN_USD not in root_layer.subLayerPaths:
 else:
     print("Ocean sublayer already present.")
 
+# Compute building bounds dynamically
+bbox_cache = UsdGeom.BBoxCache(0, [UsdGeom.Tokens.default_])
+building = stage.GetPrimAtPath("/World/Building")
+b = bbox_cache.ComputeWorldBound(building).GetRange()
+floor_z = b.GetMin()[2]
+roof_z  = b.GetMax()[2]
+cx      = (b.GetMin()[0] + b.GetMax()[0]) / 2
+cy      = (b.GetMin()[1] + b.GetMax()[1]) / 2
+
+START_Z = floor_z - 5    # spawn just below floor — visible immediately
+END_Z   = roof_z  + 200
+
+print(f"Building Z: {floor_z:.1f} to {roof_z:.1f}  center=({cx:.1f},{cy:.1f})")
+print(f"Ocean Z: {START_Z:.0f} -> {END_Z:.0f} over {RISE_FRAMES} frames ({RISE_FRAMES/FPS:.0f}s)")
+
 mesh_out = stage.GetPrimAtPath("/World/MeshOut")
 if not mesh_out.IsValid():
     print("ERROR: /World/MeshOut not found")
@@ -45,14 +45,18 @@ else:
     xf.ClearXformOpOrder()
     t_op = xf.AddTranslateOp()
     xf.AddRotateXYZOp().Set(Gf.Vec3f(-90.0, 0.0, 0.0))
-    xf.AddScaleOp().Set(Gf.Vec3f(0.4, 0.4, 0.4))
+    xf.AddScaleOp().Set(Gf.Vec3f(0.30, 0.15, 0.30))  # calm waves, wide coverage
 
     print(f"Baking {TOTAL_FRAMES+1} keyframes...")
     for frame in range(TOTAL_FRAMES + 1):
         frac = min(frame / RISE_FRAMES, 1.0)
-        wz = WORLD_Z_START + frac * (WORLD_Z_END - WORLD_Z_START)
-        t_op.Set(Gf.Vec3d(WORLD_CX, WORLD_CY, wz), frame)
+        wz = START_Z + frac * (END_Z - START_Z)
+        t_op.Set(Gf.Vec3d(cx, cy, wz), frame)
         if frame % 150 == 0:
             print(f"  {frame}/{TOTAL_FRAMES}  world_z={wz:.0f}")
 
-    print("Done — press Play.")
+    old = stage.GetPrimAtPath("/World/WaterPlane")
+    if old.IsValid():
+        stage.RemovePrim("/World/WaterPlane")
+
+    print(f"Done — set timeline end to {TOTAL_FRAMES}, scrub to 0, press Play.")
