@@ -83,15 +83,23 @@ sh.CreateInput("specularColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.3, 0.
 mat.CreateSurfaceOutput().ConnectToSource(sh.ConnectableAPI(), "surface")
 UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(mat)
 
-# ── Dome light only — no directional shadow to flicker with waves ─────────────
+# ── Lighting: ambient dome + nearly-overhead sun ──────────────────────────────
+# Overhead sun = shadows exist but barely move with waves (near-zero flicker)
 for p in ["/World/DomeLight", "/World/SunLight", "/World/FloodDomeLight"]:
     prim = stage.GetPrimAtPath(p)
     if prim.IsValid():
         stage.RemovePrim(p)
 
 dome = UsdLux.DomeLight.Define(stage, "/World/DomeLight")
-dome.CreateIntensityAttr(1200.0)
+dome.CreateIntensityAttr(800.0)
 dome.CreateColorAttr(Gf.Vec3f(0.85, 0.92, 1.0))
+
+sun = UsdLux.DistantLight.Define(stage, "/World/SunLight")
+sun.CreateIntensityAttr(2000.0)
+sun.CreateColorAttr(Gf.Vec3f(1.0, 0.97, 0.90))
+sun.CreateAngleAttr(0.53)
+xf_sun = UsdGeom.Xformable(sun.GetPrim())
+xf_sun.AddRotateXYZOp().Set(Gf.Vec3f(-82.0, 0.0, 0.0))  # nearly straight down
 
 print(f"Done — water starts Z={START_Z}, rises to Z={START_Z+FLOOD_RISE:.1f}")
 print("Press Play to preview.")
