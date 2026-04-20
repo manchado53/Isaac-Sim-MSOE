@@ -35,9 +35,11 @@ if not mesh_in_prim.IsValid():
 else:
     xf = UsdGeom.Xformable(mesh_in_prim)
     xf.ClearXformOpOrder()
-    scale_op = xf.AddScaleOp()
-    scale_op.Set(Gf.Vec3f(0.4, 0.4, 1.0))   # scale down to fit building footprint
     t_op = xf.AddTranslateOp()
+    rot_op = xf.AddRotateXYZOp()
+    rot_op.Set(Gf.Vec3f(-90.0, 0.0, 0.0))   # Y-up -> Z-up: lay ocean flat
+    scale_op = xf.AddScaleOp()
+    scale_op.Set(Gf.Vec3f(0.4, 0.4, 1.0))
 
     print(f"Baking {TOTAL_FRAMES+1} rising Z keyframes...")
     for frame in range(TOTAL_FRAMES + 1):
