@@ -1,4 +1,4 @@
-"""Reposition/rescale MeshOut without rebaking. Run after merge_ocean_building.py.
+"""Validate building Z bounds then reposition ocean to start just below floor.
 
 exec(open('/home/ad.msoe.edu/somed/isaac-sim-msoe/simulations/crowd/reposition_ocean.py').read())
 """
@@ -7,17 +7,28 @@ from pxr import UsdGeom, Gf
 
 stage = omni.usd.get_context().get_stage()
 
+# ── Validate building Z bounds ────────────────────────────────────────────────
+bbox_cache = UsdGeom.BBoxCache(0, [UsdGeom.Tokens.default_])
+building = stage.GetPrimAtPath("/World/Building")
+b = bbox_cache.ComputeWorldBound(building).GetRange()
+floor_z = b.GetMin()[2]
+roof_z  = b.GetMax()[2]
+cx      = (b.GetMin()[0] + b.GetMax()[0]) / 2
+cy      = (b.GetMin()[1] + b.GetMax()[1]) / 2
+print(f"Building floor Z = {floor_z:.1f}")
+print(f"Building roof  Z = {roof_z:.1f}")
+print(f"Building center  = ({cx:.1f}, {cy:.1f})")
+
 FPS          = 30
-RISE_FRAMES  = 1200   # 40s rise — slow and dramatic
-TOTAL_FRAMES = 1500   # 50s total, 10s fully flooded at end
+RISE_FRAMES  = 3600   # 120 seconds — very slow dramatic rise
+TOTAL_FRAMES = 4200   # 140s total, 20s fully flooded at end
 
-# Building Z: -8193 (floor) to 8192 (roof) — start just below, end just above
-WORLD_Z_START = -8300.0
-WORLD_Z_END   =  8400.0
+START_Z = floor_z - 50    # spawn just 50 units below floor
+END_Z   = roof_z  + 200   # end well above roof
 
-WORLD_CX = -60.0
-WORLD_CY = 3479.0
+print(f"\nOcean: Z {START_Z:.0f} -> {END_Z:.0f} over {RISE_FRAMES} frames ({RISE_FRAMES/FPS:.0f}s)")
 
+# ── Reposition MeshOut ────────────────────────────────────────────────────────
 mesh_out = stage.GetPrimAtPath("/World/MeshOut")
 if not mesh_out.IsValid():
     print("ERROR: /World/MeshOut not found — run merge_ocean_building.py first")
@@ -28,17 +39,16 @@ else:
     xf.AddRotateXYZOp().Set(Gf.Vec3f(-90.0, 0.0, 0.0))
     xf.AddScaleOp().Set(Gf.Vec3f(0.15, 0.15, 0.15))
 
-    print(f"Updating {TOTAL_FRAMES+1} keyframes...")
+    print(f"Baking {TOTAL_FRAMES+1} keyframes...")
     for frame in range(TOTAL_FRAMES + 1):
         frac = min(frame / RISE_FRAMES, 1.0)
-        wz = WORLD_Z_START + frac * (WORLD_Z_END - WORLD_Z_START)
-        t_op.Set(Gf.Vec3d(WORLD_CX, WORLD_CY, wz), frame)
-        if frame % 300 == 0:
-            print(f"  {frame}/{TOTAL_FRAMES}  world_z={wz:.0f}")
+        wz = START_Z + frac * (END_Z - START_Z)
+        t_op.Set(Gf.Vec3d(cx, cy, wz), frame)
+        if frame % 600 == 0:
+            print(f"  frame {frame}  Z={wz:.0f}")
 
     old = stage.GetPrimAtPath("/World/WaterPlane")
     if old.IsValid():
         stage.RemovePrim("/World/WaterPlane")
-        print("Removed old WaterPlane.")
 
-    print("Done — set timeline end to 1500, scrub to frame 0, press Play.")
+    print(f"Done — set timeline end to {TOTAL_FRAMES}, scrub to 0, press Play.")
