@@ -23,7 +23,7 @@ FPS          = 30
 RISE_FRAMES  = 3600   # 120 seconds — very slow dramatic rise
 TOTAL_FRAMES = 4200   # 140s total, 20s fully flooded at end
 
-START_Z = floor_z - 50    # spawn just 50 units below floor
+START_Z = floor_z - 5     # spawn just 5 units below floor — visible almost immediately
 END_Z   = roof_z  + 200   # end well above roof
 
 print(f"\nOcean: Z {START_Z:.0f} -> {END_Z:.0f} over {RISE_FRAMES} frames ({RISE_FRAMES/FPS:.0f}s)")
