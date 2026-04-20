@@ -30,7 +30,7 @@ print(f"Updating {TOTAL_FRAMES+1} keyframes...")
 for frame in range(TOTAL_FRAMES + 1):
     frac = min(frame / RISE_FRAMES, 1.0)
     wz = WORLD_Z_START + frac * (WORLD_Z_END - WORLD_Z_START)
-    t_op.Set(Gf.Vec3d(WORLD_CX, -wz, WORLD_CY), frame)
+    t_op.Set(Gf.Vec3d(WORLD_CX, WORLD_CY, wz), frame)
     if frame % 150 == 0:
         print(f"  {frame}/{TOTAL_FRAMES}  world_z={wz:.0f}")
 
