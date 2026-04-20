@@ -1,7 +1,7 @@
-"""Full flood: wavy water + OmniPBR material, rises ground floor to roof.
+"""Full flood: rises from ground floor (Z=0) to above roof (~Z=40).
 
-Building bounds (from check_bounds.py):
-  X: -7165 to 4114, Y: -1922 to 8880, Z: -0.3 to 3860.8
+Floor 4 is at Z=26.9 — building is in meters. NavMeshVolume inflated the
+bounding box check so those coords were wrong. This uses the known-good XY.
 
 Run from Isaac Sim Script Editor:
   exec(open('/home/ad.msoe.edu/somed/isaac-sim-msoe/simulations/crowd/full_flood.py').read())
@@ -12,25 +12,20 @@ from pxr import UsdGeom, UsdShade, Sdf, Gf, Vt
 stage = omni.usd.get_context().get_stage()
 
 FPS          = 30
-RISE_FRAMES  = 600    # rises over 20s
-TOTAL_FRAMES = 900    # 30s total
+RISE_FRAMES  = 600
+TOTAL_FRAMES = 900
 
-# Building Z: -0.3 to 3860.8 — start just below ground, flood to roof
-START_Z    = -20.0
-FLOOD_RISE = 3920.0   # ends at ~3900, above the 3860 roof
+START_Z    = -1.0   # just below ground floor
+FLOOD_RISE = 42.0   # rises to Z=41, well above floor 4 ceiling
 
-# Wave parameters — scaled to building unit system
-WAVE_AMP   = 15.0    # ~15 units amplitude (reasonable ripple)
-WAVE_FREQ  = 0.0015  # low frequency for large-scale waves
+WAVE_AMP   = 0.12
+WAVE_FREQ  = 0.10
 WAVE_SPEED = 1.4
+N = 40; half = 120.0   # 240m wide — covers full building footprint
 
-# Mesh covers full building footprint + margin
-# Building X: -7165 to 4114, center ~-1525; half-width ~6000
-# Building Y: -1922 to 8880, center ~3479; half-width ~6000
-N        = 40
-half     = 6000.0
-center_x = -1525.0
-center_y =  3479.0
+# Same XY anchor that worked for floor 4
+CENTER_X = -20.0
+CENTER_Y =  65.0
 
 # ── Rebuild mesh ──────────────────────────────────────────────────────────────
 old = stage.GetPrimAtPath("/World/WaterPlane")
@@ -60,7 +55,7 @@ t_op = xf.AddTranslateOp()
 print(f"Baking {TOTAL_FRAMES+1} frames ({(N+1)**2} verts)...")
 for frame in range(TOTAL_FRAMES + 1):
     frac = min(frame / RISE_FRAMES, 1.0)
-    t_op.Set(Gf.Vec3d(center_x, center_y, START_Z + frac * FLOOD_RISE), frame)
+    t_op.Set(Gf.Vec3d(CENTER_X, CENTER_Y, START_Z + frac * FLOOD_RISE), frame)
     time_rad = frame / FPS * WAVE_SPEED
     pts = []
     for (x, y) in base_xy:
@@ -72,31 +67,21 @@ for frame in range(TOTAL_FRAMES + 1):
 
 print("Waves baked")
 
-# ── OmniPBR water material ────────────────────────────────────────────────────
+# ── Matte water material (no specular flicker) ────────────────────────────────
 old_mat = stage.GetPrimAtPath("/World/Looks/WaterMaterial")
 if old_mat.IsValid():
     stage.RemovePrim("/World/Looks/WaterMaterial")
 
 mat = UsdShade.Material.Define(stage, "/World/Looks/WaterMaterial")
 sh  = UsdShade.Shader.Define(stage, "/World/Looks/WaterMaterial/Shader")
-
-sh.SetSourceAsset(Sdf.AssetPath("OmniPBR.mdl"), "mdl")
-sh.SetSourceAssetSubIdentifier("OmniPBR", "mdl")
-sh.CreateIdAttr("OmniPBR")
-
-sh.CreateInput("diffuse_color_constant",        Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.01, 0.12, 0.40))
-sh.CreateInput("reflection_roughness_constant", Sdf.ValueTypeNames.Float).Set(0.04)
-sh.CreateInput("metallic_constant",             Sdf.ValueTypeNames.Float).Set(0.0)
-sh.CreateInput("opacity_constant",              Sdf.ValueTypeNames.Float).Set(0.82)
-sh.CreateInput("enable_opacity",                Sdf.ValueTypeNames.Bool).Set(True)
-sh.CreateInput("ior_constant",                  Sdf.ValueTypeNames.Float).Set(1.33)
-sh.CreateInput("specular_level",                Sdf.ValueTypeNames.Float).Set(0.6)
-
-mat.CreateSurfaceOutput("mdl").ConnectToSource(sh.ConnectableAPI(), "out")
-mat.CreateDisplacementOutput("mdl").ConnectToSource(sh.ConnectableAPI(), "out")
-mat.CreateVolumeOutput("mdl").ConnectToSource(sh.ConnectableAPI(), "out")
-
+sh.CreateIdAttr("UsdPreviewSurface")
+sh.CreateInput("diffuseColor",  Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.02, 0.15, 0.50))
+sh.CreateInput("opacity",       Sdf.ValueTypeNames.Float).Set(0.85)
+sh.CreateInput("roughness",     Sdf.ValueTypeNames.Float).Set(1.0)
+sh.CreateInput("metallic",      Sdf.ValueTypeNames.Float).Set(0.0)
+sh.CreateInput("specularColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.0, 0.0, 0.0))
+mat.CreateSurfaceOutput().ConnectToSource(sh.ConnectableAPI(), "surface")
 UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(mat)
 
-print(f"Done — water at X={center_x}, Y={center_y}, rises Z={START_Z} to {START_Z+FLOOD_RISE}")
-print("Switch to RTX Interactive, then press Play.")
+print(f"Done — water starts Z={START_Z}, rises to Z={START_Z+FLOOD_RISE:.1f}")
+print("Press Play to preview.")
