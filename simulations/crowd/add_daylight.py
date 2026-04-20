@@ -13,8 +13,4 @@ for p in ["/World/FloodDomeLight", "/World/DomeLight", "/World/SunLight"]:
     if prim.IsValid():
         stage.RemovePrim(p)
 
-dome = UsdLux.DomeLight.Define(stage, "/World/DomeLight")
-dome.CreateIntensityAttr(800.0)
-dome.CreateColorAttr(Gf.Vec3f(0.88, 0.93, 1.0))
-
-print("Soft ambient dome light added — no sun.")
+print("All custom lights removed.")
