@@ -10,5 +10,4 @@ building = stage.GetPrimAtPath("/World/Building")
 
 xf = UsdGeom.Xformable(building)
 xf.ClearXformOpOrder()
-xf.AddRotateXYZOp().Set(Gf.Vec3f(-90.0, 0.0, 0.0))
-print("Building rotated -90 on X.")
+print("Building rotation cleared.")

@@ -1,7 +1,7 @@
 """Merge Warp ocean.usda into building stage as a sublayer.
 
-Scales ocean plane to cover building footprint and animates Z rising
-from ground floor to above roof.
+Rotates MeshOut (rendered output) -90 on X to lay flat in Z-up building space.
+Animates MeshOut translate Y (= world Z after rotation) to rise from floor to roof.
 
 IMPORTANT: Load the building USD first, then run this script.
 
@@ -15,8 +15,9 @@ OCEAN_USD = "/home/ad.msoe.edu/somed/isaacsim/extscache/omni.warp-1.8.2/data/sce
 FPS          = 30
 RISE_FRAMES  = 600
 TOTAL_FRAMES = 900
-START_Z      = -8500.0   # below building floor
-FLOOD_RISE   = 17500.0   # rises to Z=9000, above roof at 8192
+# Building Z: -8193 to 8192 (in stage units)
+START_Y      = -8500.0
+FLOOD_RISE   = 17500.0   # ends at Y=9000 > roof at 8192
 
 stage = omni.usd.get_context().get_stage()
 root_layer = stage.GetRootLayer()
@@ -28,27 +29,23 @@ if OCEAN_USD not in root_layer.subLayerPaths:
 else:
     print("Ocean sublayer already present.")
 
-# Override MeshIn xform — scale to cover full building, animate Z
-mesh_in_prim = stage.GetPrimAtPath("/World/MeshIn")
-if not mesh_in_prim.IsValid():
-    print("ERROR: /World/MeshIn not found — did the sublayer load?")
+# Rotate and animate MeshOut (the rendered result Warp writes to)
+mesh_out_prim = stage.GetPrimAtPath("/World/MeshOut")
+if not mesh_out_prim.IsValid():
+    print("ERROR: /World/MeshOut not found — did the sublayer load?")
 else:
-    xf = UsdGeom.Xformable(mesh_in_prim)
+    xf = UsdGeom.Xformable(mesh_out_prim)
     xf.ClearXformOpOrder()
     t_op = xf.AddTranslateOp()
-    rot_op = xf.AddRotateXYZOp()
-    rot_op.Set(Gf.Vec3f(-90.0, 0.0, 0.0))   # Y-up -> Z-up: lay ocean flat
-    scale_op = xf.AddScaleOp()
-    scale_op.Set(Gf.Vec3f(0.4, 0.4, 1.0))
+    xf.AddRotateXYZOp().Set(Gf.Vec3f(-90.0, 0.0, 0.0))  # lay flat in Z-up space
+    xf.AddScaleOp().Set(Gf.Vec3f(0.4, 0.4, 1.0))
 
-    print(f"Baking {TOTAL_FRAMES+1} rising Z keyframes...")
+    print(f"Baking {TOTAL_FRAMES+1} rising keyframes...")
     for frame in range(TOTAL_FRAMES + 1):
         frac = min(frame / RISE_FRAMES, 1.0)
-        z = START_Z + frac * FLOOD_RISE
-        t_op.Set(Gf.Vec3d(-60.0, 3479.0, z), frame)
+        y = START_Y + frac * FLOOD_RISE
+        t_op.Set(Gf.Vec3d(-60.0, y, 3479.0), frame)
         if frame % 150 == 0:
-            print(f"  {frame}/{TOTAL_FRAMES}  Z={z:.2f}")
+            print(f"  {frame}/{TOTAL_FRAMES}")
 
-    print("Done — press Play to see Warp ocean rising through building.")
-    print("If waves don't appear, enable the omni.warp extension:")
-    print("  Window -> Extensions -> search 'warp' -> enable omni.warp")
+    print("Done — press Play.")
