@@ -1,4 +1,7 @@
-"""Full flood: wavy water + OmniPBR material + rises from below floor to above ceiling.
+"""Full flood: wavy water + OmniPBR material, rises ground floor to roof.
+
+Building bounds (from check_bounds.py):
+  X: -7165 to 4114, Y: -1922 to 8880, Z: -0.3 to 3860.8
 
 Run from Isaac Sim Script Editor:
   exec(open('/home/ad.msoe.edu/somed/isaac-sim-msoe/simulations/crowd/full_flood.py').read())
@@ -8,18 +11,26 @@ from pxr import UsdGeom, UsdShade, Sdf, Gf, Vt
 
 stage = omni.usd.get_context().get_stage()
 
-FPS        = 30
-RISE_FRAMES = 600   # water rises over 20s
-TOTAL_FRAMES = 900  # 30s total
+FPS          = 30
+RISE_FRAMES  = 600    # rises over 20s
+TOTAL_FRAMES = 900    # 30s total
 
-# Start below floor slab, rise 6m above it (past ceiling)
-START_Z = 22.0   # ~5m below floor 4 slab (floor 4 is at 26.9)
-FLOOD_RISE = 8.0  # rise 8m total — floods well above ceiling
+# Building Z: -0.3 to 3860.8 — start just below ground, flood to roof
+START_Z    = -20.0
+FLOOD_RISE = 3920.0   # ends at ~3900, above the 3860 roof
 
-WAVE_AMP   = 0.12
-WAVE_FREQ  = 0.10
+# Wave parameters — scaled to building unit system
+WAVE_AMP   = 15.0    # ~15 units amplitude (reasonable ripple)
+WAVE_FREQ  = 0.0015  # low frequency for large-scale waves
 WAVE_SPEED = 1.4
-N = 40; half = 60.0
+
+# Mesh covers full building footprint + margin
+# Building X: -7165 to 4114, center ~-1525; half-width ~6000
+# Building Y: -1922 to 8880, center ~3479; half-width ~6000
+N        = 40
+half     = 6000.0
+center_x = -1525.0
+center_y =  3479.0
 
 # ── Rebuild mesh ──────────────────────────────────────────────────────────────
 old = stage.GetPrimAtPath("/World/WaterPlane")
@@ -49,7 +60,7 @@ t_op = xf.AddTranslateOp()
 print(f"Baking {TOTAL_FRAMES+1} frames ({(N+1)**2} verts)...")
 for frame in range(TOTAL_FRAMES + 1):
     frac = min(frame / RISE_FRAMES, 1.0)
-    t_op.Set(Gf.Vec3d(-20.0, 65.0, START_Z + frac * FLOOD_RISE), frame)
+    t_op.Set(Gf.Vec3d(center_x, center_y, START_Z + frac * FLOOD_RISE), frame)
     time_rad = frame / FPS * WAVE_SPEED
     pts = []
     for (x, y) in base_xy:
@@ -87,4 +98,5 @@ mat.CreateVolumeOutput("mdl").ConnectToSource(sh.ConnectableAPI(), "out")
 
 UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(mat)
 
-print("Done — OmniPBR wavy water ready. Switch to RTX Interactive, then press Play.")
+print(f"Done — water at X={center_x}, Y={center_y}, rises Z={START_Z} to {START_Z+FLOOD_RISE}")
+print("Switch to RTX Interactive, then press Play.")
