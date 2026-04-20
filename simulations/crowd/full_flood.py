@@ -7,7 +7,7 @@ Run from Isaac Sim Script Editor:
   exec(open('/home/ad.msoe.edu/somed/isaac-sim-msoe/simulations/crowd/full_flood.py').read())
 """
 import omni.usd, math
-from pxr import UsdGeom, UsdShade, Sdf, Gf, Vt
+from pxr import UsdGeom, UsdShade, UsdLux, Sdf, Gf, Vt
 
 stage = omni.usd.get_context().get_stage()
 
@@ -77,11 +77,21 @@ sh  = UsdShade.Shader.Define(stage, "/World/Looks/WaterMaterial/Shader")
 sh.CreateIdAttr("UsdPreviewSurface")
 sh.CreateInput("diffuseColor",  Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.02, 0.15, 0.50))
 sh.CreateInput("opacity",       Sdf.ValueTypeNames.Float).Set(0.85)
-sh.CreateInput("roughness",     Sdf.ValueTypeNames.Float).Set(1.0)
+sh.CreateInput("roughness",     Sdf.ValueTypeNames.Float).Set(0.25)
 sh.CreateInput("metallic",      Sdf.ValueTypeNames.Float).Set(0.0)
-sh.CreateInput("specularColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.0, 0.0, 0.0))
+sh.CreateInput("specularColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.3, 0.4, 0.6))
 mat.CreateSurfaceOutput().ConnectToSource(sh.ConnectableAPI(), "surface")
 UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(mat)
+
+# ── Dome light only — no directional shadow to flicker with waves ─────────────
+for p in ["/World/DomeLight", "/World/SunLight", "/World/FloodDomeLight"]:
+    prim = stage.GetPrimAtPath(p)
+    if prim.IsValid():
+        stage.RemovePrim(p)
+
+dome = UsdLux.DomeLight.Define(stage, "/World/DomeLight")
+dome.CreateIntensityAttr(1200.0)
+dome.CreateColorAttr(Gf.Vec3f(0.85, 0.92, 1.0))
 
 print(f"Done — water starts Z={START_Z}, rises to Z={START_Z+FLOOD_RISE:.1f}")
 print("Press Play to preview.")
