@@ -18,7 +18,7 @@ TOTAL_FRAMES = 900
 START_Z    = -1.0   # just below ground floor
 FLOOD_RISE = 42.0   # rises to Z=41, well above floor 4 ceiling
 
-WAVE_AMP   = 0.12
+WAVE_AMP   = 0.35
 WAVE_FREQ  = 0.10
 WAVE_SPEED = 1.4
 N = 40; half = 120.0   # 240m wide — covers full building footprint
