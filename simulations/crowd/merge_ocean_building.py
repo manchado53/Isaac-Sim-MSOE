@@ -10,8 +10,8 @@ from pxr import UsdGeom, Gf
 OCEAN_USD = "/home/ad.msoe.edu/somed/isaacsim/extscache/omni.warp-1.8.2/data/scenes/ocean.usda"
 
 FPS          = 30
-RISE_FRAMES  = 600    # 20 seconds — fast dramatic rise
-TOTAL_FRAMES = 900    # 30s total, 10s fully flooded at end
+RISE_FRAMES  = 2400   # 80 seconds — slow dramatic rise
+TOTAL_FRAMES = 2700   # 90s total, 10s fully flooded at end
 
 stage = omni.usd.get_context().get_stage()
 root_layer = stage.GetRootLayer()
@@ -52,7 +52,7 @@ else:
         frac = min(frame / RISE_FRAMES, 1.0)
         wz = START_Z + frac * (END_Z - START_Z)
         t_op.Set(Gf.Vec3d(cx, cy, wz), frame)
-        if frame % 150 == 0:
+        if frame % 600 == 0:
             print(f"  {frame}/{TOTAL_FRAMES}  world_z={wz:.0f}")
 
     old = stage.GetPrimAtPath("/World/WaterPlane")
