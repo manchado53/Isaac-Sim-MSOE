@@ -34,17 +34,18 @@ END_Z   = roof_z + 200
 def water_z(frame):
     return START_Z + min(frame / RISE_FRAMES, 1.0) * (END_Z - START_Z)
 
-print(f"Spawning {NUM_ROBOTS} robots around building center ({cx:.0f}, {cy:.0f})")
-print(f"Building footprint: {bx:.0f} x {by:.0f}")
+# Atrium/lobby area — scattered around the terrazzo floor
+ATRIUM_X = -2749.0
+ATRIUM_Y =  6839.0
+SPREAD   =  400.0   # scatter radius in cm
 
-# Spread robots around the building perimeter area
 positions = []
 for i in range(NUM_ROBOTS):
-    angle = (i / NUM_ROBOTS) * 2 * math.pi
-    r = random.uniform(0.3, 0.7)
-    rx = cx + math.cos(angle) * bx * r
-    ry = cy + math.sin(angle) * by * r
+    rx = ATRIUM_X + random.uniform(-SPREAD, SPREAD)
+    ry = ATRIUM_Y + random.uniform(-SPREAD, SPREAD)
     positions.append((rx, ry))
+
+print(f"Spawning {NUM_ROBOTS} robots in atrium at ({ATRIUM_X}, {ATRIUM_Y}) spread={SPREAD}")
 
 robots_root = stage.GetPrimAtPath("/World/Robots")
 if not robots_root.IsValid():
