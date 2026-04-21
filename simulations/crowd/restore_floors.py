@@ -3,8 +3,11 @@
 Run with:
 cd ~/isaacsim && ./python.sh ~/isaac-sim-msoe/simulations/crowd/restore_floors.py
 """
-import os
+import os, sys
 os.environ["OMNI_KIT_ACCEPT_EULA"] = "YES"
+
+from isaacsim import SimulationApp
+simulation_app = SimulationApp({"headless": True})
 
 from pxr import Usd, UsdGeom, Sdf
 
@@ -85,3 +88,4 @@ for path in floor_prims:
 out_stage.GetRootLayer().Save()
 print(f"Restored {restored} floor prims -> {OUT}")
 print("Done.")
+simulation_app.close()
