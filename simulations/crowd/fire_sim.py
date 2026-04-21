@@ -33,6 +33,7 @@ for i, (fx, fy, fz) in enumerate(FIRE_POSITIONS):
     fire_prim = stage.DefinePrim(fire_path, "Xform")
     xf = UsdGeom.Xformable(fire_prim)
     xf.AddTranslateOp().Set(Gf.Vec3d(fx, fy, fz))
+    xf.AddRotateXYZOp().Set(Gf.Vec3f(-90.0, 0.0, 0.0))  # make fire vertical
     xf.AddScaleOp().Set(Gf.Vec3f(FIRE_SCALE, FIRE_SCALE, FIRE_SCALE))
 
     fire_prim.GetReferences().AddReference(
@@ -40,4 +41,20 @@ for i, (fx, fy, fz) in enumerate(FIRE_POSITIONS):
     )
     print(f"  Fire_{i} placed at ({fx}, {fy}, {fz})")
 
-print(f"\nDone — {len(FIRE_POSITIONS)} fire emitters placed. Press Play to ignite.")
+# Dim dome light to make building dark
+from pxr import UsdLux
+for prim in stage.Traverse():
+    if prim.IsA(UsdLux.DomeLight) or prim.IsA(UsdLux.DistantLight):
+        UsdLux.LightAPI(prim).GetIntensityAttr().Set(50.0)
+        print(f"  Dimmed {prim.GetPath()}")
+
+# Add orange point lights at each fire for glow
+for i, (fx, fy, fz) in enumerate(FIRE_POSITIONS):
+    light_path = f"/World/FireSim/FireLight_{i}"
+    light_prim = UsdLux.SphereLight.Define(stage, light_path)
+    light_prim.GetIntensityAttr().Set(5000.0)
+    light_prim.GetRadiusAttr().Set(0.5)
+    light_prim.GetColorAttr().Set(Gf.Vec3f(1.0, 0.3, 0.05))
+    UsdGeom.Xformable(light_prim).AddTranslateOp().Set(Gf.Vec3d(fx, fy, fz + 1.0))
+
+print(f"\nDone — {len(FIRE_POSITIONS)} fire emitters + lights placed, building darkened. Press Play.")
