@@ -61,7 +61,7 @@ if not robots_root.IsValid():
 for i, (rx, ry) in enumerate(positions):
     path = f"/World/Robots/Roscoe_{i}"
     prim = stage.DefinePrim(path, "Xform")
-    prim.GetReferences().AddReference(ROBOT_USD)
+    prim.GetReferences().AddReference(ROBOT_USD, ROBOT_PRIM_PATH)
 
     xf    = UsdGeom.Xformable(prim)
     xf.ClearXformOpOrder()
