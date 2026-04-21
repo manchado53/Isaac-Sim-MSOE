@@ -42,7 +42,9 @@ def is_child_of_any(path, paths):
     return any(path != p and path.startswith(p + "/") for p in paths)
 
 top_level = [p for p in to_remove if not is_child_of_any(p, to_remove)]
-print(f"Removing {len(top_level)} plant prims...")
+print(f"Removing {len(top_level)} plant prims:")
+for p in top_level:
+    print(f"  {p}")
 
 for path in top_level:
     stage.RemovePrim(path)
