@@ -3,7 +3,7 @@
 exec(open('/home/ad.msoe.edu/somed/isaac-sim-msoe/simulations/crowd/float_cubes.py').read())
 """
 import omni.usd, math, random
-from pxr import UsdGeom, Gf
+from pxr import UsdGeom, Gf, UsdPhysics
 
 random.seed(42)
 stage = omni.usd.get_context().get_stage()
@@ -35,10 +35,18 @@ for prim in stage.Traverse():
 print(f"Found {len(floaters)} yellow blocks: {[str(p.GetPath()) for p in floaters]}")
 
 for prim in floaters:
+    # Read world position BEFORE touching xform
     b2 = bbox_cache.ComputeWorldBound(prim).GetRange()
     orig_x = (b2.GetMin()[0] + b2.GetMax()[0]) / 2
     orig_y = (b2.GetMin()[1] + b2.GetMax()[1]) / 2
     orig_z = b2.GetMin()[2]
+
+    # Disable physics so gravity doesn't interfere with keyframe animation
+    if prim.HasAPI(UsdPhysics.RigidBodyAPI):
+        UsdPhysics.RigidBodyAPI(prim).GetRigidBodyEnabledAttr().Set(False)
+    for child in prim.GetChildren():
+        if child.HasAPI(UsdPhysics.RigidBodyAPI):
+            UsdPhysics.RigidBodyAPI(child).GetRigidBodyEnabledAttr().Set(False)
 
     bob_amp  = random.uniform(0.05, 0.15)
     bob_freq = random.uniform(0.5, 1.2)
