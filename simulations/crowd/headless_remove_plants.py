@@ -8,28 +8,24 @@ os.environ["OMNI_KIT_ACCEPT_EULA"] = "YES"
 from isaacsim import SimulationApp
 simulation_app = SimulationApp({"headless": True})
 
-import omni.usd
-from pxr import UsdGeom, Usd
+from pxr import Usd, UsdGeom, Sdf
 
 ORIG = "/home/ad.msoe.edu/somed/isaac-sim-msoe/assets/environments/msoe_building/innovation_center_finalV1.usd"
 OUT  = "/home/ad.msoe.edu/somed/isaac-sim-msoe/assets/environments/msoe_building/innovation_center_clean.usd"
 
 PLANT_KEYWORDS = ["plant","Plant","tree","Tree","shrub","Shrub","fern","Fern",
                   "bush","Bush","palm","Palm","ivy","Ivy","moss","Moss",
-                  "flower","Flower","grass","Grass","vegetation","Vegetation"]
+                  "flower","Flower","grass","Grass","vegetation","Vegetation",
+                  "Planting","planting","Landscape","landscape"]
 
 SAFE_KEYWORDS  = ["floor","Floor","ceil","Ceil","wall","Wall","slab","Slab",
                   "stair","Stair","beam","Beam","column","Column","roof","Roof",
                   "ground","Ground","deck","Deck","struct","Struct","ramp","Ramp"]
 
-print("Opening original USD (may take ~60s)...")
-omni.usd.get_context().open_stage(ORIG)
-import omni.kit.app
-for _ in range(100):
-    simulation_app.update()
-
-stage = omni.usd.get_context().get_stage()
-print(f"Stage loaded: {stage.GetRootLayer().identifier}")
+print("Opening original USD via Usd.Stage.Open (may take ~60s)...")
+stage = Usd.Stage.Open(ORIG)
+all_prims = list(stage.Traverse())
+print(f"Stage loaded — {len(all_prims)} total prims")
 
 to_remove = []
 for prim in stage.Traverse():
@@ -54,5 +50,4 @@ for path in top_level:
 print(f"Saving to {OUT}...")
 stage.GetRootLayer().Export(OUT)
 print("Done.")
-
 simulation_app.close()
