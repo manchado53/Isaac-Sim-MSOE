@@ -10,14 +10,18 @@ from pxr import UsdGeom, Gf, Sdf, UsdShade
 stage = omni.usd.get_context().get_stage()
 
 # Fire locations — corridor + a couple rooms (world meters)
-FIRE_POSITIONS = [
-    (-22.79, 66.0,  22.34),  # corridor start
-    (-22.79, 62.0,  22.34),  # corridor mid
-    (-30.0,  70.0,  22.34),  # side room
-    (-15.0,  68.0,  22.34),  # opposite room
-]
+# Fire positions on building facade — multiple floors, window locations
+# Format: (x, y, z) in world meters
+FLOOR_Z = [22.34, 26.0, 29.5, 33.0]  # ground + 3 upper floors
+WINDOW_X = [-35.0, -28.0, -20.0, -12.0, -5.0]
+WINDOW_Y = 75.0  # building facade Y
 
-FIRE_SCALE = 2.0  # increase for bigger flames
+FIRE_POSITIONS = []
+for z in FLOOR_Z:
+    for x in WINDOW_X:
+        FIRE_POSITIONS.append((x, WINDOW_Y, z))
+
+FIRE_SCALE = 0.4  # smaller, more contained per window
 
 # Remove old fire prims
 old = stage.GetPrimAtPath("/World/FireSim")
@@ -33,7 +37,7 @@ for i, (fx, fy, fz) in enumerate(FIRE_POSITIONS):
     fire_prim = stage.DefinePrim(fire_path, "Xform")
     xf = UsdGeom.Xformable(fire_prim)
     xf.AddTranslateOp().Set(Gf.Vec3d(fx, fy, fz))
-    xf.AddRotateXYZOp().Set(Gf.Vec3f(-90.0, 0.0, 0.0))  # make fire vertical
+    xf.AddRotateXYZOp().Set(Gf.Vec3f(90.0, 0.0, 0.0))  # make fire vertical Z-up
     xf.AddScaleOp().Set(Gf.Vec3f(FIRE_SCALE, FIRE_SCALE, FIRE_SCALE))
 
     fire_prim.GetReferences().AddReference(
