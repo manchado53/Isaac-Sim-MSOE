@@ -11,13 +11,18 @@ random.seed(42)
 stage = omni.usd.get_context().get_stage()
 
 FPS          = 30
-RISE_FRAMES  = 600
-TOTAL_FRAMES = 900
-WATER_START  = -1.0
-WATER_RISE   = 42.0
+RISE_FRAMES  = 4800
+TOTAL_FRAMES = 5400
+
+bbox_cache2 = UsdGeom.BBoxCache(0, [UsdGeom.Tokens.default_])
+_b = bbox_cache2.ComputeWorldBound(stage.GetPrimAtPath("/World/Building")).GetRange()
+_floor_z = _b.GetMin()[2]
+_roof_z  = _b.GetMax()[2]
+START_Z  = _floor_z - 5
+END_Z    = _roof_z + 200
 
 def water_z(frame):
-    return WATER_START + min(frame / RISE_FRAMES, 1.0) * WATER_RISE
+    return START_Z + min(frame / RISE_FRAMES, 1.0) * (END_Z - START_Z)
 
 # Find door/furniture prims — search FamilyData and Rooms for moveable objects
 keywords = ["door", "Door", "chair", "Chair", "table", "Table", "furniture"]
