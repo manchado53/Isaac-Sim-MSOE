@@ -40,9 +40,14 @@ for i, (fx, fy, fz) in enumerate(FIRE_POSITIONS):
     xf.AddRotateXYZOp().Set(Gf.Vec3f(90.0, 0.0, 0.0))  # make fire vertical Z-up
     xf.AddScaleOp().Set(Gf.Vec3f(FIRE_SCALE, FIRE_SCALE, FIRE_SCALE))
 
-    fire_prim.GetReferences().AddReference(
-        "/home/ad.msoe.edu/somed/isaacsim/extscache/omni.flowusd-107.1.8+107.1.0.lx64.r.cp311.u353/data/presets/Fire/Fire.usda"
-    )
+    FIRE_USD = "/home/ad.msoe.edu/somed/isaacsim/extscache/omni.flowusd-107.1.8+107.1.0.lx64.r.cp311.u353/data/presets/Fire/Fire.usda"
+    fire_prim.GetReferences().AddReference(FIRE_USD)
+
+    # Override gravity to Z-up so fire rises vertically
+    adv_path = f"{fire_path}/flowSimulate/advection"
+    adv_prim = stage.OverridePrim(adv_path)
+    adv_prim.CreateAttribute("gravity", Sdf.ValueTypeNames.Float3).Set(Gf.Vec3f(0, 0, -100))
+
     print(f"  Fire_{i} placed at ({fx}, {fy}, {fz})")
 
 # Dim dome light to make building dark
