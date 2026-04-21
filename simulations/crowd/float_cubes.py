@@ -34,11 +34,16 @@ for prim in stage.Traverse():
 
 print(f"Found {len(floaters)} yellow blocks: {[str(p.GetPath()) for p in floaters]}")
 
-for prim in floaters:
-    b2 = bbox_cache.ComputeWorldBound(prim).GetRange()
-    orig_x = (b2.GetMin()[0] + b2.GetMax()[0]) / 2
-    orig_y = (b2.GetMin()[1] + b2.GetMax()[1]) / 2
-    orig_z = b2.GetMin()[2]
+SPAWN_POSITIONS = [
+    (-47.27, 66.52),
+    (-50.00, 64.00),
+    (-44.00, 68.00),
+    (-48.50, 70.00),
+]
+
+for i, prim in enumerate(floaters):
+    orig_x, orig_y = SPAWN_POSITIONS[i % len(SPAWN_POSITIONS)]
+    orig_z = floor_z + 1.0  # just above atrium floor
 
     bob_amp  = random.uniform(0.05, 0.15)
     bob_freq = random.uniform(0.5, 1.2)
@@ -48,6 +53,7 @@ for prim in floaters:
     xf.ClearXformOpOrder()
     t_op   = xf.AddTranslateOp()
     rot_op = xf.AddRotateXYZOp()
+    xf.AddScaleOp().Set(Gf.Vec3d(25.0, 25.0, 25.0))
     for frame in range(TOTAL_FRAMES + 1):
         wz = water_z(frame)
         if wz >= orig_z:
