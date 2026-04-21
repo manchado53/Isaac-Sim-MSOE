@@ -11,6 +11,13 @@ random.seed(7)
 stage = omni.usd.get_context().get_stage()
 
 ROBOT_USD    = "/home/ad.msoe.edu/somed/isaac-sim-msoe/assets/robots/roscoe_robot.usdz"
+
+# Find actual root prim path inside USDZ (handles missing defaultPrim)
+from pxr import Usd as _Usd
+_rs = _Usd.Stage.Open(ROBOT_USD)
+_root_prims = list(_rs.GetPseudoRoot().GetChildren())
+ROBOT_PRIM_PATH = str(_root_prims[0].GetPath()) if _root_prims else ""
+print(f"USDZ root prim: '{ROBOT_PRIM_PATH}'")
 NUM_ROBOTS   = 6
 FPS          = 30
 RISE_FRAMES  = 4800
@@ -34,10 +41,10 @@ END_Z   = roof_z + 200
 def water_z(frame):
     return START_Z + min(frame / RISE_FRAMES, 1.0) * (END_Z - START_Z)
 
-# Atrium/lobby area — scattered around the terrazzo floor
-ATRIUM_X = -2749.0
-ATRIUM_Y =  6839.0
-SPREAD   =  400.0   # scatter radius in cm
+# Atrium/lobby area — world meters (local cm × 0.01 from building scale)
+ATRIUM_X = -27.49
+ATRIUM_Y =  68.39
+SPREAD   =  4.0     # scatter radius in world meters
 
 positions = []
 for i in range(NUM_ROBOTS):
