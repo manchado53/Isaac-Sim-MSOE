@@ -53,7 +53,6 @@ for i, prim in enumerate(floaters):
     xf.ClearXformOpOrder()
     t_op   = xf.AddTranslateOp()
     rot_op = xf.AddRotateXYZOp()
-    xf.AddScaleOp().Set(Gf.Vec3d(25.0, 25.0, 25.0))
     for frame in range(TOTAL_FRAMES + 1):
         wz = water_z(frame)
         if wz >= orig_z:
