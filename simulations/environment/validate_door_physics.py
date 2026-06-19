@@ -36,7 +36,7 @@ sys.path.insert(0, _project_dir)
 from isaacsim.core.api import World
 from isaacsim.sensors.camera import Camera as IsaacCamera
 from sim_utils.test_cameras import (
-    TEST_CAMERAS, CAMERA_FOCAL_LENGTH, CAMERA_RESOLUTION, CAMERA_FREQUENCY,
+    discover_test_cameras, CAMERA_FOCAL_LENGTH, CAMERA_RESOLUTION, CAMERA_FREQUENCY,
     create_test_camera, add_interior_lighting, look_at_orientation,
     set_focal_length_on_prim,
 )
@@ -156,7 +156,12 @@ def main():
     )
 
     setup_physics_scene(stage)
-    add_interior_lighting(stage)
+    TEST_CAMERAS = discover_test_cameras(stage)
+    print(f"[door_physics] Discovered {len(TEST_CAMERAS)} test cameras: "
+          f"{list(TEST_CAMERAS.keys())}", flush=True)
+    # Use lowest-floor camera as the showcase reference (was "G" for IC)
+    SHOWCASE_KEY = next(iter(TEST_CAMERAS)) if TEST_CAMERAS else None
+    add_interior_lighting(stage, TEST_CAMERAS)
 
     # --- Discover all driven doors ---
     all_doors = find_driven_doors(stage)
@@ -180,17 +185,17 @@ def main():
         for n in names:
             print(f"    - {n}", flush=True)
 
-    # --- Showcase camera: close-up of nearest door to Camera G ---
+    # --- Showcase camera: close-up of nearest door to the showcase cam ---
     showcase_cam = None
     showcase_door_name = None
-    if cam_doors.get("G"):
-        nearest = min(cam_doors["G"], key=lambda x: x[4])
+    if SHOWCASE_KEY and cam_doors.get(SHOWCASE_KEY):
+        nearest = min(cam_doors[SHOWCASE_KEY], key=lambda x: x[4])
         path_str, _, _, door_prim, dist = nearest
         door_pos = door_world_position(door_prim)
         showcase_door_name = door_short_name(path_str)
 
-        # Position camera 8ft from door, on the Camera G side, at eye level
-        cam_g = np.array(TEST_CAMERAS["G"]["pos"])
+        # Position camera 8m from door, on the showcase-cam side, at eye level
+        cam_g = np.array(TEST_CAMERAS[SHOWCASE_KEY]["pos"])
         dir_to_door = np.array([door_pos[0] - cam_g[0], door_pos[1] - cam_g[1]])
         dir_norm = dir_to_door / np.linalg.norm(dir_to_door)
 
