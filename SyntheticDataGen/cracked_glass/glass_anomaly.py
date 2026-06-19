@@ -104,11 +104,13 @@ def create_cracked_glass_material(
     material_path: str,
     normal_texture: str,
     opacity_texture: Optional[str] = None,  # unused for OmniGlass but kept for API stability
+    roughness_texture: Optional[str] = None,
     glass_color: Tuple[float, float, float] = (0.82, 0.90, 0.94),
     glass_ior: float = 1.491,
-    frosting_roughness: float = 0.45,
+    frosting_roughness: float = 0.03,
     depth: float = 0.005,
     thin_walled: bool = True,
+    crack_hits: int = 0,
 ) -> UsdShade.Material:
     """Define a single OmniGlass "cracked glass" material.
 
@@ -132,7 +134,17 @@ def create_cracked_glass_material(
         thin_walled: Treat the panel as a thin sheet (no refraction through
             a volume). Correct for window glass which is modeled as a
             single mesh face.
+        crack_hits: Controls how many impact points appear on the panel.
+            0 = default UV tiling (whatever the panel's UVs give, typically
+                2-4 impacts — produces the dense shatter look).
+            1 = single impact (projected, no tiling).
+            4 = 2x2 grid of impacts.
+            9 = 3x3 grid of impacts.
+            N = ceil(sqrt(N)) x ceil(sqrt(N)) grid.
+            For dataset variety, randomly pick from [0, 1, 4, 9].
     """
+    import math
+
     material = UsdShade.Material.Define(stage, material_path)
 
     shader_path = f"{material_path}/Shader"
@@ -144,14 +156,70 @@ def create_cracked_glass_material(
     shader.CreateInput("glass_color", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*glass_color))
     shader.CreateInput("glass_ior", Sdf.ValueTypeNames.Float).Set(glass_ior)
     shader.CreateInput("frosting_roughness", Sdf.ValueTypeNames.Float).Set(frosting_roughness)
+    # Crack tint — a "tint" PNG auto-baked next to the opacity file where
+    # cracks are mid-grey (~0.35) instead of pure black (0). Using the raw
+    # opacity as glass_color_texture made cracks fully absorb transmitted
+    # light and read as pitch black; the mid-grey version preserves some
+    # transmission so cracks appear as a dark frosted smudge, not a hole.
+    if opacity_texture and os.path.isfile(opacity_texture):
+        tint_path = opacity_texture.replace("crack_opacity_",
+                                            "crack_tint_")
+        if not os.path.isfile(tint_path):
+            try:
+                import numpy as _np
+                from PIL import Image as _Image
+                arr = _np.asarray(
+                    _Image.open(opacity_texture).convert("L"))
+                # remap: crack pixels (0) -> ~180 (lighter grey, ~70%
+                #        transmission) so cracks read as a perceptible
+                #        tint without blocking most of the light,
+                #        intact pixels (255) -> 255 (clear)
+                floor = 180
+                tint = _np.maximum(arr, floor).astype(_np.uint8)
+                _Image.fromarray(tint, mode="L").save(tint_path)
+            except Exception:
+                tint_path = opacity_texture
+        shader.CreateInput("glass_color_texture",
+                           Sdf.ValueTypeNames.Asset).Set(
+            Sdf.AssetPath(tint_path))
     shader.CreateInput("depth", Sdf.ValueTypeNames.Float).Set(depth)
     shader.CreateInput("thin_walled", Sdf.ValueTypeNames.Bool).Set(thin_walled)
+
+    if crack_hits > 0:
+        # Use object-space projection so we control tiling from a known
+        # baseline (one copy of the texture = one impact point).
+        shader.CreateInput("project_uvw", Sdf.ValueTypeNames.Bool).Set(True)
+        shader.CreateInput("world_or_object", Sdf.ValueTypeNames.Bool).Set(True)
+        if crack_hits > 1:
+            # Scale UP the texture coordinates so the texture repeats.
+            # In OmniGlass, texture_scale multiplies the UV lookup:
+            #   scale > 1 = UVs stretched = texture repeats more.
+            # n copies per axis = ceil(sqrt(hits)).
+            n = math.ceil(math.sqrt(crack_hits))
+            shader.CreateInput("texture_scale", Sdf.ValueTypeNames.Float2).Set(
+                Gf.Vec2f(float(n), float(n))
+            )
 
     if normal_texture and os.path.isfile(normal_texture):
         shader.CreateInput("normal_map_texture", Sdf.ValueTypeNames.Asset).Set(
             Sdf.AssetPath(normal_texture)
         )
         shader.CreateInput("flip_tangent_v", Sdf.ValueTypeNames.Bool).Set(True)
+
+    # Per-pixel roughness: the crack roughness PNG is white (1.0) where cracks
+    # are and black (0.0) where glass is intact. With full influence, OmniGlass
+    # scatters light only along the crack — the fracture reads as a visibly
+    # frosted band, not a faint normal-map bend. Intact areas stay clear.
+    if roughness_texture and os.path.isfile(roughness_texture):
+        shader.CreateInput("roughness_texture", Sdf.ValueTypeNames.Asset).Set(
+            Sdf.AssetPath(roughness_texture)
+        )
+        # influence=1.0 → texture fully overrides the base scalar, so cracks
+        # go fully frosted (scatter light, read as opaque white) while intact
+        # glass falls back to the very low frosting_roughness (~mirror clear).
+        # Maximum contrast between cracked and clear pixels.
+        shader.CreateInput("roughness_texture_influence",
+                           Sdf.ValueTypeNames.Float).Set(1.0)
 
     material.CreateSurfaceOutput("mdl").ConnectToSource(shader.ConnectableAPI(), "out")
     material.CreateDisplacementOutput("mdl").ConnectToSource(shader.ConnectableAPI(), "out")
@@ -183,12 +251,14 @@ def create_cracked_glass_materials(
     for variant in variants:
         normal_path = os.path.join(texture_dir, f"crack_normal_{variant}.png")
         opacity_path = os.path.join(texture_dir, f"crack_opacity_{variant}.png")
+        roughness_path = os.path.join(texture_dir, f"crack_roughness_{variant}.png")
         material_path = f"{root_path}/{variant}"
         create_cracked_glass_material(
             stage,
             material_path=material_path,
             normal_texture=normal_path,
             opacity_texture=opacity_path if os.path.isfile(opacity_path) else None,
+            roughness_texture=roughness_path if os.path.isfile(roughness_path) else None,
         )
         created.append(material_path)
     return created
