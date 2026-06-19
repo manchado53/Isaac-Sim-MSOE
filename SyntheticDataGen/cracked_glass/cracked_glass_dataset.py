@@ -14,11 +14,11 @@ drives the render/writer; labels are guaranteed to match visuals.
 
 Usage:
 
-    ./python.sh simulations/dataset/cracked_glass_dataset.py \\
+    ./python.sh SyntheticDataGen/cracked_glass/cracked_glass_dataset.py \\
         --frames 500 --fraction 0.2 --cameras G,1,2,3
 
     # smoke test:
-    ./python.sh simulations/dataset/cracked_glass_dataset.py --frames 10
+    ./python.sh SyntheticDataGen/cracked_glass/cracked_glass_dataset.py --frames 10
 """
 
 import argparse
@@ -33,6 +33,7 @@ os.environ["OMNI_KIT_ACCEPT_EULA"] = "YES"
 _script_dir = os.path.dirname(os.path.abspath(__file__))
 _project_dir = os.path.abspath(os.path.join(_script_dir, "..", ".."))
 sys.path.insert(0, _project_dir)
+sys.path.insert(0, _script_dir)
 
 from isaacsim import SimulationApp
 
@@ -45,7 +46,7 @@ from pxr import Sdf, Usd, UsdGeom, UsdShade
 
 from isaacsim.core.api import World
 from sim_utils.building_physics import setup_physics_scene
-from sim_utils.glass_anomaly import (
+from glass_anomaly import (
     bind_visual_material,
     create_cracked_glass_materials,
     enumerate_glass_prims,

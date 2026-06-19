@@ -1,0 +1,245 @@
+{
+  "source": "datasets/cracked_glass/vlm_train_50panels (50-panel preview run, seed 42)",
+  "source_manifest": "preview_manifest.json",
+  "description": "User-curated set of 13 glass panels to use as the canonical dataset target. Drawn from the 50-panel preview run, filtered visually by the user for good visibility/composition. Panel-level train/val/test split: 10 train / 1 val / 2 test. Val = {22} (floor 3 south lab) for fast mid-training checkpoints. Test = {18, 28} (floor 2 corridor, floor 4 atrium) held out for final generalization eval, each a geographic sibling of multiple train-set panels.",
+  "n_panels": 13,
+  "panels": [
+    {
+      "panel_idx": 2,
+      "revit_id": "Curtain_Panels_10985143",
+      "glass_type": "GL_1___Double_Pane___1",
+      "floor": 4,
+      "world_xyz": [
+        2.144591522216797,
+        74.95823730468751,
+        28.994099426269532
+      ],
+      "dims_m": [
+        0.7366000366210936,
+        0.025399999618528568,
+        1.5494000244140622
+      ],
+      "prim_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Curtain_Panels/System_Panel/GL_1___Double_Pane___1/Curtain_Panels_10985143",
+      "split": "train"
+    },
+    {
+      "panel_idx": 3,
+      "revit_id": "Curtain_Panels_3135818",
+      "glass_type": "GL_1___Double_Pane___1",
+      "floor": 2,
+      "world_xyz": [
+        16.91310302734375,
+        58.8228857421875,
+        19.405600051879887
+      ],
+      "dims_m": [
+        0.5588000106811535,
+        0.025399999618528568,
+        2.133600006103517
+      ],
+      "prim_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Curtain_Panels/System_Panel/GL_1___Double_Pane___1/Curtain_Panels_3135818",
+      "split": "train"
+    },
+    {
+      "panel_idx": 4,
+      "revit_id": "Curtain_Panels_10759603",
+      "glass_type": "GL_1___Double_Pane___1",
+      "floor": 2,
+      "world_xyz": [
+        -20.5246435546875,
+        55.4002392578125,
+        19.507200012207033
+      ],
+      "dims_m": [
+        0.8800041198730497,
+        0.025399999618528568,
+        2.336799926757813
+      ],
+      "prim_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Curtain_Panels/System_Panel/GL_1___Double_Pane___1/Curtain_Panels_10759603",
+      "split": "train"
+    },
+    {
+      "panel_idx": 6,
+      "revit_id": "Curtain_Panels_10985119",
+      "glass_type": "GL_1___Double_Pane___1",
+      "floor": 4,
+      "world_xyz": [
+        -1.6923960876464843,
+        74.95823730468751,
+        28.714700546264652
+      ],
+      "dims_m": [
+        0.7366000366210936,
+        0.025399999618528568,
+        2.1081999206542967
+      ],
+      "prim_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Curtain_Panels/System_Panel/GL_1___Double_Pane___1/Curtain_Panels_10985119",
+      "split": "train"
+    },
+    {
+      "panel_idx": 13,
+      "revit_id": "Curtain_Panels_12689024",
+      "glass_type": "GL_1___Double_Pane___1",
+      "floor": 2,
+      "world_xyz": [
+        -1.1120059967041016,
+        78.25547363281251,
+        15.265400085449219
+      ],
+      "dims_m": [
+        0.9372599792480468,
+        0.025399999618528568,
+        1.4732000732421877
+      ],
+      "prim_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Curtain_Panels/System_Panel/GL_1___Double_Pane___1/Curtain_Panels_12689024",
+      "split": "train"
+    },
+    {
+      "panel_idx": 15,
+      "revit_id": "Curtain_Panels_12689717",
+      "glass_type": "GL_1___Double_Pane___1",
+      "floor": 2,
+      "world_xyz": [
+        8.76859375,
+        78.25547363281251,
+        15.265400085449219
+      ],
+      "dims_m": [
+        0.9372599792480472,
+        0.025399999618528568,
+        1.4732000732421877
+      ],
+      "prim_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Curtain_Panels/System_Panel/GL_1___Double_Pane___1/Curtain_Panels_12689717",
+      "split": "train"
+    },
+    {
+      "panel_idx": 18,
+      "revit_id": "Curtain_Panels_12689112",
+      "glass_type": "GL_1___Double_Pane___1",
+      "floor": 2,
+      "world_xyz": [
+        0.8641139221191406,
+        78.25547363281251,
+        15.265400085449219
+      ],
+      "dims_m": [
+        0.9372599792480469,
+        0.025399999618528568,
+        1.4732000732421877
+      ],
+      "prim_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Curtain_Panels/System_Panel/GL_1___Double_Pane___1/Curtain_Panels_12689112",
+      "split": "test"
+    },
+    {
+      "panel_idx": 22,
+      "revit_id": "Curtain_Panels_10759485",
+      "glass_type": "GL_1___Double_Pane___1",
+      "floor": 3,
+      "world_xyz": [
+        -12.825269775390625,
+        55.4002392578125,
+        23.74900016784668
+      ],
+      "dims_m": [
+        0.8800041198730462,
+        0.025399999618528568,
+        2.3875999450683594
+      ],
+      "prim_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Curtain_Panels/System_Panel/GL_1___Double_Pane___1/Curtain_Panels_10759485",
+      "split": "val"
+    },
+    {
+      "panel_idx": 28,
+      "revit_id": "Curtain_Panels_10985252",
+      "glass_type": "GL_1___Double_Pane___1",
+      "floor": 4,
+      "world_xyz": [
+        17.079791259765628,
+        74.95823730468751,
+        28.714700546264652
+      ],
+      "dims_m": [
+        0.7366000366210947,
+        0.025399999618528568,
+        2.1081999206542967
+      ],
+      "prim_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Curtain_Panels/System_Panel/GL_1___Double_Pane___1/Curtain_Panels_10985252",
+      "split": "test"
+    },
+    {
+      "panel_idx": 31,
+      "revit_id": "Curtain_Panels_12689384",
+      "glass_type": "GL_1___Double_Pane___1",
+      "floor": 2,
+      "world_xyz": [
+        3.828293762207031,
+        78.25547363281251,
+        15.265400085449219
+      ],
+      "dims_m": [
+        0.9372599792480467,
+        0.025399999618528568,
+        1.4732000732421877
+      ],
+      "prim_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Curtain_Panels/System_Panel/GL_1___Double_Pane___1/Curtain_Panels_12689384",
+      "split": "train"
+    },
+    {
+      "panel_idx": 36,
+      "revit_id": "Curtain_Panels_10985176",
+      "glass_type": "GL_1___Double_Pane___1",
+      "floor": 4,
+      "world_xyz": [
+        7.453191528320312,
+        74.95823730468751,
+        28.714700546264652
+      ],
+      "dims_m": [
+        0.7366000366210939,
+        0.025399999618528568,
+        2.1081999206542967
+      ],
+      "prim_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Curtain_Panels/System_Panel/GL_1___Double_Pane___1/Curtain_Panels_10985176",
+      "split": "train"
+    },
+    {
+      "panel_idx": 40,
+      "revit_id": "Curtain_Panels_12689318",
+      "glass_type": "GL_1___Double_Pane___1",
+      "floor": 2,
+      "world_xyz": [
+        2.8402337646484375,
+        78.25547363281251,
+        15.265400085449219
+      ],
+      "dims_m": [
+        0.9372599792480467,
+        0.025399999618528568,
+        1.4732000732421877
+      ],
+      "prim_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Curtain_Panels/System_Panel/GL_1___Double_Pane___1/Curtain_Panels_12689318",
+      "split": "train"
+    },
+    {
+      "panel_idx": 42,
+      "revit_id": "Curtain_Panels_10985195",
+      "glass_type": "GL_1___Double_Pane___1",
+      "floor": 4,
+      "world_xyz": [
+        10.501191406250001,
+        74.95823730468751,
+        28.714700546264652
+      ],
+      "dims_m": [
+        0.736600036621093,
+        0.025399999618528568,
+        2.1081999206542967
+      ],
+      "prim_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Curtain_Panels/System_Panel/GL_1___Double_Pane___1/Curtain_Panels_10985195",
+      "split": "train"
+    }
+  ],
+  "n_train": 10,
+  "n_val": 1,
+  "n_test": 2
+}

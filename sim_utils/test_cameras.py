@@ -117,6 +117,52 @@ def set_focal_length_on_prim(stage, camera):
     UsdGeom.Camera(cam_prim).CreateFocalLengthAttr(CAMERA_FOCAL_LENGTH)
 
 
+def add_camera_headlight(stage, camera_prim_path="/OmniverseKit_Persp",
+                         intensity=80000.0, radius=0.5,
+                         color_temperature=5500.0,
+                         fallback_dome_intensity=150.0):
+    """Parent a SphereLight under a camera prim so it tracks the viewport.
+
+    This is the "camera light" / "headlight" pattern — wherever the user
+    navigates the active camera, the light follows and illuminates the
+    view. Replaces the dense position-locked lighting of
+    ``add_interior_lighting``, which only covered the four named test
+    cameras and left the rest of the building dark.
+
+    Also adds a dim DomeLight so geometry outside the headlight's reach
+    stays readable (otherwise long corridors beyond a few meters from
+    the camera turn pitch-black).
+
+    Args:
+        stage: the USD stage.
+        camera_prim_path: prim path to attach the headlight under. Default
+            is ``/OmniverseKit_Persp`` — the default viewport camera in
+            Kit's full streaming experience. If the camera prim doesn't
+            exist yet this function defines it.
+        intensity: headlight intensity. 80k is tuned for interiors at
+            ~3-10 m viewing distance; interior-at-distance (long
+            corridors) reads cleanly without blowing out close-up walls.
+        radius: headlight sphere radius in stage units.
+        color_temperature: headlight color (Kelvin). 5500 ≈ neutral
+            fluorescent/daylight; 4200 is warmer office lighting.
+        fallback_dome_intensity: pass 0 to disable the ambient dome.
+    """
+    UsdGeom.Camera.Define(stage, camera_prim_path)
+    headlight = UsdLux.SphereLight.Define(
+        stage, Sdf.Path(f"{camera_prim_path}/Headlight"))
+    headlight.CreateIntensityAttr(intensity)
+    headlight.CreateRadiusAttr(radius)
+    headlight.CreateColorTemperatureAttr(color_temperature)
+    headlight.CreateEnableColorTemperatureAttr(True)
+
+    if fallback_dome_intensity > 0:
+        dome = UsdLux.DomeLight.Define(
+            stage, Sdf.Path("/World/CameraHeadlight_FallbackDome"))
+        dome.CreateIntensityAttr(fallback_dome_intensity)
+        dome.CreateColorTemperatureAttr(color_temperature)
+        dome.CreateEnableColorTemperatureAttr(True)
+
+
 def add_interior_lighting(stage):
     """Add lighting suitable for interior building scenes.
 

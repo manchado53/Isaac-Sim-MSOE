@@ -9,7 +9,7 @@ runs it through the same Sobel-based `opacity_to_normal` helper from
 generate_textures.py to produce a drop-in normal map PNG.
 
 Output filename follows the existing convention so the rest of the
-pipeline (sim_utils/glass_anomaly.py:create_cracked_glass_materials)
+pipeline (SyntheticDataGen/cracked_glass/glass_anomaly.py:create_cracked_glass_materials)
 discovers it automatically:
     crack_normal_<variant>.png      (the file Isaac Sim/OmniGlass reads)
     crack_opacity_<variant>.png     (intermediate, kept for inspection)
@@ -33,6 +33,7 @@ import time
 
 # Make the sibling generate_textures module importable regardless of CWD
 _HERE = os.path.dirname(os.path.abspath(__file__))
+_ASSETS = os.path.abspath(os.path.join(_HERE, "..", "..", "..", "assets", "materials", "cracked_glass"))
 sys.path.insert(0, _HERE)
 from generate_textures import opacity_to_normal  # noqa: E402  (Sobel helper)
 

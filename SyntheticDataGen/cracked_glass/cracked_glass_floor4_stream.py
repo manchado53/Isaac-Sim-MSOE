@@ -9,8 +9,8 @@ world positions of every cracked panel, and keeps the simulation
 running so a remote viewer can connect via the Isaac Sim WebRTC client.
 
 Usage:
-    ./python.sh simulations/environment/cracked_glass_floor4_stream.py
-    ./python.sh simulations/environment/cracked_glass_floor4_stream.py \\
+    ./python.sh SyntheticDataGen/cracked_glass/cracked_glass_floor4_stream.py
+    ./python.sh SyntheticDataGen/cracked_glass/cracked_glass_floor4_stream.py \\
         --stream-ip 100.105.179.92 --n-panels 40 --seed 42
 
 The viewer connects from another machine on the same network with the
@@ -29,6 +29,7 @@ os.environ["OMNI_KIT_ACCEPT_EULA"] = "YES"
 _script_dir = os.path.dirname(os.path.abspath(__file__))
 _project_dir = os.path.abspath(os.path.join(_script_dir, "..", ".."))
 sys.path.insert(0, _project_dir)
+sys.path.insert(0, _script_dir)
 
 
 def parse_args():
@@ -47,9 +48,13 @@ def parse_args():
     p.add_argument("--usd", default=os.path.join(
         _project_dir, "assets", "environments",
         "InnovationCenter", "InnovationCenter.usd"))
-    p.add_argument("--variant", default="v4",
-                   help="Crack texture variant to bind (must exist as "
-                        "crack_normal_<variant>.png)")
+    p.add_argument("--variants", default="edge_v1,v4,tempered_v5",
+                   help="Comma-separated crack variants to distribute across "
+                        "the selected panels. Each must have a "
+                        "crack_normal_<variant>.png in the texture dir. "
+                        "Default covers all three damage archetypes: edge "
+                        "(stress crack), v4 (impact shatter), tempered "
+                        "(safety-glass dice).")
     return p.parse_args()
 
 
@@ -102,11 +107,11 @@ from sim_utils.building_physics import (  # noqa: E402
     setup_physics_scene,
     _find_mesh_descendant,
 )
-from sim_utils.glass_anomaly import (  # noqa: E402
+from glass_anomaly import (  # noqa: E402
     create_cracked_glass_materials,
     enumerate_glass_prims,
 )
-from sim_utils.test_cameras import add_interior_lighting  # noqa: E402
+from sim_utils.test_cameras import add_camera_headlight  # noqa: E402
 
 TEXTURE_DIR = os.path.join(_project_dir, "assets", "materials", "cracked_glass")
 
@@ -164,20 +169,37 @@ building_prim.GetReferences().AddReference(
     args.usd, primPath=Sdf.Path("/World/Building")
 )
 setup_physics_scene(stage)
-add_interior_lighting(stage)
+# Default lighting: headlight parented to the viewport camera so wherever
+# the user navigates there's local illumination. Fixed-position stage
+# lights ('add_interior_lighting') only covered 4 named cameras and left
+# the rest of the building dark during free-fly navigation.
+add_camera_headlight(stage)
 
-cracked_materials = create_cracked_glass_materials(
-    stage,
-    texture_dir=TEXTURE_DIR,
-    root_path=f"/World/Looks/Crack_{args.variant}",
-    variants=(args.variant,),
-)
-if not cracked_materials:
-    print(f"[stream] ERROR: variant '{args.variant}' produced no materials",
+variant_list = tuple(v.strip() for v in args.variants.split(",") if v.strip())
+if not variant_list:
+    print("[stream] ERROR: --variants must list at least one variant",
           flush=True)
     sys.exit(2)
-crack_mat_path = cracked_materials[0]
-print(f"[stream] Cracked material: {crack_mat_path}", flush=True)
+
+variant_mat_paths = {}
+for v in variant_list:
+    paths = create_cracked_glass_materials(
+        stage,
+        texture_dir=TEXTURE_DIR,
+        root_path=f"/World/Looks/Crack_{v}",
+        variants=(v,),
+    )
+    if not paths:
+        print(f"[stream] WARN: variant '{v}' produced no material — skipping",
+              flush=True)
+        continue
+    variant_mat_paths[v] = paths[0]
+
+if not variant_mat_paths:
+    print("[stream] ERROR: no valid variants — aborting", flush=True)
+    sys.exit(3)
+print(f"[stream] Cracked materials: {list(variant_mat_paths.keys())}",
+      flush=True)
 
 # -----------------------------------------------------------------------------
 # Filter glass to floor 4
@@ -212,25 +234,32 @@ if len(floor4_glass) == 0:
 
 n = min(args.n_panels, len(floor4_glass))
 selected = random.sample(floor4_glass, n)
-print(f"[stream] Cracking {n} panels with variant '{args.variant}'", flush=True)
+print(f"[stream] Cracking {n} panels with variants {list(variant_mat_paths.keys())}",
+      flush=True)
 
 # -----------------------------------------------------------------------------
-# Bind the cracked material to selected panels and report positions
+# Bind a randomly-chosen cracked material to each panel and report positions
 # -----------------------------------------------------------------------------
+variant_names = list(variant_mat_paths.keys())
 positions = []
+variant_counts = {v: 0 for v in variant_names}
 for i, panel in enumerate(selected):
-    bind_visual_material_deep(stage, panel, crack_mat_path)
+    v = random.choice(variant_names)
+    bind_visual_material_deep(stage, panel, variant_mat_paths[v])
+    variant_counts[v] += 1
     cx, cy, cz = panel_world_center(panel, bbox_cache)
     rec = {
         "idx": i,
         "prim": str(panel.GetPath()),
         "name": panel.GetName(),
+        "variant": v,
         "world_xyz": [cx, cy, cz],
     }
     positions.append(rec)
-    print(f"  [{i:02d}] {panel.GetName():40s}  "
+    print(f"  [{i:02d}] {panel.GetName():40s}  {v:12s}  "
           f"x={cx:+8.2f}  y={cy:+8.2f}  z={cz:+6.2f}",
           flush=True)
+print(f"[stream] Variant distribution: {variant_counts}", flush=True)
 
 os.makedirs(os.path.dirname(args.output), exist_ok=True)
 with open(args.output, "w") as f:
@@ -241,7 +270,8 @@ with open(args.output, "w") as f:
         "floor_z_range": [deck_z, ceiling_z],
         "stream_ip": args.stream_ip,
         "stream_port": 49100,
-        "variant": args.variant,
+        "variants": list(variant_mat_paths.keys()),
+        "variant_counts": variant_counts,
         "seed": args.seed,
         "n_glass_total": len(all_glass),
         "n_glass_floor4": len(floor4_glass),

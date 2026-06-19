@@ -20,7 +20,7 @@ export PYTHONUNBUFFERED=1
 
 ISAAC_SIM_DIR="${ISAAC_SIM_DIR:-$HOME/isaacsim}"
 ISAAC_PYTHON="$ISAAC_SIM_DIR/python.sh"
-DATASET_SCRIPT="simulations/dataset/cracked_glass_dataset.py"
+DATASET_SCRIPT="SyntheticDataGen/cracked_glass/cracked_glass_dataset.py"
 
 echo "========================================="
 echo "Cracked-Glass Dataset Job"
@@ -42,7 +42,9 @@ fi
 if [ -n "${SLURM_SUBMIT_DIR:-}" ]; then
     PROJECT_DIR="$SLURM_SUBMIT_DIR"
 else
-    PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # Shell script now lives at SyntheticDataGen/cracked_glass/; two parents up
+    # is the project root where `./python.sh` expects to run from.
+    PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 fi
 cd "$PROJECT_DIR" || exit 1
 
