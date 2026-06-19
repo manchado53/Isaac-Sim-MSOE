@@ -76,6 +76,27 @@ def parse_args():
                    help="Run Isaac Sim fully headless (no viewport, no stream).")
     p.add_argument("--no-map-video", action="store_true",
                    help="Skip the matplotlib top-down video (saves CPU).")
+    p.add_argument("--obstacle", action="append", default=[],
+                   metavar="X,Y[,SIZE]",
+                   help="Spawn a kinematic red cube at world (X, Y) with "
+                        "optional side length in meters (default 0.6). "
+                        "Repeatable. Cubes are invisible to the static map, "
+                        "so Nav2 only sees them via live lidar.")
+    p.add_argument("--start-node", type=int, default=None,
+                   help="Override spawn + TSP start: use this nav-graph node "
+                        "ID instead of the building's default spawn. Spawn "
+                        "XY is set to that node's world_xy_m; yaw is set to "
+                        "face the second route node.")
+    p.add_argument("--open-doors", type=int, default=0,
+                   help="Pick K revolute door-joints near the route (on the "
+                        "current floor) and set their DriveAPI target angle "
+                        "to ~80° so physics opens them before the robot "
+                        "arrives. 0 disables.")
+    p.add_argument("--crack-glass", type=int, default=0,
+                   help="Bind a cracked-glass OmniGlass material to K random "
+                        "glass panels near the route. 0 disables.")
+    p.add_argument("--seed", type=int, default=0,
+                   help="RNG seed for door/glass selection (for reproducible demos).")
     return p.parse_args()
 
 
@@ -122,8 +143,19 @@ with open(floor["nav_graph_json"]) as f:
 node_xy_m = {n["id"]: np.array(n["world_xy_m"], dtype=float)
              for n in graph["nodes"]}
 
-start_node = find_nearest_node(graph, [spawn_x, spawn_y])
-print(f"[demo] Spawn-nearest node: {start_node} @ {node_xy_m[start_node]}")
+if args.start_node is not None:
+    if args.start_node not in node_xy_m:
+        print(f"[demo] ERROR: --start-node {args.start_node} not in nav graph",
+              file=sys.stderr)
+        sys.exit(1)
+    start_node = args.start_node
+    xy = node_xy_m[start_node]
+    spawn_x, spawn_y = float(xy[0]), float(xy[1])
+    print(f"[demo] --start-node {start_node} overrides spawn to "
+          f"({spawn_x:.2f}, {spawn_y:.2f})")
+else:
+    start_node = find_nearest_node(graph, [spawn_x, spawn_y])
+    print(f"[demo] Spawn-nearest node: {start_node} @ {node_xy_m[start_node]}")
 
 if args.mode == "doors":
     door_map_path = args.door_map or str(
@@ -141,11 +173,14 @@ if args.mode == "doors":
                        for m in door_map["mappings"]
                        if m["closest_node_id"] is not None})
     print(f"[demo] Door nodes: {len(door_ids)} unique")
-    print("[demo] Generating door TSP route (door-only, no corridor expansion)...")
-    # expand=False → just the TSP-ordered door nodes; Nav2's planner
-    # handles the corridor routing between consecutive doors.
+    print("[demo] Generating door TSP route (with nav-graph corridor expansion)...")
+    # expand=True → TSP orders the doors, but the pose list is Dijkstra-
+    # expanded with every intermediate corridor node along the shortest
+    # nav-graph path between consecutive doors. Nav2 then just follows
+    # our topology through narrow junctions instead of having its own
+    # planner invent a route that may hug walls.
     route = generate_door_route(graph, start_node, door_ids,
-                                num_restarts=10, seed=0, expand=False)
+                                num_restarts=10, seed=0, expand=True)
 else:
     print("[demo] Generating full-coverage TSP route...")
     route = generate_route(graph, start_node, num_restarts=10, seed=0)
@@ -154,6 +189,15 @@ if args.max_waypoints > 0:
     route = route[: args.max_waypoints]
 print(f"[demo] Route: {len(route)} waypoints "
       f"({len(set(route))} unique nodes, mode={args.mode})")
+
+# If --start-node was used, set spawn yaw to face the second route node so
+# the robot is already pointing the right way at t=0.
+if args.start_node is not None and len(route) >= 2:
+    a = node_xy_m[route[0]]
+    b = node_xy_m[route[1]]
+    spawn_yaw = float(math.atan2(b[1] - a[1], b[0] - a[0]))
+    print(f"[demo] spawn yaw → face route[1] ({route[1]}): "
+          f"{math.degrees(spawn_yaw):.1f}°")
 
 
 # ---------------------------------------------------------------------------
@@ -296,11 +340,13 @@ print("[demo] ros2 bridge enabled")
 
 import omni.usd                                              # noqa: E402
 import omni.graph.core as og                                 # noqa: E402
-from pxr import Sdf, UsdGeom, UsdLux                         # noqa: E402
+import random as _random                                     # noqa: E402
+from pxr import Sdf, Usd, UsdGeom, UsdLux, UsdPhysics        # noqa: E402
 from scipy.spatial.transform import Rotation as ScipyR       # noqa: E402
 
 import isaacsim.core.utils.numpy.rotations as rot_utils      # noqa: E402
 from isaacsim.core.api import World                          # noqa: E402
+from isaacsim.core.api.objects import DynamicCuboid          # noqa: E402
 from isaacsim.robot.wheeled_robots.robots import WheeledRobot  # noqa: E402
 from isaacsim.sensors.camera import Camera                   # noqa: E402
 from isaacsim.storage.native import get_assets_root_path     # noqa: E402
@@ -371,6 +417,164 @@ def publish_initialpose(node, pos, quat, timeout_s=60.0):
         rclpy.spin_once(node, timeout_sec=0.2)
     print(f"[demo] /initialpose seeded (xyz={[round(float(v),3) for v in pos]})")
     return True
+
+
+def _open_doors_near_route(stage, route_node_ids, node_xy, floor_deck_z,
+                           k, rng, search_radius=3.5, floor_z_tol=2.5,
+                           open_angle_single=80.0, open_angle_double=60.0):
+    """Find revolute joints (door hinges) within ``search_radius`` m of any
+    route node, pick ``k`` of them, and set their angular DriveAPI target so
+    physics swings them open during sim startup.
+
+    Floor filter uses joint-parent bbox centroid Z vs ``floor_deck_z`` to
+    avoid opening doors on other floors that happen to sit above/below a
+    route XY.
+
+    Returns the number of doors actually opened.
+    """
+    bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
+                                   [UsdGeom.Tokens.default_])
+    joints = []
+    for prim in stage.Traverse():
+        if not prim.IsA(UsdPhysics.RevoluteJoint):
+            continue
+        parent = prim.GetParent()
+        try:
+            bbox = bbox_cache.ComputeWorldBound(parent)
+        except Exception:
+            continue
+        if bbox.GetRange().IsEmpty():
+            continue
+        c = bbox.ComputeCentroid()
+        xy = np.array([c[0], c[1]], dtype=float)
+        joints.append((prim, xy, float(c[2]), parent.GetName()))
+
+    if not joints:
+        print("[demo] open-doors: no RevoluteJoints found under stage")
+        return 0
+
+    route_xy = np.array([node_xy[n] for n in route_node_ids])
+    near = []
+    for (joint_prim, xy, z, name) in joints:
+        if abs(z - floor_deck_z) > floor_z_tol:
+            continue
+        d = float(np.linalg.norm(route_xy - xy, axis=1).min())
+        if d < search_radius:
+            near.append((d, joint_prim, xy, name))
+
+    near.sort(key=lambda t: t[0])  # deterministic order before shuffle
+    rng.shuffle(near)
+    picked = near[:k]
+    opened = 0
+    for (d, joint_prim, xy, name) in picked:
+        drive = UsdPhysics.DriveAPI(joint_prim, "angular")
+        target_attr = drive.GetTargetPositionAttr()
+        if not target_attr or not target_attr.IsValid():
+            # Joint exists but no angular DriveAPI authored — apply it.
+            drive = UsdPhysics.DriveAPI.Apply(joint_prim, "angular")
+            target_attr = drive.CreateTargetPositionAttr()
+        parent_name = joint_prim.GetParent().GetName() or ""
+        is_double = any(tok in parent_name for tok in
+                        ("2F", "2G", "2FG", "2FU", "Dual"))
+        angle = open_angle_double if is_double else open_angle_single
+        target_attr.Set(float(angle))
+        print(f"[demo]   open door: {joint_prim.GetPath()}  "
+              f"xy=({xy[0]:.2f},{xy[1]:.2f})  dist={d:.2f}m  target={angle:.0f}°")
+        opened += 1
+    return opened
+
+
+def _crack_glass_near_route(stage, route_node_ids, node_xy, floor_deck_z,
+                            k, rng, search_radius=6.0, floor_z_tol=3.0):
+    """Bind a cracked-glass OmniGlass material to ``k`` glass panels within
+    ``search_radius`` m of any route node on the current floor.
+
+    Returns the number of panels actually cracked.
+    """
+    from sim_utils.glass_anomaly import (
+        enumerate_glass_prims, create_cracked_glass_materials,
+        bind_visual_material,
+    )
+
+    glass = enumerate_glass_prims(stage, "/World/Building")
+    if not glass:
+        print("[demo] crack-glass: no glass prims found under /World/Building")
+        return 0
+
+    tex_dir = os.path.join(REPO_ROOT, "assets", "materials", "cracked_glass")
+    mats = create_cracked_glass_materials(stage, tex_dir)
+    if not mats:
+        print(f"[demo] crack-glass: no materials created from {tex_dir}")
+        return 0
+
+    bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(),
+                                   [UsdGeom.Tokens.default_])
+    route_xy = np.array([node_xy[n] for n in route_node_ids])
+    near = []
+    for prim in glass:
+        try:
+            bbox = bbox_cache.ComputeWorldBound(prim)
+        except Exception:
+            continue
+        if bbox.GetRange().IsEmpty():
+            continue
+        c = bbox.ComputeCentroid()
+        if abs(float(c[2]) - floor_deck_z) > floor_z_tol:
+            continue
+        xy = np.array([c[0], c[1]], dtype=float)
+        d = float(np.linalg.norm(route_xy - xy, axis=1).min())
+        if d < search_radius:
+            near.append((d, prim, xy))
+
+    near.sort(key=lambda t: t[0])
+    rng.shuffle(near)
+    picked = near[:k]
+    for (d, prim, xy) in picked:
+        mat = rng.choice(mats)
+        bind_visual_material(stage, prim, mat)
+        print(f"[demo]   crack glass: {prim.GetPath()}  "
+              f"xy=({xy[0]:.2f},{xy[1]:.2f})  dist={d:.2f}m  mat={mat}")
+    return len(picked)
+
+
+def _spawn_test_obstacles(stage, world, positions, floor_deck_z):
+    """Spawn kinematic red cubes under /World/Obstacles so Nav2's obstacle
+    layer (live lidar) sees them — static_layer won't, since they're not
+    in the occupancy PNG. Must be called BEFORE world.reset(); freeze
+    them kinematic AFTER world.reset() via _freeze_test_obstacles.
+    Same pattern as nav2_orchestrator.py."""
+    if not positions:
+        return
+    stage.DefinePrim("/World/Obstacles", "Xform")
+    for i, (x, y, size) in enumerate(positions):
+        # Place the cube's BOTTOM on the floor slab, not its center at
+        # robot spawn z. With size=S, center must be at floor_deck_z + S/2
+        # so the cube rests on the ground. That keeps the full cube
+        # visible above the floor for both 2D (low) and 3D (high) lidars.
+        z = floor_deck_z + size / 2.0
+        cube = DynamicCuboid(
+            prim_path=f"/World/Obstacles/obstacle_{i}",
+            name=f"test_obstacle_{i}",
+            position=np.array([x, y, z]),
+            size=size,
+            color=np.array([0.9, 0.15, 0.15]),  # bright red
+            mass=10.0,
+        )
+        world.scene.add(cube)
+        print(f"[demo] spawned obstacle {i}: ({x:.2f}, {y:.2f}, {z:.2f}) "
+              f"size={size:.2f} m (resting on floor)", flush=True)
+
+
+def _freeze_test_obstacles(stage, count):
+    """Flip each spawned cube to kinematic AFTER world.reset(). Doing this
+    before reset races PhysX's tensor view and breaks /cmd_vel silently
+    (see nav2_orchestrator.py for the history)."""
+    for i in range(count):
+        prim = stage.GetPrimAtPath(f"/World/Obstacles/obstacle_{i}")
+        if prim and prim.IsValid():
+            UsdPhysics.RigidBodyAPI(prim).CreateKinematicEnabledAttr(True)
+    if count > 0:
+        print(f"[demo] froze {count} obstacles kinematic", flush=True)
 
 
 def build_pose_stamped(node, xy, yaw):
@@ -499,6 +703,20 @@ def main():
     setup_physics_scene(stage)
     stamp("building + physics ready")
 
+    # --- Scene decoration: open some doors + crack some glass along the route ---
+    if args.open_doors > 0 or args.crack_glass > 0:
+        _rng = _random.Random(args.seed)
+        if args.open_doors > 0:
+            _opened = _open_doors_near_route(
+                stage, route, node_xy_m, spawn_z, args.open_doors, _rng,
+            )
+            stamp(f"opened {_opened} doors near route (requested {args.open_doors})")
+        if args.crack_glass > 0:
+            _cracked = _crack_glass_near_route(
+                stage, route, node_xy_m, spawn_z, args.crack_glass, _rng,
+            )
+            stamp(f"cracked {_cracked} glass panes near route (requested {args.crack_glass})")
+
     # Dome + travelling fills (interior corridors are dim otherwise)
     dome = UsdLux.DomeLight.Define(stage, Sdf.Path("/World/DomeLight"))
     dome.CreateIntensityAttr(30000)
@@ -559,8 +777,25 @@ def main():
         look_height=0.3,
     )
 
+    # Parse --obstacle flags into (x, y, size) tuples and spawn cubes
+    # BEFORE world.reset() so physics handles initialize on first reset.
+    obstacle_positions = []
+    for spec in args.obstacle:
+        parts = [float(p) for p in spec.split(",")]
+        if len(parts) == 2:
+            x, y = parts; s = 0.6
+        elif len(parts) == 3:
+            x, y, s = parts
+        else:
+            raise ValueError(f"--obstacle must be 'X,Y' or 'X,Y,SIZE'; got {spec!r}")
+        obstacle_positions.append((x, y, s))
+    _spawn_test_obstacles(stage, world, obstacle_positions, spawn_z)
+
     world.reset()
     carter.set_world_pose(position=spawn_pos, orientation=orient)
+    # Freeze obstacles kinematic NOW (after reset) — doing it earlier
+    # invalidates the tensor view used by Nova Carter's wheel controller.
+    _freeze_test_obstacles(stage, len(obstacle_positions))
     simulation_app.update()
     onboard_cam.initialize()
     follow_cam.initialize()

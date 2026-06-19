@@ -1,0 +1,1155 @@
+{
+  "floor": "floor_4",
+  "total_doors": 57,
+  "gap_detected_count": 56,
+  "unique_nodes_matched": 47,
+  "avg_distance_m": 1.1099,
+  "max_distance_m": 2.1509,
+  "mappings": [
+    {
+      "door_name": "Doors_9501006",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_2FG_Door/NEW___HM_Frame___72_x96/Doors_9501006",
+      "door_type": "RS___Type_2FG_Door",
+      "door_world_xy_m": [
+        -43.935,
+        66.7302
+      ],
+      "threshold_world_xy_m": [
+        -43.95,
+        66.7536
+      ],
+      "gap_detected": true,
+      "gap_width_px": 39,
+      "door_width_cm": 193.0,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 59,
+      "distance_m": 0.8001
+    },
+    {
+      "door_name": "Doors_9428828",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_2FG_Door/NEW___HM_Frame___72_x96/Doors_9428828",
+      "door_type": "RS___Type_2FG_Door",
+      "door_world_xy_m": [
+        -43.9389,
+        76.6664
+      ],
+      "threshold_world_xy_m": [
+        -43.95,
+        76.7036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 39,
+      "door_width_cm": 193.0,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 112,
+      "distance_m": 0.6001
+    },
+    {
+      "door_name": "Doors_9428830",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_2FG_Door/NEW___HM_Frame___72_x96/Doors_9428830",
+      "door_type": "RS___Type_2FG_Door",
+      "door_world_xy_m": [
+        -25.0159,
+        76.6664
+      ],
+      "threshold_world_xy_m": [
+        -25.0,
+        76.7036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 39,
+      "door_width_cm": 193.0,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 128,
+      "distance_m": 0.0517
+    },
+    {
+      "door_name": "Doors_10294275",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_2FG_Door/NEW___HM_Frame___72_x96/Doors_10294275",
+      "door_type": "RS___Type_2FG_Door",
+      "door_world_xy_m": [
+        -25.0001,
+        66.7302
+      ],
+      "threshold_world_xy_m": [
+        -25.0,
+        66.7536
+      ],
+      "gap_detected": true,
+      "gap_width_px": 39,
+      "door_width_cm": 193.0,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 69,
+      "distance_m": 0.4502
+    },
+    {
+      "door_name": "Doors_14456583",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_2F_Door/NEW___HM_Frame___72_x96/Doors_14456583",
+      "door_type": "RS___Type_2F_Door",
+      "door_world_xy_m": [
+        -35.8951,
+        66.7302
+      ],
+      "threshold_world_xy_m": [
+        -35.9,
+        66.7536
+      ],
+      "gap_detected": true,
+      "gap_width_px": 39,
+      "door_width_cm": 193.0,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 147,
+      "distance_m": 0.8001
+    },
+    {
+      "door_name": "Doors_8431791",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_FG_Door/NEW___HM_Frame___36_x96/Doors_8431791",
+      "door_type": "RS___Type_FG_Door",
+      "door_world_xy_m": [
+        -18.7834,
+        80.8209
+      ],
+      "threshold_world_xy_m": [
+        -18.85,
+        80.8036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 20,
+      "door_width_cm": 101.6,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 164,
+      "distance_m": 0.7438
+    },
+    {
+      "door_name": "Doors_8431792",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_FG_Door/NEW___HM_Frame___36_x96/Doors_8431792",
+      "door_type": "RS___Type_FG_Door",
+      "door_world_xy_m": [
+        -14.494,
+        80.8209
+      ],
+      "threshold_world_xy_m": [
+        -14.55,
+        80.8036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 20,
+      "door_width_cm": 101.6,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 31,
+      "distance_m": 0.113
+    },
+    {
+      "door_name": "Doors_8431793",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_FG_Door/NEW___HM_Frame___36_x96/Doors_8431793",
+      "door_type": "RS___Type_FG_Door",
+      "door_world_xy_m": [
+        -15.7354,
+        80.8209
+      ],
+      "threshold_world_xy_m": [
+        -15.8,
+        80.8036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 20,
+      "door_width_cm": 101.6,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 23,
+      "distance_m": 0.9144
+    },
+    {
+      "door_name": "Doors_8432716",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_FG_Door/NEW___HM_Frame___36_x96/Doors_8432716",
+      "door_type": "RS___Type_FG_Door",
+      "door_world_xy_m": [
+        -12.2953,
+        80.2002
+      ],
+      "threshold_world_xy_m": [
+        -12.3,
+        80.2036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 20,
+      "door_width_cm": 101.6,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 111,
+      "distance_m": 0.7675
+    },
+    {
+      "door_name": "Doors_8432718",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_FG_Door/NEW___HM_Frame___36_x96/Doors_8432718",
+      "door_type": "RS___Type_FG_Door",
+      "door_world_xy_m": [
+        -16.7419,
+        74.8519
+      ],
+      "threshold_world_xy_m": [
+        -16.8,
+        74.8536
+      ],
+      "gap_detected": true,
+      "gap_width_px": 20,
+      "door_width_cm": 101.6,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 159,
+      "distance_m": 0.787
+    },
+    {
+      "door_name": "Doors_8432719",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_FG_Door/NEW___HM_Frame___36_x96/Doors_8432719",
+      "door_type": "RS___Type_FG_Door",
+      "door_world_xy_m": [
+        -17.9833,
+        74.8519
+      ],
+      "threshold_world_xy_m": [
+        -18.05,
+        74.8536
+      ],
+      "gap_detected": true,
+      "gap_width_px": 20,
+      "door_width_cm": 101.6,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 75,
+      "distance_m": 0.313
+    },
+    {
+      "door_name": "Doors_9912400",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_FG_Door/NEW___HM_Frame___36_x96/Doors_9912400",
+      "door_type": "RS___Type_FG_Door",
+      "door_world_xy_m": [
+        -12.2953,
+        75.4726
+      ],
+      "threshold_world_xy_m": [
+        -12.3,
+        75.5036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 20,
+      "door_width_cm": 101.6,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 96,
+      "distance_m": 0.2004
+    },
+    {
+      "door_name": "Doors_1915613",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_Door/NEW___HM_Frame___36_x96/Doors_1915613",
+      "door_type": "RS___Type_F_Door",
+      "door_world_xy_m": [
+        -58.7535,
+        63.2187
+      ],
+      "threshold_world_xy_m": [
+        -58.8,
+        63.2036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 20,
+      "door_width_cm": 101.6,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 135,
+      "distance_m": 0.013
+    },
+    {
+      "door_name": "Doors_4070285",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_Door/NEW___HM_Frame___36_x96/Doors_4070285",
+      "door_type": "RS___Type_F_Door",
+      "door_world_xy_m": [
+        -17.5325,
+        55.4272
+      ],
+      "threshold_world_xy_m": [
+        -17.6,
+        55.4036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 20,
+      "door_width_cm": 101.6,
+      "door_height_cm": 248.9,
+      "los_match": false,
+      "closest_node_id": null,
+      "distance_m": null,
+      "unreachable": true
+    },
+    {
+      "door_name": "Doors_4070297",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_Door/NEW___HM_Frame___36_x96/Doors_4070297",
+      "door_type": "RS___Type_F_Door",
+      "door_world_xy_m": [
+        -13.9987,
+        55.4272
+      ],
+      "threshold_world_xy_m": [
+        -14.05,
+        55.4036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 20,
+      "door_width_cm": 101.6,
+      "door_height_cm": 248.9,
+      "los_match": false,
+      "closest_node_id": null,
+      "distance_m": null,
+      "unreachable": true
+    },
+    {
+      "door_name": "Doors_4076341",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_Door/NEW___HM_Frame___36_x96/Doors_4076341",
+      "door_type": "RS___Type_F_Door",
+      "door_world_xy_m": [
+        -13.3605,
+        52.919
+      ],
+      "threshold_world_xy_m": [
+        -13.4,
+        52.9036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 20,
+      "door_width_cm": 101.6,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 42,
+      "distance_m": 1.238
+    },
+    {
+      "door_name": "Doors_4078243",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_Door/NEW___HM_Frame___36_x96/Doors_4078243",
+      "door_type": "RS___Type_F_Door",
+      "door_world_xy_m": [
+        -13.7812,
+        61.6359
+      ],
+      "threshold_world_xy_m": [
+        -13.8,
+        61.6536
+      ],
+      "gap_detected": true,
+      "gap_width_px": 20,
+      "door_width_cm": 101.6,
+      "door_height_cm": 248.9,
+      "los_match": false,
+      "closest_node_id": null,
+      "distance_m": null,
+      "unreachable": true
+    },
+    {
+      "door_name": "Doors_5239486",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_Door/NEW___HM_Frame___36_x96/Doors_5239486",
+      "door_type": "RS___Type_F_Door",
+      "door_world_xy_m": [
+        -25.824,
+        64.9094
+      ],
+      "threshold_world_xy_m": [
+        -25.8,
+        64.9036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 20,
+      "door_width_cm": 101.6,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 123,
+      "distance_m": 0.9501
+    },
+    {
+      "door_name": "Doors_9759311",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_Door/NEW___HM_Frame___36_x96/Doors_9759311",
+      "door_type": "RS___Type_F_Door",
+      "door_world_xy_m": [
+        -23.2729,
+        52.2808
+      ],
+      "threshold_world_xy_m": [
+        -23.35,
+        52.3036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 20,
+      "door_width_cm": 101.6,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 89,
+      "distance_m": 1.0382
+    },
+    {
+      "door_name": "Doors_9477386",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_Door/NEW___AL_Frame___36_x88/Doors_9477386",
+      "door_type": "RS___Type_F_Door",
+      "door_world_xy_m": [
+        17.8402,
+        53.3809
+      ],
+      "threshold_world_xy_m": [
+        17.8,
+        53.4036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 20,
+      "door_width_cm": 101.6,
+      "door_height_cm": 228.6,
+      "los_match": false,
+      "closest_node_id": null,
+      "distance_m": 24.4422
+    },
+    {
+      "door_name": "Doors_1915612",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_Door/NEW___HM_Frame___42_x96/Doors_1915612",
+      "door_type": "RS___Type_F_Door",
+      "door_world_xy_m": [
+        -47.4616,
+        62.5194
+      ],
+      "threshold_world_xy_m": [
+        -47.45,
+        62.5036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 23,
+      "door_width_cm": 116.8,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 83,
+      "distance_m": 1.2505
+    },
+    {
+      "door_name": "Doors_4070309",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_Door/NEW___HM_Frame___42_x96/Doors_4070309",
+      "door_type": "RS___Type_F_Door",
+      "door_world_xy_m": [
+        -15.8592,
+        55.4272
+      ],
+      "threshold_world_xy_m": [
+        -15.9,
+        55.4036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 23,
+      "door_width_cm": 116.8,
+      "door_height_cm": 248.9,
+      "los_match": false,
+      "closest_node_id": null,
+      "distance_m": null,
+      "unreachable": true
+    },
+    {
+      "door_name": "Doors_7171063",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_Door/NEW___HM_Frame___42_x96/Doors_7171063",
+      "door_type": "RS___Type_F_Door",
+      "door_world_xy_m": [
+        -47.3156,
+        49.8916
+      ],
+      "threshold_world_xy_m": [
+        -47.3,
+        49.9036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 23,
+      "door_width_cm": 116.8,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 87,
+      "distance_m": 1.7923
+    },
+    {
+      "door_name": "Doors_8432720",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_Door/NEW___HM_Frame___42_x96/Doors_8432720",
+      "door_type": "RS___Type_F_Door",
+      "door_world_xy_m": [
+        -19.6486,
+        75.5488
+      ],
+      "threshold_world_xy_m": [
+        -19.65,
+        75.5536
+      ],
+      "gap_detected": true,
+      "gap_width_px": 23,
+      "door_width_cm": 116.8,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 64,
+      "distance_m": 0.6511
+    },
+    {
+      "door_name": "Doors_4076693",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_Door/NEW___HM_Frame___42_x96/Doors_4076693",
+      "door_type": "RS___Type_F_Door",
+      "door_world_xy_m": [
+        -11.9095,
+        52.846
+      ],
+      "threshold_world_xy_m": [
+        -12.0,
+        52.8536
+      ],
+      "gap_detected": true,
+      "gap_width_px": 23,
+      "door_width_cm": 116.8,
+      "door_height_cm": 248.9,
+      "los_match": false,
+      "closest_node_id": null,
+      "distance_m": null,
+      "unreachable": true
+    },
+    {
+      "door_name": "Doors_8431775",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_8431775",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        -6.82,
+        80.8209
+      ],
+      "threshold_world_xy_m": [
+        -5.35,
+        80.9536
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 77,
+      "distance_m": 1.3707
+    },
+    {
+      "door_name": "Doors_8431776",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_8431776",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        -3.772,
+        80.8209
+      ],
+      "threshold_world_xy_m": [
+        -2.3,
+        81.2536
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 120,
+      "distance_m": 1.4209
+    },
+    {
+      "door_name": "Doors_8431777",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_8431777",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        -0.7748,
+        80.8209
+      ],
+      "threshold_world_xy_m": [
+        0.75,
+        80.9536
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 45,
+      "distance_m": 1.3707
+    },
+    {
+      "door_name": "Doors_8431778",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_8431778",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        2.2732,
+        80.8209
+      ],
+      "threshold_world_xy_m": [
+        3.75,
+        80.9536
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 22,
+      "distance_m": 1.1175
+    },
+    {
+      "door_name": "Doors_8431779",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_8431779",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        5.3212,
+        80.8209
+      ],
+      "threshold_world_xy_m": [
+        6.8,
+        80.9536
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 172,
+      "distance_m": 1.4633
+    },
+    {
+      "door_name": "Doors_8431780",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_8431780",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        8.3692,
+        80.8209
+      ],
+      "threshold_world_xy_m": [
+        9.85,
+        80.9536
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 30,
+      "distance_m": 1.1141
+    },
+    {
+      "door_name": "Doors_8431781",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_8431781",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        11.4172,
+        80.8209
+      ],
+      "threshold_world_xy_m": [
+        12.9,
+        80.9536
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 46,
+      "distance_m": 1.4963
+    },
+    {
+      "door_name": "Doors_8431782",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_8431782",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        14.4049,
+        80.8209
+      ],
+      "threshold_world_xy_m": [
+        16.0,
+        81.0036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 138,
+      "distance_m": 1.1673
+    },
+    {
+      "door_name": "Doors_8431783",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_8431783",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        -5.1214,
+        78.8651
+      ],
+      "threshold_world_xy_m": [
+        -6.65,
+        78.8536
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 72,
+      "distance_m": 0.7701
+    },
+    {
+      "door_name": "Doors_8431784",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_8431784",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        -2.0734,
+        78.8651
+      ],
+      "threshold_world_xy_m": [
+        -3.6,
+        78.4036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 10,
+      "distance_m": 1.6696
+    },
+    {
+      "door_name": "Doors_8431785",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_8431785",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        0.9746,
+        78.8651
+      ],
+      "threshold_world_xy_m": [
+        -0.6,
+        78.7036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 107,
+      "distance_m": 1.2228
+    },
+    {
+      "door_name": "Doors_8431786",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_8431786",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        4.0226,
+        78.8651
+      ],
+      "threshold_world_xy_m": [
+        2.45,
+        78.7036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 45,
+      "distance_m": 1.4501
+    },
+    {
+      "door_name": "Doors_8431787",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_8431787",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        7.0706,
+        78.8651
+      ],
+      "threshold_world_xy_m": [
+        5.5,
+        78.7036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 172,
+      "distance_m": 1.1897
+    },
+    {
+      "door_name": "Doors_8431788",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_8431788",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        10.1186,
+        78.8651
+      ],
+      "threshold_world_xy_m": [
+        8.55,
+        78.7036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 40,
+      "distance_m": 1.3352
+    },
+    {
+      "door_name": "Doors_8431789",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_8431789",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        13.1666,
+        78.8651
+      ],
+      "threshold_world_xy_m": [
+        11.6,
+        78.7036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 133,
+      "distance_m": 1.1759
+    },
+    {
+      "door_name": "Doors_8431790",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_8431790",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        20.2278,
+        78.8651
+      ],
+      "threshold_world_xy_m": [
+        18.7,
+        78.7036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 182,
+      "distance_m": 1.3902
+    },
+    {
+      "door_name": "Doors_8431799",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_8431799",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        -40.5163,
+        54.3795
+      ],
+      "threshold_world_xy_m": [
+        -42.05,
+        54.5036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 136,
+      "distance_m": 1.5104
+    },
+    {
+      "door_name": "Doors_8431801",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_8431801",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        -37.0365,
+        54.3795
+      ],
+      "threshold_world_xy_m": [
+        -38.55,
+        54.7536
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 181,
+      "distance_m": 1.5813
+    },
+    {
+      "door_name": "Doors_8431802",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_8431802",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        -33.6075,
+        54.3795
+      ],
+      "threshold_world_xy_m": [
+        -35.15,
+        54.5036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 152,
+      "distance_m": 1.213
+    },
+    {
+      "door_name": "Doors_8431803",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_8431803",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        -30.1277,
+        54.3795
+      ],
+      "threshold_world_xy_m": [
+        -31.65,
+        54.7536
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 106,
+      "distance_m": 1.5461
+    },
+    {
+      "door_name": "Doors_8431804",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_8431804",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        -26.6987,
+        54.3795
+      ],
+      "threshold_world_xy_m": [
+        -28.3,
+        54.5036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 2,
+      "distance_m": 1.5407
+    },
+    {
+      "door_name": "Doors_8431823",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_8431823",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        17.1798,
+        78.8651
+      ],
+      "threshold_world_xy_m": [
+        15.8,
+        78.8536
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 138,
+      "distance_m": 0.9921
+    },
+    {
+      "door_name": "Doors_8432717",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_8432717",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        -8.5361,
+        73.4438
+      ],
+      "threshold_world_xy_m": [
+        -8.55,
+        73.4536
+      ],
+      "gap_detected": false,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 9,
+      "distance_m": 1.5538
+    },
+    {
+      "door_name": "Doors_9499760",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_9499760",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        -20.2725,
+        69.0924
+      ],
+      "threshold_world_xy_m": [
+        -21.95,
+        69.1036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 151,
+      "distance_m": 0.7911
+    },
+    {
+      "door_name": "Doors_9499864",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_9499864",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        -16.5895,
+        69.0924
+      ],
+      "threshold_world_xy_m": [
+        -18.15,
+        68.9536
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 116,
+      "distance_m": 1.5387
+    },
+    {
+      "door_name": "Doors_9499896",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_9499896",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        -12.9319,
+        69.0924
+      ],
+      "threshold_world_xy_m": [
+        -14.5,
+        68.9536
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 127,
+      "distance_m": 1.4509
+    },
+    {
+      "door_name": "Doors_9500424",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_9500424",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        -43.8659,
+        54.3795
+      ],
+      "threshold_world_xy_m": [
+        -45.45,
+        54.4036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 141,
+      "distance_m": 0.7509
+    },
+    {
+      "door_name": "Doors_10517269",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____18__Sidelite/Doors_10517269",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        -21.3758,
+        61.8645
+      ],
+      "threshold_world_xy_m": [
+        -21.4,
+        60.3536
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 115,
+      "distance_m": 1.4005
+    },
+    {
+      "door_name": "Doors_10294265",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____24__Sidelite/Doors_10294265",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        -48.3839,
+        74.2955
+      ],
+      "threshold_world_xy_m": [
+        -47.95,
+        75.2536
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 11,
+      "distance_m": 1.7281
+    },
+    {
+      "door_name": "Doors_10294266",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____24__Sidelite/Doors_10294266",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        -48.3331,
+        64.1442
+      ],
+      "threshold_world_xy_m": [
+        -48.35,
+        62.6036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 83,
+      "distance_m": 2.1509
+    },
+    {
+      "door_name": "Doors_10294267",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_F_W_SIDELITE_Door/NEW___HM_Frame___36_x96____24__Sidelite/Doors_10294267",
+      "door_type": "RS___Type_F_W_SIDELITE_Door",
+      "door_world_xy_m": [
+        -47.4695,
+        59.2166
+      ],
+      "threshold_world_xy_m": [
+        -47.65,
+        57.7036
+      ],
+      "gap_detected": true,
+      "gap_width_px": 18,
+      "door_width_cm": 91.4,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 126,
+      "distance_m": 1.6266
+    },
+    {
+      "door_name": "Doors_10962575",
+      "door_prim_path": "/World/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Doors/RS___Type_N_Door/NEW___HM_Frame___36_x96/Doors_10962575",
+      "door_type": "RS___Type_N_Door",
+      "door_world_xy_m": [
+        21.8725,
+        80.8367
+      ],
+      "threshold_world_xy_m": [
+        21.8,
+        80.8536
+      ],
+      "gap_detected": true,
+      "gap_width_px": 20,
+      "door_width_cm": 101.6,
+      "door_height_cm": 248.9,
+      "los_match": null,
+      "closest_node_id": 15,
+      "distance_m": 1.0326
+    }
+  ]
+}

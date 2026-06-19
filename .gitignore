@@ -13,5 +13,10 @@ datasets/
 *.log
 /logs/
 
+# Model weights, archives, route caches — keep code/docs, never commit large binaries
+*.npz
+*.safetensors
+*.tar.gz
+
 # Isaac Sim WebRTC streaming client trace logs
 NvStreamer-*.etli
