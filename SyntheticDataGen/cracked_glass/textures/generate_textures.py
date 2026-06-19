@@ -143,17 +143,26 @@ def height_to_normal(height: np.ndarray, strength: float = 4.0) -> np.ndarray:
     return rgb
 
 
-def opacity_to_normal(opacity_img: Image.Image, blur_radius: int = 3) -> Image.Image:
+def opacity_to_normal(opacity_img: Image.Image, blur_radius: int = 3,
+                      strength: float = 18.0) -> Image.Image:
     """Derive a normal map from an opacity / height silhouette.
 
     Smooth the mask so the cracks get a soft chamfer rather than a hard edge —
     reads as a "ridge" around each crack line in the rendered scene.
+
+    ``blur_radius=0`` keeps edges pixel-crisp (reads as hairline fractures);
+    higher blur chamfers the crack into a softer groove. ``strength`` scales
+    the normal-gradient magnitude — higher values make the crack read as a
+    deeper, more contrast-y scratch through the glass.
     """
-    blurred = opacity_img.filter(ImageFilter.GaussianBlur(blur_radius))
-    arr = np.asarray(blurred, dtype=np.float32) / 255.0
+    if blur_radius > 0:
+        source = opacity_img.filter(ImageFilter.GaussianBlur(blur_radius))
+    else:
+        source = opacity_img
+    arr = np.asarray(source, dtype=np.float32) / 255.0
     # Invert so cracks (dark) are high relief.
     height = 1.0 - arr
-    return Image.fromarray(height_to_normal(height, strength=18.0))
+    return Image.fromarray(height_to_normal(height, strength=strength))
 
 
 # ----------------------------------------------------------------------------
