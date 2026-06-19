@@ -1,12 +1,13 @@
 #!/bin/bash
-# submit_baseline_eval.sh — SLURM job for Qwen2-VL evaluation on the held-out test set.
+# submit_baseline_eval.sh — SLURM job for Qwen2-VL evaluation on the val split.
 #
-# Evaluates against data/test.jsonl (270 frames, 15% held-out split).
-# Uses conda 'vlm' env to avoid GLIBC mismatch from isaacsim/python.sh on dgx nodes.
+# Evaluates against data/val.jsonl (15% stratified val split from the 8
+# production doors). Uses conda 'vlm' env to avoid GLIBC mismatch from
+# isaacsim/python.sh on dgx nodes.
 #
 # Usage:
 #   sbatch submit_baseline_eval.sh               # baseline (no adapter)
-#   sbatch submit_baseline_eval.sh --adapter data/qwen2vl_door_lora  # fine-tuned
+#   sbatch submit_baseline_eval.sh --adapter data/qwen2vl_door_lora_v2  # fine-tuned
 #
 # One-time conda env setup (run on a GPU node):
 #   conda create -n vlm python=3.10 -y && conda activate vlm
@@ -33,14 +34,14 @@ echo "Started:   $(date)"
 echo "GPU:       $(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null || echo 'unknown')"
 echo ""
 
-# Check test split exists
-TEST_JSONL="data/test.jsonl"
+# Check val split exists
+TEST_JSONL="data/val.jsonl"
 if [ ! -f "$TEST_JSONL" ]; then
     echo "ERROR: $TEST_JSONL not found."
-    echo "  Run: python3 simulations/robot/prepare_finetune_data.py"
+    echo "  Run: sbatch submit_prepare_data.sh"
     exit 1
 fi
-echo "Test set: $TEST_JSONL  ($(wc -l < "$TEST_JSONL") frames)"
+echo "Eval set: $TEST_JSONL  ($(wc -l < "$TEST_JSONL") frames)"
 echo ""
 
 PYTHON="/home/ad.msoe.edu/celliot/.conda/envs/vlm/bin/python"

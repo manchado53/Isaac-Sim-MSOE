@@ -1,0 +1,1144 @@
+{
+  "floor": "floor_4",
+  "grid_size": [
+    4314,
+    4750
+  ],
+  "cell_size_cm": 3.0,
+  "z_height_cm": 2825.0,
+  "xy_min": [
+    -8640.602063726465,
+    -1050.9439888000488
+  ],
+  "xy_max": [
+    4300.455061024582,
+    13197.551789658177
+  ],
+  "total_nodes": 79,
+  "total_edges": 82,
+  "nodes": [
+    {
+      "id": "node_1",
+      "grid_col": 3060,
+      "grid_row": 2016,
+      "world_xy_cm": [
+        540.9,
+        4998.56
+      ]
+    },
+    {
+      "id": "node_2",
+      "grid_col": 3180,
+      "grid_row": 2028,
+      "world_xy_cm": [
+        900.9,
+        5034.56
+      ]
+    },
+    {
+      "id": "node_3",
+      "grid_col": 2209,
+      "grid_row": 2115,
+      "world_xy_cm": [
+        -2012.1,
+        5295.56
+      ]
+    },
+    {
+      "id": "node_4",
+      "grid_col": 2779,
+      "grid_row": 2127,
+      "world_xy_cm": [
+        -302.1,
+        5331.56
+      ]
+    },
+    {
+      "id": "node_5",
+      "grid_col": 2893,
+      "grid_row": 2127,
+      "world_xy_cm": [
+        39.9,
+        5331.56
+      ]
+    },
+    {
+      "id": "node_6",
+      "grid_col": 2970,
+      "grid_row": 2133,
+      "world_xy_cm": [
+        270.9,
+        5349.56
+      ]
+    },
+    {
+      "id": "node_7",
+      "grid_col": 2665,
+      "grid_row": 2127,
+      "world_xy_cm": [
+        -644.1,
+        5331.56
+      ]
+    },
+    {
+      "id": "node_8",
+      "grid_col": 2551,
+      "grid_row": 2127,
+      "world_xy_cm": [
+        -986.1,
+        5331.56
+      ]
+    },
+    {
+      "id": "node_9",
+      "grid_col": 2431,
+      "grid_row": 2127,
+      "world_xy_cm": [
+        -1346.1,
+        5331.56
+      ]
+    },
+    {
+      "id": "node_10",
+      "grid_col": 2009,
+      "grid_row": 2142,
+      "world_xy_cm": [
+        -2612.1,
+        5376.56
+      ]
+    },
+    {
+      "id": "node_11",
+      "grid_col": 2169,
+      "grid_row": 2139,
+      "world_xy_cm": [
+        -2132.1,
+        5367.56
+      ]
+    },
+    {
+      "id": "node_12",
+      "grid_col": 2305,
+      "grid_row": 2121,
+      "world_xy_cm": [
+        -1724.1,
+        5313.56
+      ]
+    },
+    {
+      "id": "node_13",
+      "grid_col": 1889,
+      "grid_row": 2152,
+      "world_xy_cm": [
+        -2972.1,
+        5406.56
+      ]
+    },
+    {
+      "id": "node_14",
+      "grid_col": 1827,
+      "grid_row": 2148,
+      "world_xy_cm": [
+        -3158.1,
+        5394.56
+      ]
+    },
+    {
+      "id": "node_15",
+      "grid_col": 1667,
+      "grid_row": 2167,
+      "world_xy_cm": [
+        -3638.1,
+        5451.56
+      ]
+    },
+    {
+      "id": "node_16",
+      "grid_col": 2012,
+      "grid_row": 2284,
+      "world_xy_cm": [
+        -2603.1,
+        5802.56
+      ]
+    },
+    {
+      "id": "node_17",
+      "grid_col": 1895,
+      "grid_row": 2284,
+      "world_xy_cm": [
+        -2954.1,
+        5802.56
+      ]
+    },
+    {
+      "id": "node_18",
+      "grid_col": 1679,
+      "grid_row": 2296,
+      "world_xy_cm": [
+        -3602.1,
+        5838.56
+      ]
+    },
+    {
+      "id": "node_19",
+      "grid_col": 3131,
+      "grid_row": 2315,
+      "world_xy_cm": [
+        753.9,
+        5895.56
+      ]
+    },
+    {
+      "id": "node_20",
+      "grid_col": 2964,
+      "grid_row": 2315,
+      "world_xy_cm": [
+        252.9,
+        5895.56
+      ]
+    },
+    {
+      "id": "node_21",
+      "grid_col": 1679,
+      "grid_row": 2426,
+      "world_xy_cm": [
+        -3602.1,
+        6228.56
+      ]
+    },
+    {
+      "id": "node_22",
+      "grid_col": 1984,
+      "grid_row": 2414,
+      "world_xy_cm": [
+        -2687.1,
+        6192.56
+      ]
+    },
+    {
+      "id": "node_23",
+      "grid_col": 2188,
+      "grid_row": 2401,
+      "world_xy_cm": [
+        -2075.1,
+        6153.56
+      ]
+    },
+    {
+      "id": "node_24",
+      "grid_col": 1815,
+      "grid_row": 2407,
+      "world_xy_cm": [
+        -3194.1,
+        6171.56
+      ]
+    },
+    {
+      "id": "node_25",
+      "grid_col": 2964,
+      "grid_row": 2432,
+      "world_xy_cm": [
+        252.9,
+        6246.56
+      ]
+    },
+    {
+      "id": "node_26",
+      "grid_col": 2970,
+      "grid_row": 2500,
+      "world_xy_cm": [
+        270.9,
+        6450.56
+      ]
+    },
+    {
+      "id": "node_27",
+      "grid_col": 3340,
+      "grid_row": 2491,
+      "world_xy_cm": [
+        1380.9,
+        6423.56
+      ]
+    },
+    {
+      "id": "node_28",
+      "grid_col": 1960,
+      "grid_row": 2500,
+      "world_xy_cm": [
+        -2759.1,
+        6450.56
+      ]
+    },
+    {
+      "id": "node_29",
+      "grid_col": 2391,
+      "grid_row": 2429,
+      "world_xy_cm": [
+        -1466.1,
+        6237.56
+      ]
+    },
+    {
+      "id": "node_30",
+      "grid_col": 1815,
+      "grid_row": 2515,
+      "world_xy_cm": [
+        -3194.1,
+        6495.56
+      ]
+    },
+    {
+      "id": "node_31",
+      "grid_col": 2175,
+      "grid_row": 2568,
+      "world_xy_cm": [
+        -2114.1,
+        6654.56
+      ]
+    },
+    {
+      "id": "node_32",
+      "grid_col": 2348,
+      "grid_row": 2571,
+      "world_xy_cm": [
+        -1595.1,
+        6663.56
+      ]
+    },
+    {
+      "id": "node_33",
+      "grid_col": 2705,
+      "grid_row": 2571,
+      "world_xy_cm": [
+        -524.1,
+        6663.56
+      ]
+    },
+    {
+      "id": "node_34",
+      "grid_col": 2487,
+      "grid_row": 2555,
+      "world_xy_cm": [
+        -1178.1,
+        6615.56
+      ]
+    },
+    {
+      "id": "node_35",
+      "grid_col": 2970,
+      "grid_row": 2571,
+      "world_xy_cm": [
+        270.9,
+        6663.56
+      ]
+    },
+    {
+      "id": "node_36",
+      "grid_col": 2092,
+      "grid_row": 2697,
+      "world_xy_cm": [
+        -2363.1,
+        7041.56
+      ]
+    },
+    {
+      "id": "node_37",
+      "grid_col": 1679,
+      "grid_row": 2700,
+      "world_xy_cm": [
+        -3602.1,
+        7050.56
+      ]
+    },
+    {
+      "id": "node_38",
+      "grid_col": 2182,
+      "grid_row": 2697,
+      "world_xy_cm": [
+        -2093.1,
+        7041.56
+      ]
+    },
+    {
+      "id": "node_39",
+      "grid_col": 1984,
+      "grid_row": 2691,
+      "world_xy_cm": [
+        -2687.1,
+        7023.56
+      ]
+    },
+    {
+      "id": "node_40",
+      "grid_col": 1858,
+      "grid_row": 2691,
+      "world_xy_cm": [
+        -3065.1,
+        7023.56
+      ]
+    },
+    {
+      "id": "node_41",
+      "grid_col": 2182,
+      "grid_row": 2787,
+      "world_xy_cm": [
+        -2093.1,
+        7311.56
+      ]
+    },
+    {
+      "id": "node_42",
+      "grid_col": 1787,
+      "grid_row": 2796,
+      "world_xy_cm": [
+        -3278.1,
+        7338.56
+      ]
+    },
+    {
+      "id": "node_43",
+      "grid_col": 1673,
+      "grid_row": 2796,
+      "world_xy_cm": [
+        -3620.1,
+        7338.56
+      ]
+    },
+    {
+      "id": "node_44",
+      "grid_col": 2983,
+      "grid_row": 2820,
+      "world_xy_cm": [
+        309.9,
+        7410.56
+      ]
+    },
+    {
+      "id": "node_45",
+      "grid_col": 1984,
+      "grid_row": 2879,
+      "world_xy_cm": [
+        -2687.1,
+        7587.56
+      ]
+    },
+    {
+      "id": "node_46",
+      "grid_col": 1750,
+      "grid_row": 2867,
+      "world_xy_cm": [
+        -3389.1,
+        7551.56
+      ]
+    },
+    {
+      "id": "node_47",
+      "grid_col": 2024,
+      "grid_row": 2879,
+      "world_xy_cm": [
+        -2567.1,
+        7587.56
+      ]
+    },
+    {
+      "id": "node_48",
+      "grid_col": 3214,
+      "grid_row": 2888,
+      "world_xy_cm": [
+        1002.9,
+        7614.56
+      ]
+    },
+    {
+      "id": "node_49",
+      "grid_col": 2188,
+      "grid_row": 2907,
+      "world_xy_cm": [
+        -2075.1,
+        7671.56
+      ]
+    },
+    {
+      "id": "node_50",
+      "grid_col": 3088,
+      "grid_row": 2894,
+      "world_xy_cm": [
+        624.9,
+        7632.56
+      ]
+    },
+    {
+      "id": "node_51",
+      "grid_col": 3094,
+      "grid_row": 2984,
+      "world_xy_cm": [
+        642.9,
+        7902.56
+      ]
+    },
+    {
+      "id": "node_52",
+      "grid_col": 2964,
+      "grid_row": 3008,
+      "world_xy_cm": [
+        252.9,
+        7974.56
+      ]
+    },
+    {
+      "id": "node_53",
+      "grid_col": 1303,
+      "grid_row": 3002,
+      "world_xy_cm": [
+        -4730.1,
+        7956.56
+      ]
+    },
+    {
+      "id": "node_54",
+      "grid_col": 992,
+      "grid_row": 3005,
+      "world_xy_cm": [
+        -5663.1,
+        7965.56
+      ]
+    },
+    {
+      "id": "node_55",
+      "grid_col": 699,
+      "grid_row": 3005,
+      "world_xy_cm": [
+        -6542.1,
+        7965.56
+      ]
+    },
+    {
+      "id": "node_56",
+      "grid_col": 752,
+      "grid_row": 3005,
+      "world_xy_cm": [
+        -6383.1,
+        7965.56
+      ]
+    },
+    {
+      "id": "node_57",
+      "grid_col": 854,
+      "grid_row": 3005,
+      "world_xy_cm": [
+        -6077.1,
+        7965.56
+      ]
+    },
+    {
+      "id": "node_58",
+      "grid_col": 949,
+      "grid_row": 3012,
+      "world_xy_cm": [
+        -5792.1,
+        7986.56
+      ]
+    },
+    {
+      "id": "node_59",
+      "grid_col": 1051,
+      "grid_row": 3018,
+      "world_xy_cm": [
+        -5486.1,
+        8004.56
+      ]
+    },
+    {
+      "id": "node_60",
+      "grid_col": 1140,
+      "grid_row": 3012,
+      "world_xy_cm": [
+        -5219.1,
+        7986.56
+      ]
+    },
+    {
+      "id": "node_61",
+      "grid_col": 1248,
+      "grid_row": 3012,
+      "world_xy_cm": [
+        -4895.1,
+        7986.56
+      ]
+    },
+    {
+      "id": "node_62",
+      "grid_col": 1362,
+      "grid_row": 3015,
+      "world_xy_cm": [
+        -4553.1,
+        7995.56
+      ]
+    },
+    {
+      "id": "node_63",
+      "grid_col": 1399,
+      "grid_row": 3002,
+      "world_xy_cm": [
+        -4442.1,
+        7956.56
+      ]
+    },
+    {
+      "id": "node_64",
+      "grid_col": 2761,
+      "grid_row": 3024,
+      "world_xy_cm": [
+        -356.1,
+        8022.56
+      ]
+    },
+    {
+      "id": "node_65",
+      "grid_col": 1501,
+      "grid_row": 3008,
+      "world_xy_cm": [
+        -4136.1,
+        7974.56
+      ]
+    },
+    {
+      "id": "node_66",
+      "grid_col": 1094,
+      "grid_row": 3005,
+      "world_xy_cm": [
+        -5357.1,
+        7965.56
+      ]
+    },
+    {
+      "id": "node_67",
+      "grid_col": 1553,
+      "grid_row": 3015,
+      "world_xy_cm": [
+        -3980.1,
+        7995.56
+      ]
+    },
+    {
+      "id": "node_68",
+      "grid_col": 1602,
+      "grid_row": 3005,
+      "world_xy_cm": [
+        -3833.1,
+        7965.56
+      ]
+    },
+    {
+      "id": "node_69",
+      "grid_col": 1667,
+      "grid_row": 3002,
+      "world_xy_cm": [
+        -3638.1,
+        7956.56
+      ]
+    },
+    {
+      "id": "node_70",
+      "grid_col": 1451,
+      "grid_row": 3012,
+      "world_xy_cm": [
+        -4286.1,
+        7986.56
+      ]
+    },
+    {
+      "id": "node_71",
+      "grid_col": 2194,
+      "grid_row": 3018,
+      "world_xy_cm": [
+        -2057.1,
+        8004.56
+      ]
+    },
+    {
+      "id": "node_72",
+      "grid_col": 1196,
+      "grid_row": 3005,
+      "world_xy_cm": [
+        -5051.1,
+        7965.56
+      ]
+    },
+    {
+      "id": "node_73",
+      "grid_col": 2413,
+      "grid_row": 3024,
+      "world_xy_cm": [
+        -1400.1,
+        8022.56
+      ]
+    },
+    {
+      "id": "node_74",
+      "grid_col": 2061,
+      "grid_row": 3012,
+      "world_xy_cm": [
+        -2456.1,
+        7986.56
+      ]
+    },
+    {
+      "id": "node_75",
+      "grid_col": 1954,
+      "grid_row": 3008,
+      "world_xy_cm": [
+        -2777.1,
+        7974.56
+      ]
+    },
+    {
+      "id": "node_76",
+      "grid_col": 1870,
+      "grid_row": 3012,
+      "world_xy_cm": [
+        -3029.1,
+        7986.56
+      ]
+    },
+    {
+      "id": "node_77",
+      "grid_col": 1907,
+      "grid_row": 3012,
+      "world_xy_cm": [
+        -2918.1,
+        7986.56
+      ]
+    },
+    {
+      "id": "node_78",
+      "grid_col": 2188,
+      "grid_row": 3141,
+      "world_xy_cm": [
+        -2075.1,
+        8373.56
+      ]
+    },
+    {
+      "id": "node_79",
+      "grid_col": 2773,
+      "grid_row": 3196,
+      "world_xy_cm": [
+        -320.1,
+        8538.56
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "node_78",
+      "to": "node_79",
+      "distance_cm": 1762.74
+    },
+    {
+      "from": "node_79",
+      "to": "node_64",
+      "distance_cm": 517.25
+    },
+    {
+      "from": "node_64",
+      "to": "node_52",
+      "distance_cm": 610.89
+    },
+    {
+      "from": "node_52",
+      "to": "node_51",
+      "distance_cm": 396.59
+    },
+    {
+      "from": "node_51",
+      "to": "node_50",
+      "distance_cm": 270.6
+    },
+    {
+      "from": "node_50",
+      "to": "node_48",
+      "distance_cm": 378.43
+    },
+    {
+      "from": "node_52",
+      "to": "node_44",
+      "distance_cm": 566.87
+    },
+    {
+      "from": "node_35",
+      "to": "node_44",
+      "distance_cm": 748.02
+    },
+    {
+      "from": "node_26",
+      "to": "node_35",
+      "distance_cm": 213.0
+    },
+    {
+      "from": "node_26",
+      "to": "node_27",
+      "distance_cm": 1110.33
+    },
+    {
+      "from": "node_26",
+      "to": "node_25",
+      "distance_cm": 204.79
+    },
+    {
+      "from": "node_25",
+      "to": "node_20",
+      "distance_cm": 351.0
+    },
+    {
+      "from": "node_20",
+      "to": "node_19",
+      "distance_cm": 501.0
+    },
+    {
+      "from": "node_19",
+      "to": "node_2",
+      "distance_cm": 873.46
+    },
+    {
+      "from": "node_2",
+      "to": "node_1",
+      "distance_cm": 361.8
+    },
+    {
+      "from": "node_6",
+      "to": "node_20",
+      "distance_cm": 546.3
+    },
+    {
+      "from": "node_5",
+      "to": "node_6",
+      "distance_cm": 231.7
+    },
+    {
+      "from": "node_5",
+      "to": "node_4",
+      "distance_cm": 342.0
+    },
+    {
+      "from": "node_4",
+      "to": "node_7",
+      "distance_cm": 342.0
+    },
+    {
+      "from": "node_33",
+      "to": "node_35",
+      "distance_cm": 795.0
+    },
+    {
+      "from": "node_34",
+      "to": "node_33",
+      "distance_cm": 655.76
+    },
+    {
+      "from": "node_32",
+      "to": "node_34",
+      "distance_cm": 419.75
+    },
+    {
+      "from": "node_32",
+      "to": "node_29",
+      "distance_cm": 445.1
+    },
+    {
+      "from": "node_32",
+      "to": "node_31",
+      "distance_cm": 519.08
+    },
+    {
+      "from": "node_23",
+      "to": "node_31",
+      "distance_cm": 502.52
+    },
+    {
+      "from": "node_11",
+      "to": "node_23",
+      "distance_cm": 788.06
+    },
+    {
+      "from": "node_11",
+      "to": "node_3",
+      "distance_cm": 139.94
+    },
+    {
+      "from": "node_11",
+      "to": "node_12",
+      "distance_cm": 411.56
+    },
+    {
+      "from": "node_12",
+      "to": "node_9",
+      "distance_cm": 378.43
+    },
+    {
+      "from": "node_9",
+      "to": "node_8",
+      "distance_cm": 360.0
+    },
+    {
+      "from": "node_8",
+      "to": "node_7",
+      "distance_cm": 342.0
+    },
+    {
+      "from": "node_10",
+      "to": "node_11",
+      "distance_cm": 480.08
+    },
+    {
+      "from": "node_10",
+      "to": "node_13",
+      "distance_cm": 361.25
+    },
+    {
+      "from": "node_13",
+      "to": "node_14",
+      "distance_cm": 186.39
+    },
+    {
+      "from": "node_14",
+      "to": "node_15",
+      "distance_cm": 483.37
+    },
+    {
+      "from": "node_18",
+      "to": "node_15",
+      "distance_cm": 388.67
+    },
+    {
+      "from": "node_18",
+      "to": "node_21",
+      "distance_cm": 390.0
+    },
+    {
+      "from": "node_13",
+      "to": "node_17",
+      "distance_cm": 396.41
+    },
+    {
+      "from": "node_10",
+      "to": "node_16",
+      "distance_cm": 426.1
+    },
+    {
+      "from": "node_21",
+      "to": "node_24",
+      "distance_cm": 411.96
+    },
+    {
+      "from": "node_24",
+      "to": "node_22",
+      "distance_cm": 507.43
+    },
+    {
+      "from": "node_28",
+      "to": "node_22",
+      "distance_cm": 267.86
+    },
+    {
+      "from": "node_30",
+      "to": "node_24",
+      "distance_cm": 324.0
+    },
+    {
+      "from": "node_21",
+      "to": "node_37",
+      "distance_cm": 822.0
+    },
+    {
+      "from": "node_40",
+      "to": "node_37",
+      "distance_cm": 537.68
+    },
+    {
+      "from": "node_40",
+      "to": "node_39",
+      "distance_cm": 378.0
+    },
+    {
+      "from": "node_39",
+      "to": "node_36",
+      "distance_cm": 324.5
+    },
+    {
+      "from": "node_36",
+      "to": "node_38",
+      "distance_cm": 270.0
+    },
+    {
+      "from": "node_38",
+      "to": "node_31",
+      "distance_cm": 387.57
+    },
+    {
+      "from": "node_38",
+      "to": "node_41",
+      "distance_cm": 270.0
+    },
+    {
+      "from": "node_64",
+      "to": "node_73",
+      "distance_cm": 1044.0
+    },
+    {
+      "from": "node_73",
+      "to": "node_71",
+      "distance_cm": 657.25
+    },
+    {
+      "from": "node_71",
+      "to": "node_78",
+      "distance_cm": 369.44
+    },
+    {
+      "from": "node_71",
+      "to": "node_49",
+      "distance_cm": 333.49
+    },
+    {
+      "from": "node_49",
+      "to": "node_41",
+      "distance_cm": 360.45
+    },
+    {
+      "from": "node_74",
+      "to": "node_71",
+      "distance_cm": 399.41
+    },
+    {
+      "from": "node_75",
+      "to": "node_74",
+      "distance_cm": 321.22
+    },
+    {
+      "from": "node_75",
+      "to": "node_77",
+      "distance_cm": 141.51
+    },
+    {
+      "from": "node_76",
+      "to": "node_77",
+      "distance_cm": 111.0
+    },
+    {
+      "from": "node_69",
+      "to": "node_43",
+      "distance_cm": 618.26
+    },
+    {
+      "from": "node_45",
+      "to": "node_47",
+      "distance_cm": 120.0
+    },
+    {
+      "from": "node_46",
+      "to": "node_45",
+      "distance_cm": 702.92
+    },
+    {
+      "from": "node_46",
+      "to": "node_42",
+      "distance_cm": 240.19
+    },
+    {
+      "from": "node_42",
+      "to": "node_43",
+      "distance_cm": 342.0
+    },
+    {
+      "from": "node_43",
+      "to": "node_37",
+      "distance_cm": 288.56
+    },
+    {
+      "from": "node_69",
+      "to": "node_68",
+      "distance_cm": 195.21
+    },
+    {
+      "from": "node_67",
+      "to": "node_68",
+      "distance_cm": 150.03
+    },
+    {
+      "from": "node_65",
+      "to": "node_67",
+      "distance_cm": 157.41
+    },
+    {
+      "from": "node_70",
+      "to": "node_65",
+      "distance_cm": 150.48
+    },
+    {
+      "from": "node_63",
+      "to": "node_70",
+      "distance_cm": 158.86
+    },
+    {
+      "from": "node_62",
+      "to": "node_63",
+      "distance_cm": 117.65
+    },
+    {
+      "from": "node_53",
+      "to": "node_62",
+      "distance_cm": 181.25
+    },
+    {
+      "from": "node_61",
+      "to": "node_53",
+      "distance_cm": 167.71
+    },
+    {
+      "from": "node_72",
+      "to": "node_61",
+      "distance_cm": 157.41
+    },
+    {
+      "from": "node_60",
+      "to": "node_72",
+      "distance_cm": 169.31
+    },
+    {
+      "from": "node_66",
+      "to": "node_60",
+      "distance_cm": 139.59
+    },
+    {
+      "from": "node_59",
+      "to": "node_66",
+      "distance_cm": 134.77
+    },
+    {
+      "from": "node_54",
+      "to": "node_59",
+      "distance_cm": 181.25
+    },
+    {
+      "from": "node_58",
+      "to": "node_54",
+      "distance_cm": 130.7
+    },
+    {
+      "from": "node_57",
+      "to": "node_58",
+      "distance_cm": 285.77
+    },
+    {
+      "from": "node_56",
+      "to": "node_57",
+      "distance_cm": 306.0
+    },
+    {
+      "from": "node_55",
+      "to": "node_56",
+      "distance_cm": 159.0
+    }
+  ]
+}

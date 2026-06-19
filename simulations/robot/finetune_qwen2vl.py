@@ -95,11 +95,23 @@ class DoorStateDataset(Dataset):
             images=[image],
             return_tensors="pt",
             padding=True,
-            truncation=True,
-            max_length=512,
         )
-        # Flatten batch dim added by processor
-        inputs = {k: v.squeeze(0) for k, v in inputs.items()}
+        # Squeeze the processor-added batch dim (leading size-1 dim) off every
+        # text-side tensor, but leave vision tensors alone. `pixel_values` is
+        # already [num_patches, D] (no batch dim) and `image_grid_thw` is
+        # [num_images, 3] — squeezing them breaks the visual forward when
+        # batching images of different resolutions. We avoid whitelisting text
+        # keys because newer Qwen2-VL processors may add fields (e.g.
+        # mm_token_type_ids, rope_deltas) that would otherwise get left as
+        # [1, seq_len] and crash pad_sequence with a dim-1 mismatch.
+        VISION_NO_SQUEEZE = {"pixel_values", "image_grid_thw"}
+        def _squeeze(k, v):
+            if k in VISION_NO_SQUEEZE:
+                return v
+            if torch.is_tensor(v) and v.dim() >= 2 and v.shape[0] == 1:
+                return v.squeeze(0)
+            return v
+        inputs = {k: _squeeze(k, v) for k, v in inputs.items()}
 
         # Labels: mask system + user turns, only train on assistant response tokens.
         # Strategy: find the LAST <|im_start|> token (always the assistant turn regardless
@@ -136,23 +148,33 @@ class DoorStateDataset(Dataset):
 
 
 def collate_fn(batch):
-    """Pad a batch of variable-length tokenized inputs."""
+    """Pad text sequences; concatenate vision tensors across the batch.
+
+    Padding `pixel_values` / `image_grid_thw` creates phantom patches that
+    desync from rotary position embeddings (derived from image_grid_thw),
+    crashing the visual forward with a shape mismatch like
+    `tensor a (9568) must match tensor b (8780)`. That only manifests when
+    batch samples have different image resolutions — which the unified
+    door+glass dataset does.
+    """
+    VISION_CAT_KEYS = {"pixel_values", "image_grid_thw"}
+
     keys = batch[0].keys()
     result = {}
     for key in keys:
         tensors = [item[key] for item in batch]
-        if key == "labels":
+        if key in VISION_CAT_KEYS:
+            result[key] = torch.cat(tensors, dim=0)
+        elif tensors[0].dim() == 1:
+            pad_val = -100 if key == "labels" else 0
             result[key] = torch.nn.utils.rnn.pad_sequence(
-                tensors, batch_first=True, padding_value=-100
-            )
-        elif key == "attention_mask":
-            result[key] = torch.nn.utils.rnn.pad_sequence(
-                tensors, batch_first=True, padding_value=0
+                tensors, batch_first=True, padding_value=pad_val
             )
         else:
-            result[key] = torch.nn.utils.rnn.pad_sequence(
-                tensors, batch_first=True, padding_value=0
-            )
+            # Fallback for any higher-dim tensor the processor adds in a new
+            # transformers version — concat along dim 0 rather than pad so we
+            # don't create phantom rows that desync from vision positions.
+            result[key] = torch.cat(tensors, dim=0)
     return result
 
 
@@ -207,6 +229,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_dir",   default="data/")
     parser.add_argument("--output_dir", default="data/qwen2vl_door_lora")
+    parser.add_argument("--train_jsonl", default="train.jsonl",
+                        help="Filename (relative to --data_dir) of the train split JSONL")
+    parser.add_argument("--val_jsonl",   default="val.jsonl",
+                        help="Filename (relative to --data_dir) of the val split JSONL")
     parser.add_argument("--epochs",     type=int,   default=3)
     parser.add_argument("--lr",         type=float, default=1e-5)
     args = parser.parse_args()
@@ -215,8 +241,8 @@ def main():
     data_dir   = os.path.abspath(os.path.join(script_dir, "..", "..", args.data_dir))
     output_dir = os.path.abspath(os.path.join(script_dir, "..", "..", args.output_dir))
 
-    train_jsonl = os.path.join(data_dir, "train.jsonl")
-    val_jsonl   = os.path.join(data_dir, "val.jsonl")
+    train_jsonl = os.path.join(data_dir, args.train_jsonl)
+    val_jsonl   = os.path.join(data_dir, args.val_jsonl)
 
     for path in [train_jsonl, val_jsonl]:
         if not os.path.isfile(path):
@@ -302,10 +328,10 @@ def main():
         weight_decay=0.01,
         fp16=True,
         eval_strategy="epoch",
-        save_strategy="epoch",
-        load_best_model_at_end=True,
-        metric_for_best_model="eval_loss",
-        greater_is_better=False,
+        save_strategy="steps",
+        save_steps=1000,
+        save_total_limit=3,
+        load_best_model_at_end=False,
         # Prevent overfitting: eval_loss hit 0.001 by epoch 3 but the model
         # collapsed to predicting OPEN-only. Early stopping helps, but the real
         # fix is modules_to_save above. Keep epochs low (1-2) until verified.

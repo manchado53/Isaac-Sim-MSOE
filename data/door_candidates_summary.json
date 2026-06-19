@@ -1,0 +1,2282 @@
+{
+  "ok": 175,
+  "skipped": 0,
+  "failed": 0,
+  "doors": [
+    {
+      "door_id": "Doors_12066864",
+      "family": "RS___Curtain_Wall___Type_FG___New",
+      "family_short": "CW_FG_New",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_12297490",
+      "family": "RS___Curtain_Wall___Type_FG___New",
+      "family_short": "CW_FG_New",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_12302795",
+      "family": "RS___Curtain_Wall___Type_FG___New",
+      "family_short": "CW_FG_New",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_13607417",
+      "family": "RS___Curtain_Wall___Type_FG___New",
+      "family_short": "CW_FG_New",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9817744",
+      "family": "RS___Curtain_Wall___Type_FG___New",
+      "family_short": "CW_FG_New",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_13605973",
+      "family": "RS___Curtain_Wall___Type_F___NEW",
+      "family_short": "CW_F_NEW",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_13607620",
+      "family": "RS___Curtain_Wall___Type_F___NEW",
+      "family_short": "CW_F_NEW",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_12916559",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_1605356",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": null,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_1605363",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_1845084",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_2456888",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_3872732",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_4108695",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_4108736",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_5039704",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_5232222",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_7166242",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8285087",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8286057",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9493983",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10294235",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10869448",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10871332",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10871523",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10871524",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10871525",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10871529",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10871530",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10871531",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10871532",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10871533",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10871543",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10871544",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8285883",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8285993",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9494157",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9563128",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 2,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_1868517",
+      "family": "RS___Curtain_Wall___Type_FG___New",
+      "family_short": "CW_FG_New",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_3135827",
+      "family": "RS___Curtain_Wall___Type_FG___New",
+      "family_short": "CW_FG_New",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_13606056",
+      "family": "RS___Curtain_Wall___Type_F___NEW",
+      "family_short": "CW_F_NEW",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10649156",
+      "family": "RS___Type_FG_Door",
+      "family_short": "Type_FG",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10649710",
+      "family": "RS___Type_FG_Door",
+      "family_short": "Type_FG",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_1605836",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_4073859",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8448323",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8453324",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8453326",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10280561",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10648318",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_13714710",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8286951",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8288402",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429410",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429411",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429412",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429413",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429414",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429415",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429416",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429417",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429418",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429419",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429420",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429421",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429422",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429423",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429424",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429428",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429429",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429430",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429431",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429432",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429434",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429435",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429436",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429437",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429438",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429439",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8448071",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8449233",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8449376",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8450804",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9496138",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9637941",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9637942",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9637943",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9638887",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10962472",
+      "family": "RS___Type_N_Door",
+      "family_short": "Type_N",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_12590968",
+      "family": "RS___Type_N_Door",
+      "family_short": "Type_N",
+      "floor": 3,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_13182085",
+      "family": "RS___Curtain_Wall___Type_FG___New",
+      "family_short": "CW_FG_New",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_13606364",
+      "family": "RS___Curtain_Wall___Type_F___NEW",
+      "family_short": "CW_F_NEW",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_13606466",
+      "family": "RS___Curtain_Wall___Type_F___NEW",
+      "family_short": "CW_F_NEW",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9912633",
+      "family": "RS___Type_FG_Door",
+      "family_short": "Type_FG",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10842591",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8451576",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8451580",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": -1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8459665",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9758858",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8289418",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429357",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429358",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429359",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429360",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429361",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429362",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429363",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429364",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429365",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429366",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429367",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429368",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429369",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429370",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429371",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429378",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429379",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429380",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429381",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429382",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429385",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429386",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429388",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429389",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429390",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429391",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429392",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8442817",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8443153",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9498432",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9499392",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9639147",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9912794",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10962553",
+      "family": "RS___Type_N_Door",
+      "family_short": "Type_N",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_2429516",
+      "family": "RS___Type_N_Door",
+      "family_short": "Type_N",
+      "floor": 4,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_13185454",
+      "family": "RS___Curtain_Wall___Type_FG___New",
+      "family_short": "CW_FG_New",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_4190126",
+      "family": "RS___Curtain_Wall___Type_FG___New",
+      "family_short": "CW_FG_New",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8432716",
+      "family": "RS___Type_FG_Door",
+      "family_short": "Type_FG",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9912400",
+      "family": "RS___Type_FG_Door",
+      "family_short": "Type_FG",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_1915613",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_4078243",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_7171063",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9477386",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9759311",
+      "family": "RS___Type_F_Door",
+      "family_short": "Type_F",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10294265",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10294267",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10517269",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431775",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431776",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431777",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431778",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431779",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431780",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431781",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431782",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431783",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431784",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431785",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431786",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431787",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431788",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431789",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431790",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431799",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431801",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431802",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431803",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431804",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431823",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8432717",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9499760",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9499864",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9499896",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9500424",
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "family_short": "Type_F_Sidelite",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10962575",
+      "family": "RS___Type_N_Door",
+      "family_short": "Type_N",
+      "floor": 5,
+      "status": "ok",
+      "los_hint": 1,
+      "sides_ok": [
+        1,
+        -1
+      ],
+      "note": ""
+    }
+  ]
+}

@@ -1,0 +1,1860 @@
+{
+  "grid": {
+    "arc_offsets": [
+      -60.0,
+      -30.0,
+      0.0,
+      30.0,
+      60.0
+    ],
+    "distances": [
+      1.5,
+      2.0,
+      3.5
+    ],
+    "height_offsets": [
+      -0.5,
+      0.0,
+      1.0
+    ],
+    "total_per_door": 45
+  },
+  "doors": [
+    {
+      "id": "Doors_13606466",
+      "family_short": "CW_F_NEW",
+      "floor": 4,
+      "cam_yaw_deg": 180.0,
+      "status": "ok",
+      "total": 45,
+      "clear": 30,
+      "blocked": 15,
+      "by_arc": {
+        "-60": 0,
+        "-30": 9,
+        "0": 9,
+        "30": 9,
+        "60": 3
+      },
+      "clear_grid": [
+        {
+          "arc": -30,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": 0,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": 30,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": 60,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": -30,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": 0,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": 30,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": 60,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": -30,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": 0,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": 30,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": 60,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": -30,
+          "dist": 2.0,
+          "height": -0.5
+        },
+        {
+          "arc": 0,
+          "dist": 2.0,
+          "height": -0.5
+        },
+        {
+          "arc": 30,
+          "dist": 2.0,
+          "height": -0.5
+        },
+        {
+          "arc": -30,
+          "dist": 2.0,
+          "height": 0.0
+        },
+        {
+          "arc": 0,
+          "dist": 2.0,
+          "height": 0.0
+        },
+        {
+          "arc": 30,
+          "dist": 2.0,
+          "height": 0.0
+        },
+        {
+          "arc": -30,
+          "dist": 2.0,
+          "height": 1.0
+        },
+        {
+          "arc": 0,
+          "dist": 2.0,
+          "height": 1.0
+        },
+        {
+          "arc": 30,
+          "dist": 2.0,
+          "height": 1.0
+        },
+        {
+          "arc": -30,
+          "dist": 3.5,
+          "height": -0.5
+        },
+        {
+          "arc": 0,
+          "dist": 3.5,
+          "height": -0.5
+        },
+        {
+          "arc": 30,
+          "dist": 3.5,
+          "height": -0.5
+        },
+        {
+          "arc": -30,
+          "dist": 3.5,
+          "height": 0.0
+        },
+        {
+          "arc": 0,
+          "dist": 3.5,
+          "height": 0.0
+        },
+        {
+          "arc": 30,
+          "dist": 3.5,
+          "height": 0.0
+        },
+        {
+          "arc": -30,
+          "dist": 3.5,
+          "height": 1.0
+        },
+        {
+          "arc": 0,
+          "dist": 3.5,
+          "height": 1.0
+        },
+        {
+          "arc": 30,
+          "dist": 3.5,
+          "height": 1.0
+        }
+      ],
+      "blocked_sample": [
+        {
+          "arc": -60,
+          "dist": 1.5,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___E0__2HR____Shaftwall_2_5__CH_Stud/Walls_9563121/Gypsum_Wall_Board_18986"
+        },
+        {
+          "arc": -60,
+          "dist": 1.5,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___E0__2HR____Shaftwall_2_5__CH_Stud/Walls_9563121/Gypsum_Wall_Board_18986"
+        },
+        {
+          "arc": -60,
+          "dist": 1.5,
+          "height": 1.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___E0__2HR____Shaftwall_2_5__CH_Stud/Walls_9563121/Gypsum_Wall_Board_18986"
+        },
+        {
+          "arc": -60,
+          "dist": 2.0,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___E0__2HR____Shaftwall_2_5__CH_Stud/Walls_9563123/Honorable_Blue_SW_6811_1869955"
+        },
+        {
+          "arc": 60,
+          "dist": 2.0,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0__1HR____3_5_8__Stud___Gyp_2_Side/Walls_9498463/Honorable_Blue_SW_6811_1869955"
+        },
+        {
+          "arc": -60,
+          "dist": 2.0,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___E0__2HR____Shaftwall_2_5__CH_Stud/Walls_9563123/Honorable_Blue_SW_6811_1869955"
+        },
+        {
+          "arc": 60,
+          "dist": 2.0,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0__1HR____3_5_8__Stud___Gyp_2_Side/Walls_9498463/Honorable_Blue_SW_6811_1869955"
+        },
+        {
+          "arc": -60,
+          "dist": 2.0,
+          "height": 1.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___E0__2HR____Shaftwall_2_5__CH_Stud/Walls_9563123/Honorable_Blue_SW_6811_1869955"
+        },
+        {
+          "arc": 60,
+          "dist": 2.0,
+          "height": 1.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0__1HR____3_5_8__Stud___Gyp_2_Side/Walls_9498463/Honorable_Blue_SW_6811_1869955"
+        },
+        {
+          "arc": -60,
+          "dist": 3.5,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___E0__2HR____Shaftwall_2_5__CH_Stud/Walls_9563123/Honorable_Blue_SW_6811_1869955"
+        },
+        {
+          "arc": 60,
+          "dist": 3.5,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0__1HR____3_5_8__Stud___Gyp_2_Side/Walls_9498463/Honorable_Blue_SW_6811_1869955"
+        },
+        {
+          "arc": -60,
+          "dist": 3.5,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___E0__2HR____Shaftwall_2_5__CH_Stud/Walls_9563123/Honorable_Blue_SW_6811_1869955"
+        }
+      ]
+    },
+    {
+      "id": "Doors_10649156",
+      "family_short": "Type_FG",
+      "floor": 3,
+      "cam_yaw_deg": 0.0,
+      "status": "ok",
+      "total": 45,
+      "clear": 27,
+      "blocked": 18,
+      "by_arc": {
+        "-60": 0,
+        "-30": 0,
+        "0": 9,
+        "30": 9,
+        "60": 9
+      },
+      "clear_grid": [
+        {
+          "arc": 0,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": 30,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": 60,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": 0,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": 30,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": 60,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": 0,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": 30,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": 60,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": 0,
+          "dist": 2.0,
+          "height": -0.5
+        },
+        {
+          "arc": 30,
+          "dist": 2.0,
+          "height": -0.5
+        },
+        {
+          "arc": 60,
+          "dist": 2.0,
+          "height": -0.5
+        },
+        {
+          "arc": 0,
+          "dist": 2.0,
+          "height": 0.0
+        },
+        {
+          "arc": 30,
+          "dist": 2.0,
+          "height": 0.0
+        },
+        {
+          "arc": 60,
+          "dist": 2.0,
+          "height": 0.0
+        },
+        {
+          "arc": 0,
+          "dist": 2.0,
+          "height": 1.0
+        },
+        {
+          "arc": 30,
+          "dist": 2.0,
+          "height": 1.0
+        },
+        {
+          "arc": 60,
+          "dist": 2.0,
+          "height": 1.0
+        },
+        {
+          "arc": 0,
+          "dist": 3.5,
+          "height": -0.5
+        },
+        {
+          "arc": 30,
+          "dist": 3.5,
+          "height": -0.5
+        },
+        {
+          "arc": 60,
+          "dist": 3.5,
+          "height": -0.5
+        },
+        {
+          "arc": 0,
+          "dist": 3.5,
+          "height": 0.0
+        },
+        {
+          "arc": 30,
+          "dist": 3.5,
+          "height": 0.0
+        },
+        {
+          "arc": 60,
+          "dist": 3.5,
+          "height": 0.0
+        },
+        {
+          "arc": 0,
+          "dist": 3.5,
+          "height": 1.0
+        },
+        {
+          "arc": 30,
+          "dist": 3.5,
+          "height": 1.0
+        },
+        {
+          "arc": 60,
+          "dist": 3.5,
+          "height": 1.0
+        }
+      ],
+      "blocked_sample": [
+        {
+          "arc": -60,
+          "dist": 1.5,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_12247826/Paint_1802288"
+        },
+        {
+          "arc": -30,
+          "dist": 1.5,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_12247826/Paint_1802288"
+        },
+        {
+          "arc": -60,
+          "dist": 1.5,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_12247826/Paint_1802288"
+        },
+        {
+          "arc": -30,
+          "dist": 1.5,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_12247826/Paint_1802288"
+        },
+        {
+          "arc": -60,
+          "dist": 1.5,
+          "height": 1.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_12247826/Paint_1802288"
+        },
+        {
+          "arc": -30,
+          "dist": 1.5,
+          "height": 1.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_12247826/Paint_1802288"
+        },
+        {
+          "arc": -60,
+          "dist": 2.0,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_12247826/Paint_1802288"
+        },
+        {
+          "arc": -30,
+          "dist": 2.0,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_12247826/Paint_1802288"
+        },
+        {
+          "arc": -60,
+          "dist": 2.0,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_12247826/Paint_1802288"
+        },
+        {
+          "arc": -30,
+          "dist": 2.0,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_12247826/Paint_1802288"
+        },
+        {
+          "arc": -60,
+          "dist": 2.0,
+          "height": 1.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_12247826/Paint_1802288"
+        },
+        {
+          "arc": -30,
+          "dist": 2.0,
+          "height": 1.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_12247826/Paint_1802288"
+        }
+      ]
+    },
+    {
+      "id": "Doors_8286057",
+      "family_short": "Type_F",
+      "floor": 2,
+      "cam_yaw_deg": 270.0,
+      "status": "ok",
+      "total": 45,
+      "clear": 27,
+      "blocked": 18,
+      "by_arc": {
+        "-60": 9,
+        "-30": 9,
+        "0": 9,
+        "30": 0,
+        "60": 0
+      },
+      "clear_grid": [
+        {
+          "arc": -60,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": -30,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": 0,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": -60,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": -30,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": 0,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": -60,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": -30,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": 0,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": -60,
+          "dist": 2.0,
+          "height": -0.5
+        },
+        {
+          "arc": -30,
+          "dist": 2.0,
+          "height": -0.5
+        },
+        {
+          "arc": 0,
+          "dist": 2.0,
+          "height": -0.5
+        },
+        {
+          "arc": -60,
+          "dist": 2.0,
+          "height": 0.0
+        },
+        {
+          "arc": -30,
+          "dist": 2.0,
+          "height": 0.0
+        },
+        {
+          "arc": 0,
+          "dist": 2.0,
+          "height": 0.0
+        },
+        {
+          "arc": -60,
+          "dist": 2.0,
+          "height": 1.0
+        },
+        {
+          "arc": -30,
+          "dist": 2.0,
+          "height": 1.0
+        },
+        {
+          "arc": 0,
+          "dist": 2.0,
+          "height": 1.0
+        },
+        {
+          "arc": -60,
+          "dist": 3.5,
+          "height": -0.5
+        },
+        {
+          "arc": -30,
+          "dist": 3.5,
+          "height": -0.5
+        },
+        {
+          "arc": 0,
+          "dist": 3.5,
+          "height": -0.5
+        },
+        {
+          "arc": -60,
+          "dist": 3.5,
+          "height": 0.0
+        },
+        {
+          "arc": -30,
+          "dist": 3.5,
+          "height": 0.0
+        },
+        {
+          "arc": 0,
+          "dist": 3.5,
+          "height": 0.0
+        },
+        {
+          "arc": -60,
+          "dist": 3.5,
+          "height": 1.0
+        },
+        {
+          "arc": -30,
+          "dist": 3.5,
+          "height": 1.0
+        },
+        {
+          "arc": 0,
+          "dist": 3.5,
+          "height": 1.0
+        }
+      ],
+      "blocked_sample": [
+        {
+          "arc": 30,
+          "dist": 1.5,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_5039741/A_22_117___SW_snowbound_1802289"
+        },
+        {
+          "arc": 60,
+          "dist": 1.5,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_5039741/A_22_117___SW_snowbound_1802289"
+        },
+        {
+          "arc": 30,
+          "dist": 1.5,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_5039741/A_22_117___SW_snowbound_1802289"
+        },
+        {
+          "arc": 60,
+          "dist": 1.5,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_5039741/A_22_117___SW_snowbound_1802289"
+        },
+        {
+          "arc": 30,
+          "dist": 1.5,
+          "height": 1.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_5039741/A_22_117___SW_snowbound_1802289"
+        },
+        {
+          "arc": 60,
+          "dist": 1.5,
+          "height": 1.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_5039741/A_22_117___SW_snowbound_1802289"
+        },
+        {
+          "arc": 30,
+          "dist": 2.0,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_5039741/A_22_117___SW_snowbound_1802289"
+        },
+        {
+          "arc": 60,
+          "dist": 2.0,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_16107759/A_22_117___SW_snowbound_1802289"
+        },
+        {
+          "arc": 30,
+          "dist": 2.0,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_5039741/A_22_117___SW_snowbound_1802289"
+        },
+        {
+          "arc": 60,
+          "dist": 2.0,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_16107759/A_22_117___SW_snowbound_1802289"
+        },
+        {
+          "arc": 30,
+          "dist": 2.0,
+          "height": 1.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_5039741/A_22_117___SW_snowbound_1802289"
+        },
+        {
+          "arc": 60,
+          "dist": 2.0,
+          "height": 1.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_16107759/A_22_117___SW_snowbound_1802289"
+        }
+      ]
+    },
+    {
+      "id": "Doors_3135827",
+      "family_short": "CW_FG_New",
+      "floor": 3,
+      "cam_yaw_deg": 90.0,
+      "status": "ok",
+      "total": 45,
+      "clear": 30,
+      "blocked": 15,
+      "by_arc": {
+        "-60": 3,
+        "-30": 9,
+        "0": 9,
+        "30": 6,
+        "60": 3
+      },
+      "clear_grid": [
+        {
+          "arc": -60,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": -30,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": 0,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": 30,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": 60,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": -60,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": -30,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": 0,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": 30,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": 60,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": -60,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": -30,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": 0,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": 30,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": 60,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": -30,
+          "dist": 2.0,
+          "height": -0.5
+        },
+        {
+          "arc": 0,
+          "dist": 2.0,
+          "height": -0.5
+        },
+        {
+          "arc": 30,
+          "dist": 2.0,
+          "height": -0.5
+        },
+        {
+          "arc": -30,
+          "dist": 2.0,
+          "height": 0.0
+        },
+        {
+          "arc": 0,
+          "dist": 2.0,
+          "height": 0.0
+        },
+        {
+          "arc": 30,
+          "dist": 2.0,
+          "height": 0.0
+        },
+        {
+          "arc": -30,
+          "dist": 2.0,
+          "height": 1.0
+        },
+        {
+          "arc": 0,
+          "dist": 2.0,
+          "height": 1.0
+        },
+        {
+          "arc": 30,
+          "dist": 2.0,
+          "height": 1.0
+        },
+        {
+          "arc": -30,
+          "dist": 3.5,
+          "height": -0.5
+        },
+        {
+          "arc": 0,
+          "dist": 3.5,
+          "height": -0.5
+        },
+        {
+          "arc": -30,
+          "dist": 3.5,
+          "height": 0.0
+        },
+        {
+          "arc": 0,
+          "dist": 3.5,
+          "height": 0.0
+        },
+        {
+          "arc": -30,
+          "dist": 3.5,
+          "height": 1.0
+        },
+        {
+          "arc": 0,
+          "dist": 3.5,
+          "height": 1.0
+        }
+      ],
+      "blocked_sample": [
+        {
+          "arc": -60,
+          "dist": 2.0,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_8448102/Gypsum_Wall_Board_18986"
+        },
+        {
+          "arc": 60,
+          "dist": 2.0,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Exterior___U5_2___Ground_Face_Block_on_Mtl__Stud___Stack_Bond/Walls_1843387/Ground_Face_Brick_Light___Stack_Bond_11688435"
+        },
+        {
+          "arc": -60,
+          "dist": 2.0,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_8448102/Gypsum_Wall_Board_18986"
+        },
+        {
+          "arc": 60,
+          "dist": 2.0,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Exterior___U5_2___Ground_Face_Block_on_Mtl__Stud___Stack_Bond/Walls_1843387/Ground_Face_Brick_Light___Stack_Bond_11688435"
+        },
+        {
+          "arc": -60,
+          "dist": 2.0,
+          "height": 1.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_8448102/Gypsum_Wall_Board_18986"
+        },
+        {
+          "arc": 60,
+          "dist": 2.0,
+          "height": 1.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Exterior___U5_2___Ground_Face_Block_on_Mtl__Stud___Stack_Bond/Walls_1843387/Ground_Face_Brick_Light___Stack_Bond_11688435"
+        },
+        {
+          "arc": -60,
+          "dist": 3.5,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_2500157/Honorable_Blue_SW_6811_1869955"
+        },
+        {
+          "arc": 30,
+          "dist": 3.5,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Exterior___U5_2___Ground_Face_Block_on_Mtl__Stud___Stack_Bond/Walls_1843387/Ground_Face_Brick_Light___Stack_Bond_11688435"
+        },
+        {
+          "arc": 60,
+          "dist": 3.5,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Exterior___U5_2___Ground_Face_Block_on_Mtl__Stud___Stack_Bond/Walls_1843387/Ground_Face_Brick_Light___Stack_Bond_11688435"
+        },
+        {
+          "arc": -60,
+          "dist": 3.5,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0___3_5_8__Stud___Gyp_2_Side/Walls_2500157/Honorable_Blue_SW_6811_1869955"
+        },
+        {
+          "arc": 30,
+          "dist": 3.5,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Exterior___U5_2___Ground_Face_Block_on_Mtl__Stud___Stack_Bond/Walls_1843387/Ground_Face_Brick_Light___Stack_Bond_11688435"
+        },
+        {
+          "arc": 60,
+          "dist": 3.5,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Exterior___U5_2___Ground_Face_Block_on_Mtl__Stud___Stack_Bond/Walls_1843387/Ground_Face_Brick_Light___Stack_Bond_11688435"
+        }
+      ]
+    },
+    {
+      "id": "Doors_7171063",
+      "family_short": "Type_F",
+      "floor": 5,
+      "cam_yaw_deg": 0.0,
+      "status": "ok",
+      "total": 45,
+      "clear": 21,
+      "blocked": 24,
+      "by_arc": {
+        "-60": 0,
+        "-30": 9,
+        "0": 9,
+        "30": 3,
+        "60": 0
+      },
+      "clear_grid": [
+        {
+          "arc": -30,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": 0,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": 30,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": -30,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": 0,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": 30,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": -30,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": 0,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": 30,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": -30,
+          "dist": 2.0,
+          "height": -0.5
+        },
+        {
+          "arc": 0,
+          "dist": 2.0,
+          "height": -0.5
+        },
+        {
+          "arc": -30,
+          "dist": 2.0,
+          "height": 0.0
+        },
+        {
+          "arc": 0,
+          "dist": 2.0,
+          "height": 0.0
+        },
+        {
+          "arc": -30,
+          "dist": 2.0,
+          "height": 1.0
+        },
+        {
+          "arc": 0,
+          "dist": 2.0,
+          "height": 1.0
+        },
+        {
+          "arc": -30,
+          "dist": 3.5,
+          "height": -0.5
+        },
+        {
+          "arc": 0,
+          "dist": 3.5,
+          "height": -0.5
+        },
+        {
+          "arc": -30,
+          "dist": 3.5,
+          "height": 0.0
+        },
+        {
+          "arc": 0,
+          "dist": 3.5,
+          "height": 0.0
+        },
+        {
+          "arc": -30,
+          "dist": 3.5,
+          "height": 1.0
+        },
+        {
+          "arc": 0,
+          "dist": 3.5,
+          "height": 1.0
+        }
+      ],
+      "blocked_sample": [
+        {
+          "arc": -60,
+          "dist": 1.5,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B2___3_5_8__Stud___Gyp_1_Side/Walls_10400252/Gypsum_Wall_Board_18986"
+        },
+        {
+          "arc": 60,
+          "dist": 1.5,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Exterior___M5_1__1_HR____MWP_on_Mtl__Stud___dark_mtl_pnl/Walls_1867533/Metal_Panel_9430237"
+        },
+        {
+          "arc": -60,
+          "dist": 1.5,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B2___3_5_8__Stud___Gyp_1_Side/Walls_10400252/Gypsum_Wall_Board_18986"
+        },
+        {
+          "arc": 60,
+          "dist": 1.5,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Exterior___M5_1__1_HR____MWP_on_Mtl__Stud___dark_mtl_pnl/Walls_1867533/Metal_Panel_9430237"
+        },
+        {
+          "arc": -60,
+          "dist": 1.5,
+          "height": 1.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B2___3_5_8__Stud___Gyp_1_Side/Walls_10400252/Gypsum_Wall_Board_18986"
+        },
+        {
+          "arc": 60,
+          "dist": 1.5,
+          "height": 1.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Exterior___M5_1__1_HR____MWP_on_Mtl__Stud___dark_mtl_pnl/Walls_1867533/Metal_Panel_9430237"
+        },
+        {
+          "arc": -60,
+          "dist": 2.0,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B2___3_5_8__Stud___Gyp_1_Side/Walls_10400252/Gypsum_Wall_Board_18986"
+        },
+        {
+          "arc": 30,
+          "dist": 2.0,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Exterior___M5_1__1_HR____MWP_on_Mtl__Stud___dark_mtl_pnl/Walls_1867533/Metal_Panel_9430237"
+        },
+        {
+          "arc": 60,
+          "dist": 2.0,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Exterior___M5_1__1_HR____MWP_on_Mtl__Stud___dark_mtl_pnl/Walls_1867533/Metal_Panel_9430237"
+        },
+        {
+          "arc": -60,
+          "dist": 2.0,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B2___3_5_8__Stud___Gyp_1_Side/Walls_10400252/Gypsum_Wall_Board_18986"
+        },
+        {
+          "arc": 30,
+          "dist": 2.0,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Exterior___M5_1__1_HR____MWP_on_Mtl__Stud___dark_mtl_pnl/Walls_1867533/Metal_Panel_9430237"
+        },
+        {
+          "arc": 60,
+          "dist": 2.0,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Exterior___M5_1__1_HR____MWP_on_Mtl__Stud___dark_mtl_pnl/Walls_1867533/Metal_Panel_9430237"
+        }
+      ]
+    },
+    {
+      "id": "Doors_12590968",
+      "family_short": "Type_N",
+      "floor": 3,
+      "cam_yaw_deg": 90.0,
+      "status": "ok",
+      "total": 45,
+      "clear": 29,
+      "blocked": 16,
+      "by_arc": {
+        "-60": 6,
+        "-30": 8,
+        "0": 9,
+        "30": 6,
+        "60": 0
+      },
+      "clear_grid": [
+        {
+          "arc": -60,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": -30,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": 0,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": 30,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": -60,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": -30,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": 0,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": 30,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": -60,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": -30,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": 0,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": 30,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": -60,
+          "dist": 2.0,
+          "height": -0.5
+        },
+        {
+          "arc": -30,
+          "dist": 2.0,
+          "height": -0.5
+        },
+        {
+          "arc": 0,
+          "dist": 2.0,
+          "height": -0.5
+        },
+        {
+          "arc": 30,
+          "dist": 2.0,
+          "height": -0.5
+        },
+        {
+          "arc": -60,
+          "dist": 2.0,
+          "height": 0.0
+        },
+        {
+          "arc": -30,
+          "dist": 2.0,
+          "height": 0.0
+        },
+        {
+          "arc": 0,
+          "dist": 2.0,
+          "height": 0.0
+        },
+        {
+          "arc": 30,
+          "dist": 2.0,
+          "height": 0.0
+        },
+        {
+          "arc": -60,
+          "dist": 2.0,
+          "height": 1.0
+        },
+        {
+          "arc": -30,
+          "dist": 2.0,
+          "height": 1.0
+        },
+        {
+          "arc": 0,
+          "dist": 2.0,
+          "height": 1.0
+        },
+        {
+          "arc": 30,
+          "dist": 2.0,
+          "height": 1.0
+        },
+        {
+          "arc": 0,
+          "dist": 3.5,
+          "height": -0.5
+        },
+        {
+          "arc": -30,
+          "dist": 3.5,
+          "height": 0.0
+        },
+        {
+          "arc": 0,
+          "dist": 3.5,
+          "height": 0.0
+        },
+        {
+          "arc": -30,
+          "dist": 3.5,
+          "height": 1.0
+        },
+        {
+          "arc": 0,
+          "dist": 3.5,
+          "height": 1.0
+        }
+      ],
+      "blocked_sample": [
+        {
+          "arc": 60,
+          "dist": 1.5,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Exterior___M5_1___MWP_on_Mtl__Stud/Walls_2517437/Metal_Panel_9430237"
+        },
+        {
+          "arc": 60,
+          "dist": 1.5,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Exterior___M5_1___MWP_on_Mtl__Stud/Walls_2517437/Metal_Panel_9430237"
+        },
+        {
+          "arc": 60,
+          "dist": 1.5,
+          "height": 1.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Exterior___M5_1___MWP_on_Mtl__Stud/Walls_2517437/Metal_Panel_9430237"
+        },
+        {
+          "arc": 60,
+          "dist": 2.0,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Exterior___M5_1___MWP_on_Mtl__Stud/Walls_2517437/Metal_Panel_9430237"
+        },
+        {
+          "arc": 60,
+          "dist": 2.0,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Exterior___M5_1___MWP_on_Mtl__Stud/Walls_2517437/Metal_Panel_9430237"
+        },
+        {
+          "arc": 60,
+          "dist": 2.0,
+          "height": 1.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Exterior___M5_1___MWP_on_Mtl__Stud/Walls_2517437/Metal_Panel_9430237"
+        },
+        {
+          "arc": -60,
+          "dist": 3.5,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Stairs/Stair/Stairs_12156469/Metal___Painted___Grey_1847700"
+        },
+        {
+          "arc": -30,
+          "dist": 3.5,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Railings/Guardrail___Rectangular__MTL/Railings_12428222/AL_BR_4988926"
+        },
+        {
+          "arc": 30,
+          "dist": 3.5,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Exterior___M5_1___MWP_on_Mtl__Stud/Walls_2517437/Metal_Panel_9430237"
+        },
+        {
+          "arc": 60,
+          "dist": 3.5,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Exterior___M5_1___MWP_on_Mtl__Stud/Walls_2517437/Metal_Panel_9430237"
+        },
+        {
+          "arc": -60,
+          "dist": 3.5,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Stairs/Stair/Stairs_12156469/Metal___Painted___Grey_1847700"
+        },
+        {
+          "arc": 30,
+          "dist": 3.5,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Exterior___M5_1___MWP_on_Mtl__Stud/Walls_2517437/Metal_Panel_9430237"
+        }
+      ]
+    },
+    {
+      "id": "Doors_12302795",
+      "family_short": "CW_FG_New",
+      "floor": 2,
+      "cam_yaw_deg": 180.0,
+      "status": "ok",
+      "total": 45,
+      "clear": 21,
+      "blocked": 24,
+      "by_arc": {
+        "-60": 3,
+        "-30": 6,
+        "0": 9,
+        "30": 3,
+        "60": 0
+      },
+      "clear_grid": [
+        {
+          "arc": -60,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": -30,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": 0,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": 30,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": -60,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": -30,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": 0,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": 30,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": -60,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": -30,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": 0,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": 30,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": -30,
+          "dist": 2.0,
+          "height": -0.5
+        },
+        {
+          "arc": 0,
+          "dist": 2.0,
+          "height": -0.5
+        },
+        {
+          "arc": -30,
+          "dist": 2.0,
+          "height": 0.0
+        },
+        {
+          "arc": 0,
+          "dist": 2.0,
+          "height": 0.0
+        },
+        {
+          "arc": -30,
+          "dist": 2.0,
+          "height": 1.0
+        },
+        {
+          "arc": 0,
+          "dist": 2.0,
+          "height": 1.0
+        },
+        {
+          "arc": 0,
+          "dist": 3.5,
+          "height": -0.5
+        },
+        {
+          "arc": 0,
+          "dist": 3.5,
+          "height": 0.0
+        },
+        {
+          "arc": 0,
+          "dist": 3.5,
+          "height": 1.0
+        }
+      ],
+      "blocked_sample": [
+        {
+          "arc": 60,
+          "dist": 1.5,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0__3HR____3_5_8__Stud___Gyp_2_Side/Walls_9769102/Gypsum_Wall_Board_18986"
+        },
+        {
+          "arc": 60,
+          "dist": 1.5,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0__3HR____3_5_8__Stud___Gyp_2_Side/Walls_9769102/Gypsum_Wall_Board_18986"
+        },
+        {
+          "arc": 60,
+          "dist": 1.5,
+          "height": 1.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0__3HR____3_5_8__Stud___Gyp_2_Side/Walls_9769102/Gypsum_Wall_Board_18986"
+        },
+        {
+          "arc": -60,
+          "dist": 2.0,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/EXTG___Brick_Brick_12/Walls_9769108/Existing_Brick_Match___Running_Bond_368712"
+        },
+        {
+          "arc": 30,
+          "dist": 2.0,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0__3HR____3_5_8__Stud___Gyp_2_Side/Walls_9769102/Gypsum_Wall_Board_18986"
+        },
+        {
+          "arc": 60,
+          "dist": 2.0,
+          "height": -0.5,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0__3HR____3_5_8__Stud___Gyp_2_Side/Walls_9769102/Gypsum_Wall_Board_18986"
+        },
+        {
+          "arc": -60,
+          "dist": 2.0,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/EXTG___Concrete_12/Walls_12299692/Concrete___Cast_in_Place_Concrete_368711"
+        },
+        {
+          "arc": 30,
+          "dist": 2.0,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0__3HR____3_5_8__Stud___Gyp_2_Side/Walls_9769102/Gypsum_Wall_Board_18986"
+        },
+        {
+          "arc": 60,
+          "dist": 2.0,
+          "height": 0.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0__3HR____3_5_8__Stud___Gyp_2_Side/Walls_9769102/Gypsum_Wall_Board_18986"
+        },
+        {
+          "arc": -60,
+          "dist": 2.0,
+          "height": 1.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___D8__2HR____8__CMU/Walls_9769132/Masonry___Concrete_Masonry_Units___2HR_671398"
+        },
+        {
+          "arc": 30,
+          "dist": 2.0,
+          "height": 1.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0__3HR____3_5_8__Stud___Gyp_2_Side/Walls_9769102/Gypsum_Wall_Board_18986"
+        },
+        {
+          "arc": 60,
+          "dist": 2.0,
+          "height": 1.0,
+          "hit_path": "/World/Building/_22_129___MSOE_Engineering_Building___A___2_25_2026/Geometry/Walls/Basic_Wall/RS___Interior___B0__3HR____3_5_8__Stud___Gyp_2_Side/Walls_9769102/Gypsum_Wall_Board_18986"
+        }
+      ]
+    },
+    {
+      "id": "Doors_13606056",
+      "family_short": "CW_F_NEW",
+      "floor": 3,
+      "cam_yaw_deg": 180.0,
+      "status": "ok",
+      "total": 45,
+      "clear": 45,
+      "blocked": 0,
+      "by_arc": {
+        "-60": 9,
+        "-30": 9,
+        "0": 9,
+        "30": 9,
+        "60": 9
+      },
+      "clear_grid": [
+        {
+          "arc": -60,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": -30,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": 0,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": 30,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": 60,
+          "dist": 1.5,
+          "height": -0.5
+        },
+        {
+          "arc": -60,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": -30,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": 0,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": 30,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": 60,
+          "dist": 1.5,
+          "height": 0.0
+        },
+        {
+          "arc": -60,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": -30,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": 0,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": 30,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": 60,
+          "dist": 1.5,
+          "height": 1.0
+        },
+        {
+          "arc": -60,
+          "dist": 2.0,
+          "height": -0.5
+        },
+        {
+          "arc": -30,
+          "dist": 2.0,
+          "height": -0.5
+        },
+        {
+          "arc": 0,
+          "dist": 2.0,
+          "height": -0.5
+        },
+        {
+          "arc": 30,
+          "dist": 2.0,
+          "height": -0.5
+        },
+        {
+          "arc": 60,
+          "dist": 2.0,
+          "height": -0.5
+        },
+        {
+          "arc": -60,
+          "dist": 2.0,
+          "height": 0.0
+        },
+        {
+          "arc": -30,
+          "dist": 2.0,
+          "height": 0.0
+        },
+        {
+          "arc": 0,
+          "dist": 2.0,
+          "height": 0.0
+        },
+        {
+          "arc": 30,
+          "dist": 2.0,
+          "height": 0.0
+        },
+        {
+          "arc": 60,
+          "dist": 2.0,
+          "height": 0.0
+        },
+        {
+          "arc": -60,
+          "dist": 2.0,
+          "height": 1.0
+        },
+        {
+          "arc": -30,
+          "dist": 2.0,
+          "height": 1.0
+        },
+        {
+          "arc": 0,
+          "dist": 2.0,
+          "height": 1.0
+        },
+        {
+          "arc": 30,
+          "dist": 2.0,
+          "height": 1.0
+        },
+        {
+          "arc": 60,
+          "dist": 2.0,
+          "height": 1.0
+        },
+        {
+          "arc": -60,
+          "dist": 3.5,
+          "height": -0.5
+        },
+        {
+          "arc": -30,
+          "dist": 3.5,
+          "height": -0.5
+        },
+        {
+          "arc": 0,
+          "dist": 3.5,
+          "height": -0.5
+        },
+        {
+          "arc": 30,
+          "dist": 3.5,
+          "height": -0.5
+        },
+        {
+          "arc": 60,
+          "dist": 3.5,
+          "height": -0.5
+        },
+        {
+          "arc": -60,
+          "dist": 3.5,
+          "height": 0.0
+        },
+        {
+          "arc": -30,
+          "dist": 3.5,
+          "height": 0.0
+        },
+        {
+          "arc": 0,
+          "dist": 3.5,
+          "height": 0.0
+        },
+        {
+          "arc": 30,
+          "dist": 3.5,
+          "height": 0.0
+        },
+        {
+          "arc": 60,
+          "dist": 3.5,
+          "height": 0.0
+        },
+        {
+          "arc": -60,
+          "dist": 3.5,
+          "height": 1.0
+        },
+        {
+          "arc": -30,
+          "dist": 3.5,
+          "height": 1.0
+        },
+        {
+          "arc": 0,
+          "dist": 3.5,
+          "height": 1.0
+        },
+        {
+          "arc": 30,
+          "dist": 3.5,
+          "height": 1.0
+        },
+        {
+          "arc": 60,
+          "dist": 3.5,
+          "height": 1.0
+        }
+      ],
+      "blocked_sample": []
+    }
+  ],
+  "aggregate": {
+    "doors_probed": 8,
+    "total_per_door": 45,
+    "mean_clear": 28.75,
+    "min_clear": 21,
+    "max_clear": 45,
+    "median_clear": 28.0,
+    "by_family_mean": {
+      "CW_F_NEW": 37.5,
+      "Type_FG": 27.0,
+      "Type_F": 24.0,
+      "CW_FG_New": 25.5,
+      "Type_N": 29.0
+    }
+  }
+}

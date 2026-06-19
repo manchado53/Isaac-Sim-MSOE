@@ -34,7 +34,7 @@ from pxr import Usd, UsdGeom, Gf
 _script_dir  = os.path.dirname(os.path.abspath(__file__))
 _project_dir = os.path.abspath(os.path.join(_script_dir, "..", ".."))
 
-USD_PATH = os.path.join(_project_dir, "innovation_center_finalV1.usd")
+USD_PATH = os.path.join(_project_dir, "MSOEBuildingV4_physics.usd")
 
 FLOOR4_Z_MIN = 26.0
 FLOOR4_Z_MAX = 30.0

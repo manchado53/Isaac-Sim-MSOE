@@ -67,7 +67,7 @@ _BBOX_PURPOSES = [UsdGeom.Tokens.default_, UsdGeom.Tokens.render]
 # Scene setup
 # ---------------------------------------------------------------------------
 
-building_usd = os.path.join(_project_dir, "innovation_center_finalV1.usd")
+building_usd = os.path.join(_project_dir, "MSOEBuildingV4_physics.usd")
 if not os.path.isfile(building_usd):
     print(f"ERROR: {building_usd} not found")
     simulation_app.close()

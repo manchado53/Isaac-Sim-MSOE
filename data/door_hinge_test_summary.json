@@ -1,0 +1,188 @@
+{
+  "ok": 10,
+  "partial": 0,
+  "skipped": 0,
+  "total_jpegs": 30,
+  "doors": [
+    {
+      "door_id": "Doors_13606466",
+      "family": "CW_F_NEW",
+      "floor": 4,
+      "role": "train",
+      "mesh_count": 1,
+      "hinge": [
+        -4836.01,
+        6170.58
+      ],
+      "angles": {
+        "0": "ok",
+        "45": "ok",
+        "90": "ok"
+      },
+      "status": "ok",
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10649156",
+      "family": "Type_FG",
+      "floor": 3,
+      "role": "train",
+      "mesh_count": 0,
+      "hinge": [
+        50.8,
+        0.0
+      ],
+      "angles": {
+        "0": "ok",
+        "45": "ok",
+        "90": "ok"
+      },
+      "status": "ok",
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8286057",
+      "family": "Type_F",
+      "floor": 2,
+      "role": "train",
+      "mesh_count": 0,
+      "hinge": [
+        50.8,
+        0.0
+      ],
+      "angles": {
+        "0": "ok",
+        "45": "ok",
+        "90": "ok"
+      },
+      "status": "ok",
+      "note": ""
+    },
+    {
+      "door_id": "Doors_3135827",
+      "family": "CW_FG_New",
+      "floor": 3,
+      "role": "train",
+      "mesh_count": 2,
+      "hinge": [
+        1724.33,
+        5878.48
+      ],
+      "angles": {
+        "0": "ok",
+        "45": "ok",
+        "90": "ok"
+      },
+      "status": "ok",
+      "note": ""
+    },
+    {
+      "door_id": "Doors_7171063",
+      "family": "Type_F",
+      "floor": 5,
+      "role": "train",
+      "mesh_count": 0,
+      "hinge": [
+        58.42,
+        0.0
+      ],
+      "angles": {
+        "0": "ok",
+        "45": "ok",
+        "90": "ok"
+      },
+      "status": "ok",
+      "note": ""
+    },
+    {
+      "door_id": "Doors_12590968",
+      "family": "Type_N",
+      "floor": 3,
+      "role": "train",
+      "mesh_count": 0,
+      "hinge": [
+        50.8,
+        0.0
+      ],
+      "angles": {
+        "0": "ok",
+        "45": "ok",
+        "90": "ok"
+      },
+      "status": "ok",
+      "note": ""
+    },
+    {
+      "door_id": "Doors_12302795",
+      "family": "CW_FG_New",
+      "floor": 2,
+      "role": "train",
+      "mesh_count": 2,
+      "hinge": [
+        -5925.83,
+        5774.34
+      ],
+      "angles": {
+        "0": "ok",
+        "45": "ok",
+        "90": "ok"
+      },
+      "status": "ok",
+      "note": ""
+    },
+    {
+      "door_id": "Doors_13606056",
+      "family": "CW_F_NEW",
+      "floor": 3,
+      "role": "train",
+      "mesh_count": 1,
+      "hinge": [
+        -4747.75,
+        6958.3
+      ],
+      "angles": {
+        "0": "ok",
+        "45": "ok",
+        "90": "ok"
+      },
+      "status": "ok",
+      "note": ""
+    },
+    {
+      "door_id": "Doors_13182085",
+      "family": "CW_FG_New",
+      "floor": 4,
+      "role": "holdout",
+      "mesh_count": 2,
+      "hinge": [
+        -4142.56,
+        8214.32
+      ],
+      "angles": {
+        "0": "ok",
+        "45": "ok",
+        "90": "ok"
+      },
+      "status": "ok",
+      "note": ""
+    },
+    {
+      "door_id": "Doors_1915613",
+      "family": "Type_F",
+      "floor": 5,
+      "role": "holdout",
+      "mesh_count": 0,
+      "hinge": [
+        50.8,
+        0.0
+      ],
+      "angles": {
+        "0": "ok",
+        "45": "ok",
+        "90": "ok"
+      },
+      "status": "ok",
+      "note": ""
+    }
+  ]
+}

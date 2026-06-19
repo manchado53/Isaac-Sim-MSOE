@@ -83,6 +83,7 @@ _DEFAULT_CAM_Z     =  27.8               # m
 _DEFAULT_ARC       = "-30,-15,0"
 _DEFAULT_DISTS     = "2.0"
 _DEFAULT_HEIGHTS   = "0.0"
+_DEFAULT_BASE_AZ   = 0.0      # degrees — curtain-wall Doors_13606713 is approached from +X
 _DEFAULT_OUTPUT    = "door_labels_static_multi_camera"
 
 parser = argparse.ArgumentParser(
@@ -109,6 +110,24 @@ parser.add_argument("--camera-distances", default=_DEFAULT_DISTS,
 parser.add_argument("--camera-height-offsets", default=_DEFAULT_HEIGHTS,
                     help="Comma-separated height offsets relative to --camera-z in metres "
                          "(default: 0.0). For multi-height try: -0.5,0.0,1.0")
+parser.add_argument("--camera-base-azimuth", type=float, default=_DEFAULT_BASE_AZ,
+                    help="Base azimuth of the camera arc in degrees (default: 0 — camera sits "
+                         "at +X of door, faces -X; matches curtain-wall Doors_13606713). "
+                         "Use 90 for doors approached along +Y (camera at +Y, faces -Y; "
+                         "matches solid Doors_4070013 on Floor 4). Arc offsets are added "
+                         "to this base azimuth.")
+parser.add_argument("--camera-focal-length", type=float, default=5.0,
+                    help="USD camera focal length in mm (default: 5.0 — very wide, matches the "
+                         "curtain-wall Doors_13606713 framing in the open lobby). Use 18.0 for "
+                         "solid doors in narrow corridors where 5mm sees mostly adjacent walls.")
+parser.add_argument("--rotation-mode", choices=["auto", "per-child", "top-level"], default="auto",
+                    help="How to rotate the door around its hinge. 'per-child' rewrites every "
+                         "immediate Mesh child's xformOp:transform (curtain-wall doors). "
+                         "'top-level' composes a hinge-centered Z rotation onto the door prim's "
+                         "own xformOp:transform (solid doors with nested prototype geometry). "
+                         "'auto' uses per-child if any immediate child Mesh has a non-zero "
+                         "translation, otherwise falls back to top-level. Force top-level for "
+                         "solid doors whose only immediate child is a wrapper at origin (0,0,0).")
 parser.add_argument("--output", default=_DEFAULT_OUTPUT,
                     help="Output NPZ filename (without .npz extension)")
 parser.add_argument("--n-episodes", type=int, default=60,
@@ -138,8 +157,9 @@ parser.add_argument("--test-mode", action="store_true",
                     help="In grid mode: shrink the grid to a minimal subset "
                          "(2 lightings × 3 materials × 3 angles) for fast debugging.")
 parser.add_argument("--sanity-grid", action="store_true",
-                    help="In grid mode: use the full 6 lightings × 7 materials but only "
-                         "3 angles (1°, 45°, 90°) for visual sanity check. ~126 episodes.")
+                    help="In grid mode: full 6 lightings × 7 materials at 2 angles (0°, 45°) "
+                         "for material × lighting visual audit. 84 cells. "
+                         "Pair with --camera-arc-offsets 0 for single-camera head-on view.")
 parser.add_argument("--dump-jpegs", action="store_true",
                     help="Write every captured frame as a JPEG to data/<output>_jpegs/ "
                          "with a descriptive filename. Useful for visual audit of a sanity run. "
@@ -157,6 +177,9 @@ CAMERA_Z_BASE   = args.camera_z
 CAM_ARC_OFFSETS = [float(x.strip()) for x in args.camera_arc_offsets.split(",")]
 CAM_DISTANCES   = [float(x.strip()) for x in args.camera_distances.split(",")]
 CAM_HEIGHT_OFFS = [float(x.strip()) for x in args.camera_height_offsets.split(",")]
+CAM_BASE_AZ_DEG = args.camera_base_azimuth
+CAM_FOCAL_MM    = args.camera_focal_length
+ROTATION_MODE   = args.rotation_mode
 OUTPUT_NAME     = args.output
 N_EPISODES      = args.n_episodes
 FRAMES_PER_EP   = args.frames_per_episode
@@ -174,7 +197,7 @@ SANITY_GRID     = args.sanity_grid
 # modes exist specifically for visual inspection.
 DUMP_JPEGS      = args.dump_jpegs or TEST_MODE or SANITY_GRID
 
-CAM_RESOLUTION  = (640, 480)
+CAM_RESOLUTION  = (1024, 768)
 
 # Episode config
 # WARMUP_STEPS: render steps between (angle/lighting/material) change and frame
@@ -190,46 +213,67 @@ MAX_ANGLE_DEG  = 90.0
 # Lighting randomization ranges (legacy — used when grid mode is OFF)
 DOME_INTENSITY_RANGE  = (10_000, 80_000)
 DOME_COLOR_TEMP_RANGE = (4_000, 7_000)   # Kelvin
-FILL_INTENSITY_RANGE  = (50_000, 500_000)
 
 # ---------------------------------------------------------------------------
 # Grid search: discrete lighting conditions × door materials
 # ---------------------------------------------------------------------------
-
-# HDRI environment maps bundled with Isaac Sim — set on DomeLight's
-# inputs:texture:file for photorealistic image-based lighting. When None,
-# the DomeLight uses its flat color attribute instead.
 #
-# photo_studio_01_4k.hdr is a neutral 4K studio HDR (~25 MB) and is the only
-# large HDR shipped with Isaac Sim. We pick exactly the lighting presets where
-# strong natural/window light is expected and attach it to those cells.
-_HDRI_STUDIO = os.path.expanduser(
-    "~/isaacsim/extscache/omni.kit.widget.material_preview-1.0.16/data/photo_studio_01_4k.hdr"
-)
+# Design notes for this grid (informed by test-mode visual audit):
+#
+# 1. HDRI was removed from the lighting axis. In enclosed interior corridors
+#    with opaque ceilings, the DomeLight barely contributes anything — the
+#    HDRI swap was nearly invisible. Instead, indoor lighting variety comes
+#    from a set of ceiling RectLights (2 per preset) that can be toggled
+#    on/off to simulate different fixture configurations.
+#
+# 2. The fill SphereLight was removed. It was placed ~1.5 m above the door
+#    and became a visible bright disc at the top of every frame plus a
+#    specular hotspot on the red accent column — a spurious feature that
+#    would contaminate VLM training (job 242708 audit showed it in all 84
+#    material × lighting cells). Its illumination contribution is now
+#    absorbed into boosted ceiling RectLight intensities per preset.
+#
+# 3. Each preset has a "ceiling_pattern" key describing which of the
+#    4 ceiling RectLights are ON (0/1 per slot) and their color temp.
+#    This produces visually distinct lighting WITHOUT requiring HDRI.
+#    The ceiling lights are above the camera vertical FOV, so they
+#    illuminate the scene without appearing in frame.
 
-# 6 realistic indoor lighting scenarios for the Kern Innovation Center
+# 6 realistic indoor lighting scenarios for the Kern Innovation Center.
+# Each preset drives: DomeLight (color + intensity) and the 4-slot ceiling
+# RectLight array (on/off + temp + intensity).
 LIGHTING_CONDITIONS = [
-    {"name": "bright_fluorescent", "dome_int": 25_000, "dome_temp": 5500,
-     "fill_int": 400_000, "fill_temp": 4500,
-     "hdri": None},                                # artificial ceiling light
-    {"name": "daylight_flood",     "dome_int": 70_000, "dome_temp": 6500,
-     "fill_int": 150_000, "fill_temp": 6000,
-     "hdri": _HDRI_STUDIO},                        # window-driven natural light
-    {"name": "warm_evening",       "dome_int": 20_000, "dome_temp": 3000,
-     "fill_int": 200_000, "fill_temp": 2800,
-     "hdri": None},                                # warm tungsten fixtures
-    {"name": "dim_night",          "dome_int":  5_000, "dome_temp": 4000,
-     "fill_int":  50_000, "fill_temp": 3500,
-     "hdri": None},                                # minimal overnight lighting
-    {"name": "overcast_flat",      "dome_int": 40_000, "dome_temp": 5000,
-     "fill_int": 100_000, "fill_temp": 5000,
-     "hdri": _HDRI_STUDIO},                        # diffuse sky through windows
-    {"name": "high_contrast",      "dome_int":  5_000, "dome_temp": 5000,
-     "fill_int": 700_000, "fill_temp": 5500,
-     "hdri": None},                                # single bright overhead only
+    # Standard daytime hallway — all ceiling fixtures on
+    {"name": "bright_fluorescent", "dome_int": 15_000, "dome_temp": 5500,
+     "ceiling_pattern": (1, 1, 1, 1), "ceiling_int": 400_000, "ceiling_temp": 5000},
+
+    # Window-driven natural light — bright dome, cool temps, half ceilings off
+    {"name": "daylight_flood",     "dome_int": 50_000, "dome_temp": 6500,
+     "ceiling_pattern": (1, 0, 1, 0), "ceiling_int": 230_000, "ceiling_temp": 6500},
+
+    # After-hours warm tungsten — dim dome, warm ceiling
+    {"name": "warm_evening",       "dome_int":  8_000, "dome_temp": 3000,
+     "ceiling_pattern": (1, 1, 1, 1), "ceiling_int": 200_000, "ceiling_temp": 2700},
+
+    # Overnight security lighting — two diagonal ceiling slots on, low intensity
+    # (Pattern shifted from (1,0,0,0) to (1,0,1,0) and intensity raised to
+    # compensate for the removed fill sphere without losing the dim character.)
+    {"name": "dim_night",          "dome_int":  2_000, "dome_temp": 4000,
+     "ceiling_pattern": (1, 0, 1, 0), "ceiling_int": 150_000, "ceiling_temp": 3500},
+
+    # Overcast flat — even diffuse light, all ceilings on but dim
+    {"name": "overcast_flat",      "dome_int": 25_000, "dome_temp": 5000,
+     "ceiling_pattern": (1, 1, 1, 1), "ceiling_int": 220_000, "ceiling_temp": 5000},
+
+    # High contrast / dramatic — single bright ceiling light, rest dark
+    {"name": "high_contrast",      "dome_int":  2_000, "dome_temp": 5000,
+     "ceiling_pattern": (0, 1, 0, 0), "ceiling_int": 700_000, "ceiling_temp": 5500},
 ]
 
-# 6 realistic door materials + "original" (no override)
+# 6 realistic door materials + "original" (no override).
+# NOTE: apply_door_material() SKIPS glass meshes — the override only affects
+# solid panels (AL_*, Wood_*, etc.). On mostly-glass curtain-wall doors the
+# material cell will produce limited variation; that's expected.
 DOOR_MATERIALS = [
     {"name": "brushed_aluminum",    "color": (0.75, 0.75, 0.78), "roughness": 0.35, "metallic": 0.85},
     {"name": "painted_white",       "color": (0.90, 0.90, 0.88), "roughness": 0.70, "metallic": 0.05},
@@ -240,8 +284,15 @@ DOOR_MATERIALS = [
     {"name": "original",            "color": None, "roughness": None, "metallic": None},
 ]
 
-# Stratified angles: 5 CLOSED (0-5°) + 5 OPEN (spread across 6-90°)
-ANGLE_GRID = [1.0, 2.5, 3.5, 4.0, 5.0, 10.0, 25.0, 45.0, 70.0, 90.0]
+# Stratified angles — covers the full CLOSED/OPEN boundary at 5° instead of
+# leaving a 3-9° dead zone. Three bands:
+#   CLOSED clear    (0, 1, 2°)     — unambiguous fully closed
+#   Near-boundary   (3, 4, 5 | 6, 7, 10°) — where the label flips; prior
+#                   error analysis showed ALL test errors fell in 1-14°, so
+#                   this band is the critical generalization zone.
+#   OPEN spread     (20, 45, 70, 90°) — clearly open across the arc
+# CLOSED_MAX_DEG = 5.0, so 0-5 are CLOSED, 6-90 are OPEN.
+ANGLE_GRID = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 10.0, 25.0, 50.0, 90.0]
 
 _script_dir  = os.path.dirname(os.path.abspath(__file__))
 _project_dir = os.path.abspath(os.path.join(_script_dir, "..", ".."))
@@ -262,6 +313,20 @@ from isaacsim import SimulationApp
 _ts("Creating SimulationApp(headless=True) ...")
 simulation_app = SimulationApp({"headless": True})
 _ts("SimulationApp ready")
+
+# Disable DLSS upscaling. By default Isaac Sim RTX Real-Time renders at ~50%
+# of the requested camera resolution and DLSS-upscales to the target size —
+# test-mode captures at (640, 480) showed DLSS warning "Render resolution of
+# (320, 240) is below minimal input resolution of 300" and the dumped JPEGs
+# were visibly smeared (poor sim-to-real fidelity). Switching the AA operator
+# to RTXAA (the Kit 5.1 name for native-resolution deep-learning AA, i.e.
+# DLAA) keeps the ray tracer at the camera resolution without any upscale.
+# AA op enum: 0=Disabled, 1=TAA, 2=FXAA, 3=DLSS, 4=RTXAA.
+import carb
+_carb_settings = carb.settings.get_settings()
+_carb_settings.set("/rtx/post/aa/op", 4)            # RTXAA — native res, DL AA
+_carb_settings.set("/rtx/post/dlss/execMode", 0)    # belt-and-braces off
+_ts("DLSS disabled, AA set to RTXAA (native-res)")
 
 import omni.usd
 from pxr import Usd, UsdLux, UsdGeom, UsdShade, Gf, Sdf
@@ -285,20 +350,24 @@ def _generate_candidate_positions():
         for h_off in CAM_HEIGHT_OFFS:
             cam_z = CAMERA_Z_BASE + h_off
             for offset_deg in CAM_ARC_OFFSETS:
-                θ = math.radians(offset_deg)
+                # Camera azimuth = base + offset. Arc offsets rotate around the
+                # door center in the XY plane, relative to the approach axis
+                # specified by --camera-base-azimuth (0 = +X, 90 = +Y).
+                arc_deg = CAM_BASE_AZ_DEG + offset_deg
+                θ = math.radians(arc_deg)
                 cam_pos = np.array([
                     DOOR_CENTER_XY[0] + dist * math.cos(θ),
                     DOOR_CENTER_XY[1] + dist * math.sin(θ),
                     cam_z,
                 ])
-                yaw_deg = offset_deg + 180.0  # face back toward door centre
+                yaw_deg = arc_deg + 180.0  # face back toward door centre
                 cam_ori = rot_utils.euler_angles_to_quats(
                     np.array([0.0, 0.0, yaw_deg]), degrees=True
                 )
                 # Unique prim name encoding angle, distance ring, and height tier
                 d_label = f"d{dist:.1f}".replace(".", "p")
                 h_label = f"h{h_off:+.1f}".replace("+", "p").replace("-", "n").replace(".", "p")
-                a_label = f"{offset_deg:+d}".replace("+", "p").replace("-", "n")
+                a_label = f"{int(offset_deg):+d}".replace("+", "p").replace("-", "n")
                 prim_name = f"/World/StaticCam_{a_label}_{d_label}_{h_label}"
 
                 candidates.append({
@@ -306,6 +375,7 @@ def _generate_candidate_positions():
                     "pos":          cam_pos,
                     "ori":          cam_ori,
                     "offset_deg":   offset_deg,
+                    "arc_deg":      arc_deg,   # base_az + offset_deg — final azimuth
                     "distance":     dist,
                     "height_off":   h_off,
                     "idx":          idx,
@@ -337,33 +407,79 @@ _ts("Building USD sublayer inserted (actual load happens on world.reset)")
 
 dome = UsdLux.DomeLight.Define(stage, Sdf.Path("/World/DomeLight"))
 dome.CreateIntensityAttr(50000)
-# Create the HDRI texture file attribute up front (empty by default) so
-# apply_lighting_condition() can simply .Set() it per preset without having
-# to Create it each time. An empty asset path means "use the flat color".
-_dome_tex_attr = dome.CreateTextureFileAttr()
-_dome_tex_attr.Set(Sdf.AssetPath(""))
 
-# Fill light positioned above the door center
-fill = UsdLux.SphereLight.Define(stage, Sdf.Path("/World/FillLight"))
-fill.CreateIntensityAttr(300000)
-fill.CreateRadiusAttr(0.1)
-UsdGeom.Xformable(fill.GetPrim()).AddTranslateOp().Set(
-    (float(DOOR_CENTER_XY[0]), float(DOOR_CENTER_XY[1]), float(CAMERA_Z_BASE) + 1.5)
-)
+# NOTE: No fill SphereLight. The prior fill was placed ~1.5 m above the door
+# center and became a visible bright disc at the top of the frame + specular
+# hotspot on the red accent column — a spurious feature that contaminated
+# the job 242708 audit. Illumination is now driven entirely by the DomeLight
+# + the 4-slot ceiling RectLight array (which sits above the camera FOV).
+
+# 4-slot ceiling RectLight array placed in a 2×2 grid on the ceiling above
+# the door. Each slot can be toggled on/off per lighting preset to simulate
+# different fixture configurations. Slots are laid out symmetrically in XY
+# around the door center, ~1.2 m above the camera base Z (which is ~ceiling
+# height in the Kern building's corridors).
+_CEILING_OFFSET_Z  = 1.2      # m above CAMERA_Z_BASE (roughly at ceiling)
+_CEILING_SPREAD_XY = 1.2      # m — half-spacing of the 2×2 grid
+_CEILING_SIZE      = 0.6      # m — RectLight width/height (fluorescent fixture)
+_ceiling_offsets = [
+    (-_CEILING_SPREAD_XY, -_CEILING_SPREAD_XY),   # slot 0 — back-left
+    (+_CEILING_SPREAD_XY, -_CEILING_SPREAD_XY),   # slot 1 — back-right
+    (-_CEILING_SPREAD_XY, +_CEILING_SPREAD_XY),   # slot 2 — front-left
+    (+_CEILING_SPREAD_XY, +_CEILING_SPREAD_XY),   # slot 3 — front-right
+]
+ceiling_lights = []
+for i, (dx, dy) in enumerate(_ceiling_offsets):
+    light_path = f"/World/CeilingLight_{i}"
+    rl = UsdLux.RectLight.Define(stage, Sdf.Path(light_path))
+    rl.CreateIntensityAttr(0.0)           # start off, driven per-preset
+    rl.CreateWidthAttr(_CEILING_SIZE)
+    rl.CreateHeightAttr(_CEILING_SIZE)
+    # Position above the door and rotate so the rect faces downward (-Z)
+    prim = rl.GetPrim()
+    xf = UsdGeom.Xformable(prim)
+    xf.AddTranslateOp().Set(Gf.Vec3d(
+        float(DOOR_CENTER_XY[0]) + dx,
+        float(DOOR_CENTER_XY[1]) + dy,
+        float(CAMERA_Z_BASE) + _CEILING_OFFSET_Z,
+    ))
+    xf.AddRotateXYZOp().Set(Gf.Vec3f(180.0, 0.0, 0.0))  # face down
+    ceiling_lights.append(rl)
 
 # ---------------------------------------------------------------------------
-# Reusable OmniPBR material for door variation (grid mode)
-# Created once at startup; per-episode we just update its shader inputs.
+# One pre-created OmniPBR material per DOOR_MATERIALS preset.
+#
+# Two failure modes we ruled out experimentally (jobs 242579/242581/242625):
+#   1. Mutating a shared shader's `diffuse_color_constant` between renders
+#      does not invalidate OmniPBR's material cache in the RTX delegate —
+#      the first-set color sticks regardless of later changes.
+#   2. `shader.CreateIdAttr("OmniPBR")` alone does NOT resolve to the real
+#      OmniPBR MDL module — the delegate substitutes a red debug material
+#      for every override authored that way.
+# The canonical binding uses SetSourceAsset + SubIdentifier + mdl surface
+# output, and we pre-create one material per preset so per-frame work is
+# just a binding switch (no shader mutation). Color jitter is dropped;
+# lighting + camera + angle jitter already gives plenty of variation.
 # ---------------------------------------------------------------------------
 
-_door_mat_path   = "/World/Looks/DoorMatGrid"
-_door_mat        = UsdShade.Material.Define(stage, Sdf.Path(_door_mat_path))
-_door_shader     = UsdShade.Shader.Define(stage, Sdf.Path(_door_mat_path + "/Shader"))
-_door_shader.CreateIdAttr("OmniPBR")
-_door_shader.CreateInput("diffuse_color_constant", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.8, 0.8, 0.8))
-_door_shader.CreateInput("reflection_roughness_constant", Sdf.ValueTypeNames.Float).Set(0.5)
-_door_shader.CreateInput("metallic_constant", Sdf.ValueTypeNames.Float).Set(0.0)
-_door_mat.CreateSurfaceOutput().ConnectToSource(_door_shader.ConnectableAPI(), "surface")
+_door_preset_materials = {}
+for _preset in DOOR_MATERIALS:
+    if _preset["color"] is None:
+        continue
+    _mp = f"/World/Looks/DoorMat_{_preset['name']}"
+    _mat = UsdShade.Material.Define(stage, Sdf.Path(_mp))
+    _sh = UsdShade.Shader.Define(stage, Sdf.Path(_mp + "/Shader"))
+    _sh.CreateImplementationSourceAttr(UsdShade.Tokens.sourceAsset)
+    _sh.SetSourceAsset(Sdf.AssetPath("OmniPBR.mdl"), "mdl")
+    _sh.SetSourceAssetSubIdentifier("OmniPBR", "mdl")
+    _sh.CreateInput("diffuse_color_constant", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*_preset["color"]))
+    _sh.CreateInput("reflection_roughness_constant", Sdf.ValueTypeNames.Float).Set(float(_preset["roughness"]))
+    _sh.CreateInput("metallic_constant", Sdf.ValueTypeNames.Float).Set(float(_preset["metallic"]))
+    _mat.CreateSurfaceOutput("mdl").ConnectToSource(_sh.ConnectableAPI(), "out")
+    _mat.CreateDisplacementOutput("mdl").ConnectToSource(_sh.ConnectableAPI(), "out")
+    _mat.CreateVolumeOutput("mdl").ConnectToSource(_sh.ConnectableAPI(), "out")
+    _door_preset_materials[_preset["name"]] = _mat
+print(f"[DoorCollection] Pre-created {len(_door_preset_materials)} door preset materials.")
 
 # ---------------------------------------------------------------------------
 # Physics raycast occlusion check
@@ -467,7 +583,7 @@ simulation_app.update()
 for cam, cfg in zip(cameras, CAMERA_CONFIGS):
     cam.initialize()
     usd_cam = UsdGeom.Camera(stage.GetPrimAtPath(cfg["prim_path"]))
-    usd_cam.GetFocalLengthAttr().Set(5.0)
+    usd_cam.GetFocalLengthAttr().Set(CAM_FOCAL_MM)
     usd_cam.GetClippingRangeAttr().Set((0.01, 10000.0))
 
 print(f"\n[StaticCollect] {len(cameras)} cameras created after occlusion filtering")
@@ -499,7 +615,67 @@ if not door_prim.IsValid():
     simulation_app.close()
     sys.exit(1)
 
-_mesh_ops = []  # list of (mesh_info_dict, UsdGeom.XformOp)
+# Some Revit-exported doors (notably solid Type_F_Door and a subset of
+# curtain-wall exports) come through as instanced prototype references.
+# While instanced, their subtree is read-only — MaterialBindingAPI.Bind()
+# silently no-ops and GetChildren()/PrimRange walks won't yield the real
+# meshes. SetInstanceable(False) concretizes the subtree for this session
+# so both the rotation discovery loop and the material override can see
+# and mutate the actual mesh prims. No-op on already-concrete doors.
+if door_prim.IsInstance() or door_prim.IsInstanceable():
+    print(f"[StaticCollect] Door prim is instanced — calling SetInstanceable(False) "
+          f"to expose concrete subtree for mesh discovery + material binding")
+    door_prim.SetInstanceable(False)
+    simulation_app.update()
+    print(f"[StaticCollect]   after: IsInstance={door_prim.IsInstance()}  "
+          f"IsInstanceable={door_prim.IsInstanceable()}")
+
+
+def _is_glass_mesh(mesh_prim) -> bool:
+    """
+    Return True if the mesh name indicates it's a glass panel, which should
+    NOT receive material overrides (the override would tint the glass and
+    eliminate transparency, which is visually worse than leaving it alone).
+    Revit exports tag glass child meshes with names starting with `Glass_`
+    or containing `_GL_`, `Glazing_`, or `Pane_`.
+    """
+    n_lower = mesh_prim.GetPath().name.lower()
+    return (
+        n_lower.startswith("glass_")
+        or "_gl_" in n_lower
+        or "glazing" in n_lower
+        or "pane_" in n_lower
+    )
+
+
+# Rotation strategy discovery.
+#
+# Two cases observed in the MSOE Revit export:
+#
+#   (a) Curtain-wall doors like Doors_13606713 have per-child Mesh prims,
+#       each with its own xformOp:transform. We rotate every child around
+#       the hinge by rewriting its translation + basis in place.
+#
+#   (b) Solid doors like Doors_4070013 (RS___Type_F_Door) have their
+#       geometry nested several levels deep under a flattened prototype
+#       reference, with NO per-child xformOp:transform — instead there is
+#       a single top-level transform on the Doors_* prim itself. In that
+#       case we rotate the whole subtree by composing the original matrix
+#       on the door prim with a hinge-centered Z rotation, matching the
+#       approach verified in solid_door_material_sanity.py.
+#
+# We try (a) first by walking the immediate children; if nothing lands, we
+# fall back to (b) by caching the door prim's own xformOp:transform.
+_mesh_ops = []  # list of (mesh_info_dict, UsdGeom.XformOp) — per-child rotation
+_toplevel_op = None       # UsdGeom.XformOp on door_prim itself (fallback path)
+_toplevel_orig_mat = None # original matrix to compose against each frame
+
+# Always scan immediate Mesh children first so both modes can reason about
+# what's there. We store origins so the auto heuristic can detect the
+# "wrapper at origin" case (a single child Mesh with translation (0,0,0),
+# which on solid Type_F_Door is a Paint/shell wrapper that does NOT move
+# the actual door leaf when rotated).
+_per_child_candidates = []
 for child in door_prim.GetChildren():
     if not child.IsA(UsdGeom.Mesh):
         continue
@@ -512,58 +688,101 @@ for child in door_prim.GetChildren():
     if op is None:
         print(f"[WARN] Skipping child {child.GetPath()} — no xformOp:transform")
         continue
-    # Read original translation from the 4×4 matrix (row 3 = translation in USD row-vector convention)
     mat = op.Get()
     mesh_info = {
         "path": str(child.GetPath()),
-        "ox": mat[3][0],  # translation X (cm)
-        "oy": mat[3][1],  # translation Y (cm)
-        "oz": mat[3][2],  # translation Z (cm)
+        "ox": mat[3][0],
+        "oy": mat[3][1],
+        "oz": mat[3][2],
     }
-    _mesh_ops.append((mesh_info, op))
-    print(f"[StaticCollect] Mesh discovered: {child.GetPath().name}  "
+    _per_child_candidates.append((mesh_info, op))
+    print(f"[StaticCollect] Immediate child Mesh: {child.GetPath().name}  "
           f"origin=({mesh_info['ox']:.2f}, {mesh_info['oy']:.2f}, {mesh_info['oz']:.2f}) cm")
 
-if not _mesh_ops:
-    print(f"ERROR: no child meshes with xformOp:transform found under {DOOR_PATH}")
-    simulation_app.close()
-    sys.exit(1)
+# Decide rotation mode.
+def _resolve_mode():
+    # Explicit user override always wins.
+    if ROTATION_MODE == "per-child":
+        return "per-child"
+    if ROTATION_MODE == "top-level":
+        return "top-level"
 
-print(f"[StaticCollect] {len(_mesh_ops)} child meshes discovered")
+    # auto: use per-child if there ARE candidates AND at least one has a
+    # non-zero translation. A sole wrapper at (0,0,0) means the real
+    # geometry lives deeper (solid doors) — fall back to top-level.
+    if not _per_child_candidates:
+        return "top-level"
+    any_nonzero = any(
+        abs(m["ox"]) > 1e-6 or abs(m["oy"]) > 1e-6 or abs(m["oz"]) > 1e-6
+        for m, _ in _per_child_candidates
+    )
+    return "per-child" if any_nonzero else "top-level"
+
+_resolved_mode = _resolve_mode()
+
+if _resolved_mode == "per-child":
+    _mesh_ops = _per_child_candidates
+    print(f"[StaticCollect] Rotation mode: PER-CHILD "
+          f"({len(_mesh_ops)} child Mesh xforms)  [resolved from {ROTATION_MODE!r}]")
+else:
+    # Top-level: grab the door prim's own xformOp:transform.
+    door_xf = UsdGeom.Xformable(door_prim)
+    for xop in door_xf.GetOrderedXformOps():
+        if xop.GetOpName() == "xformOp:transform":
+            _toplevel_op = xop
+            break
+    if _toplevel_op is None:
+        print(f"ERROR: door prim {DOOR_PATH} has no top-level xformOp:transform "
+              f"(and rotation-mode={_resolved_mode!r}) — cannot rotate this door.")
+        simulation_app.close()
+        sys.exit(1)
+    _toplevel_orig_mat = _toplevel_op.Get()
+    print(f"[StaticCollect] Rotation mode: TOP-LEVEL  [resolved from {ROTATION_MODE!r}]  "
+          f"(composing hinge rotation on {DOOR_PATH}'s xformOp:transform)")
 
 # ---------------------------------------------------------------------------
-# Cache original material bindings on each child mesh so we can restore them
-# for the "original" cell of the material grid.
+# Cache original material bindings on every non-glass mesh in the door subtree
+# so we can restore them for the "original" cell of the material grid.
+#
+# Iterates via Usd.PrimRange so doors whose geometry is nested below the
+# door_prim (e.g. solid Type_F_Door leaves under an un-instanced prototype)
+# are included — matches the walk in apply_door_material(). Glass meshes are
+# skipped here for the same reason they're skipped in the apply path: tinting
+# glass kills transparency. We cache the *direct* binding relationship targets
+# (not ComputeBoundMaterial's resolved result), so restore is an exact
+# unbind + rebind-targets round trip even if the original binding was
+# authored on a nested scope.
 # ---------------------------------------------------------------------------
 
-_original_mat_bindings = []  # list of (mesh_prim, bound_material_prim_or_None)
-for child in door_prim.GetChildren():
-    if not child.IsA(UsdGeom.Mesh):
+_original_mat_bindings = []  # list of (mesh_prim, [Sdf.Path, ...])
+for p in Usd.PrimRange(door_prim):
+    if not p.IsA(UsdGeom.Mesh):
         continue
-    try:
-        binding_api = UsdShade.MaterialBindingAPI(child)
-        bound = binding_api.ComputeBoundMaterial()[0]
-        bound_prim = bound.GetPrim() if bound else None
-        _original_mat_bindings.append((child, bound_prim))
-    except Exception as e:
-        print(f"[WARN] Could not cache material for {child.GetPath()}: {e}")
-        _original_mat_bindings.append((child, None))
+    if _is_glass_mesh(p):
+        continue
+    binding_api = UsdShade.MaterialBindingAPI(p)
+    rel = binding_api.GetDirectBindingRel()
+    targets = list(rel.GetTargets()) if rel else []
+    _original_mat_bindings.append((p, targets))
 
-print(f"[StaticCollect] Cached original material bindings for "
-      f"{sum(1 for _, m in _original_mat_bindings if m is not None)}/{len(_original_mat_bindings)} child meshes")
+print(f"[StaticCollect] Cached direct bindings for {len(_original_mat_bindings)} "
+      f"non-glass meshes (Usd.PrimRange walk)")
 
 
 def _restore_original_door_materials():
-    """Restore each child mesh's material to its original (pre-override) binding."""
-    for mesh_prim, orig_mat_prim in _original_mat_bindings:
-        try:
-            binding_api = UsdShade.MaterialBindingAPI(mesh_prim)
-            if orig_mat_prim is not None and orig_mat_prim.IsValid():
-                binding_api.Bind(UsdShade.Material(orig_mat_prim))
-            else:
-                binding_api.UnbindAllBindings()
-        except Exception:
-            pass
+    """
+    Restore each cached mesh's material by unbinding and re-authoring the
+    original direct-binding targets. Mirrors the pattern used in the
+    verified material_sanity_check.py / solid_door_material_sanity.py scripts.
+    """
+    for mesh_prim, orig_targets in _original_mat_bindings:
+        binding_api = UsdShade.MaterialBindingAPI(mesh_prim)
+        binding_api.UnbindAllBindings()
+        if not orig_targets:
+            continue
+        rel = binding_api.GetDirectBindingRel() or binding_api.CreateDirectBindingRel()
+        for tgt in orig_targets:
+            rel.AddTarget(tgt)
 
 # ---------------------------------------------------------------------------
 # Door rotation — direct 4×4 matrix rewrite
@@ -591,9 +810,37 @@ def _door_matrix(ox_cm: float, oy_cm: float, oz_cm: float, angle_deg: float) -> 
 
 
 def set_door_angle(angle_deg: float):
-    """Rewrite all child mesh matrices for the given door angle."""
-    for m, op in _mesh_ops:
-        op.Set(_door_matrix(m["ox"], m["oy"], m["oz"], angle_deg))
+    """
+    Rotate the door to angle_deg about its hinge.
+
+    Per-child mode: rewrite each Mesh child's xformOp:transform directly.
+    Top-level mode: compose the original door-prim transform with a
+    hinge-centered Z rotation (new = orig * T(-hinge) * Rz * T(+hinge)) and
+    write it back to door_prim's xformOp:transform. The compose-from-orig
+    approach means each call is absolute, not cumulative, so repeated
+    calls with different angles always land on the correct pose.
+    """
+    if _mesh_ops:
+        for m, op in _mesh_ops:
+            op.Set(_door_matrix(m["ox"], m["oy"], m["oz"], angle_deg))
+        return
+
+    θ   = math.radians(angle_deg)
+    c   = math.cos(θ)
+    s   = math.sin(θ)
+    T_neg = Gf.Matrix4d(1, 0, 0, 0,
+                        0, 1, 0, 0,
+                        0, 0, 1, 0,
+                        -HINGE_X_CM, -HINGE_Y_CM, 0, 1)
+    Rz    = Gf.Matrix4d( c,  s, 0, 0,
+                        -s,  c, 0, 0,
+                         0,  0, 1, 0,
+                         0,  0, 0, 1)
+    T_pos = Gf.Matrix4d(1, 0, 0, 0,
+                        0, 1, 0, 0,
+                        0, 0, 1, 0,
+                        HINGE_X_CM, HINGE_Y_CM, 0, 1)
+    _toplevel_op.Set(_toplevel_orig_mat * T_neg * Rz * T_pos)
 
 
 # ---------------------------------------------------------------------------
@@ -630,16 +877,14 @@ def _color_temp_to_rgb(kelvin: float) -> Gf.Vec3f:
 
 
 def randomize_lighting():
-    """Randomize DomeLight and FillLight for the current episode (legacy random mode)."""
+    """Randomize DomeLight for the current episode (legacy random mode)."""
     dome_intensity = random.uniform(*DOME_INTENSITY_RANGE)
     dome_temp_k = random.uniform(*DOME_COLOR_TEMP_RANGE)
-    fill_intensity = random.uniform(*FILL_INTENSITY_RANGE)
 
     dome.GetIntensityAttr().Set(dome_intensity)
     dome.GetColorAttr().Set(_color_temp_to_rgb(dome_temp_k))
-    fill.GetIntensityAttr().Set(fill_intensity)
 
-    return dome_intensity, dome_temp_k, fill_intensity
+    return dome_intensity, dome_temp_k
 
 
 # ---------------------------------------------------------------------------
@@ -648,62 +893,59 @@ def randomize_lighting():
 
 def apply_lighting_condition(condition: dict):
     """
-    Apply a discrete lighting preset from LIGHTING_CONDITIONS, with small
+    Apply a discrete lighting preset from LIGHTING_CONDITIONS with small
     jitter (±10% intensity, ±200 K temperature) within the cell to prevent
     pixel-level memorization while keeping each condition recognizably distinct.
 
-    If the preset specifies an "hdri" path, the DomeLight's texture file is
-    set to that HDR environment map (image-based lighting). Otherwise the
-    texture is cleared and the DomeLight falls back to its flat color.
+    Drives: DomeLight (ambient) and the 4-slot ceiling RectLight array. Each
+    preset's ceiling_pattern tuple controls which ceiling slots are ON (1)
+    or OFF (0).
     """
     jitter_i = lambda v: v * random.uniform(0.90, 1.10)
     jitter_t = lambda v: v + random.uniform(-200, 200)
 
     dome_int  = jitter_i(condition["dome_int"])
     dome_temp = jitter_t(condition["dome_temp"])
-    fill_int  = jitter_i(condition["fill_int"])
-    fill_temp = jitter_t(condition["fill_temp"])
 
     dome.GetIntensityAttr().Set(dome_int)
     dome.GetColorAttr().Set(_color_temp_to_rgb(dome_temp))
-    fill.GetIntensityAttr().Set(fill_int)
-    fill.GetColorAttr().Set(_color_temp_to_rgb(fill_temp))
 
-    # HDRI swap — when the preset has an HDR path, enable image-based lighting;
-    # otherwise clear the texture so the DomeLight uses its flat color.
-    hdri = condition.get("hdri")
-    if hdri and os.path.isfile(hdri):
-        _dome_tex_attr.Set(Sdf.AssetPath(hdri))
-    else:
-        _dome_tex_attr.Set(Sdf.AssetPath(""))
+    # Ceiling RectLight array — per-slot on/off with shared temp + intensity
+    ceiling_pattern = condition["ceiling_pattern"]
+    ceiling_int     = jitter_i(condition["ceiling_int"])
+    ceiling_temp    = jitter_t(condition["ceiling_temp"])
+    ceiling_rgb     = _color_temp_to_rgb(ceiling_temp)
+    for slot, rl in enumerate(ceiling_lights):
+        on = ceiling_pattern[slot]
+        rl.GetIntensityAttr().Set(ceiling_int if on else 0.0)
+        rl.GetColorAttr().Set(ceiling_rgb)
 
-    return dome_int, dome_temp, fill_int, fill_temp
+    return dome_int, dome_temp, ceiling_int, ceiling_temp
 
 
 def apply_door_material(material_spec: dict):
     """
-    Apply a discrete door material from DOOR_MATERIALS with small per-episode
-    jitter (±0.05 color, ±0.08 roughness/metallic). If material_spec["color"]
-    is None ("original" cell), restore the cached original material bindings.
+    Switch the bound material on the door's non-glass child meshes to the
+    pre-created OmniPBR preset for `material_spec["name"]`. If the preset
+    is the "original" cell, restore the cached Revit bindings instead.
+
+    Glass meshes are skipped (see _is_glass_mesh). Solid doors nested in
+    Revit prototype instances need SetInstanceable(False) upstream of this
+    call so the subtree is concrete and bindable.
     """
     if material_spec["color"] is None:
-        # "Original" cell — restore cached bindings (populated at startup)
         _restore_original_door_materials()
         return None
 
-    jc = lambda c: max(0.0, min(1.0, c + random.uniform(-0.05, 0.05)))
-    jf = lambda f: max(0.0, min(1.0, f + random.uniform(-0.08, 0.08)))
-
-    r, g, b = material_spec["color"]
-    _door_shader.GetInput("diffuse_color_constant").Set(Gf.Vec3f(jc(r), jc(g), jc(b)))
-    _door_shader.GetInput("reflection_roughness_constant").Set(jf(material_spec["roughness"]))
-    _door_shader.GetInput("metallic_constant").Set(jf(material_spec["metallic"]))
-
-    # Bind the override material to every child mesh of the door
-    for child in door_prim.GetChildren():
-        if child.IsA(UsdGeom.Mesh):
-            UsdShade.MaterialBindingAPI.Apply(child)
-            UsdShade.MaterialBindingAPI(child).Bind(_door_mat)
+    mat = _door_preset_materials[material_spec["name"]]
+    strong = UsdShade.Tokens.strongerThanDescendants
+    for p in Usd.PrimRange(door_prim):
+        if not p.IsA(UsdGeom.Mesh):
+            continue
+        if _is_glass_mesh(p):
+            continue
+        UsdShade.MaterialBindingAPI.Apply(p)
+        UsdShade.MaterialBindingAPI(p).Bind(mat, bindingStrength=strong)
 
     return (material_spec["name"],)
 
@@ -723,7 +965,7 @@ def apply_camera_jitter():
         ])
         pitch = random.uniform(-2.0, 2.0)
         roll  = random.uniform(-1.5, 1.5)
-        base_yaw = cfg["offset_deg"] + 180.0
+        base_yaw = cfg["arc_deg"] + 180.0
         jittered_ori = rot_utils.euler_angles_to_quats(
             np.array([roll, pitch, base_yaw]), degrees=True
         )
@@ -864,19 +1106,24 @@ if GRID_MODE:
         print("[StaticCollect] GRID MODE (BASELINE ONLY): 1 lighting × 1 material "
               f"× {len(angles)} angles -- for generalization test doors")
     elif TEST_MODE:
-        # Minimal subset for fast debugging. Pick one HDRI-enabled preset
-        # (daylight_flood) and one flat-color preset (bright_fluorescent) so
-        # the HDR swap is exercised in the sanity output.
-        lightings = [LIGHTING_CONDITIONS[0], LIGHTING_CONDITIONS[1]]  # bright_fluorescent + daylight_flood
-        materials = [DOOR_MATERIALS[0], DOOR_MATERIALS[1], DOOR_MATERIALS[-1]]  # aluminum, white, original
-        angles    = [2.5, 45.0, 90.0]
+        # Minimal subset chosen for maximum visual diagnostic signal:
+        #   - 2 most visually different lighting presets (bright_fluorescent vs
+        #     high_contrast — 4 ceiling lights full on vs 1 ceiling light,
+        #     and ~7× difference in dome intensity)
+        #   - 3 most visually different materials (vivid red, silver, original)
+        #   - 3 angles covering fully-closed, ambiguous-open, wide-open
+        lightings = [LIGHTING_CONDITIONS[0], LIGHTING_CONDITIONS[5]]  # bright_fluorescent + high_contrast
+        materials = [DOOR_MATERIALS[4], DOOR_MATERIALS[0], DOOR_MATERIALS[-1]]  # red_fire_door, brushed_aluminum, original
+        angles    = [0.0, 45.0, 90.0]
         print("[StaticCollect] GRID MODE (TEST): 2 lightings × 3 materials × 3 angles "
               f"= {len(lightings)*len(materials)*len(angles)} cells")
     elif SANITY_GRID:
-        # Visual audit of every lighting × material combo at 3 representative angles
+        # Material × lighting audit: every lighting × material combo at
+        # closed (0°) and wide-open (45°). Pair with --camera-arc-offsets 0
+        # for a single head-on camera → 84 frames total on one door.
         lightings = LIGHTING_CONDITIONS
         materials = DOOR_MATERIALS
-        angles    = [1.0, 45.0, 90.0]
+        angles    = [0.0, 45.0]
         print(f"[StaticCollect] GRID MODE (SANITY): {len(lightings)} lightings × "
               f"{len(materials)} materials × {len(angles)} angles "
               f"= {len(lightings)*len(materials)*len(angles)} cells")
@@ -898,7 +1145,7 @@ if GRID_MODE:
             g_mat_idx = DOOR_MATERIALS.index(material)
             for angle_deg in angles:
                 # Apply lighting + material
-                dome_int, dome_temp, fill_int, fill_temp = apply_lighting_condition(lighting)
+                dome_int, dome_temp, ceiling_int, ceiling_temp = apply_lighting_condition(lighting)
                 apply_door_material(material)
 
                 # Set door angle (respect swing direction)
@@ -955,9 +1202,9 @@ else:
         set_door_angle(swing_angle)
 
         if LIGHTING_RAND:
-            dome_int, dome_temp, fill_int = randomize_lighting()
+            dome_int, dome_temp = randomize_lighting()
         else:
-            dome_int, dome_temp, fill_int = 50000, 5500, 300000
+            dome_int, dome_temp = 50000, 5500
 
         for _ in range(WARMUP_STEPS):
             world.step(render=True)
@@ -966,7 +1213,7 @@ else:
         for _ in range(FRAMES_PER_EP):
             ep_captured += _capture_frame(episode, angle_deg, -1, -1)
 
-        light_str = (f"dome={dome_int:.0f} temp={dome_temp:.0f}K fill={fill_int:.0f}"
+        light_str = (f"dome={dome_int:.0f} temp={dome_temp:.0f}K"
                      if LIGHTING_RAND else "fixed")
         print(f"[StaticCollect] Ep {episode+1:2d}/{N_EPISODES} "
               f"[{cls:6s} {angle_deg:5.1f}°]  frames={ep_captured}  light=({light_str})")

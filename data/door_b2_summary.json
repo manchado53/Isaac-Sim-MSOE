@@ -1,0 +1,1343 @@
+{
+  "ok": 166,
+  "partial": 0,
+  "skipped": 1,
+  "doors": [
+    {
+      "door_id": "Doors_9769395",
+      "floor": 1,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_7166242",
+      "floor": 2,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_4108695",
+      "floor": 2,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_4108736",
+      "floor": 2,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9563128",
+      "floor": 2,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10294235",
+      "floor": 2,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9493983",
+      "floor": 2,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9494157",
+      "floor": 2,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_1845084",
+      "floor": 2,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8285087",
+      "floor": 2,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_3872732",
+      "floor": 2,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8285883",
+      "floor": 2,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_12916559",
+      "floor": 2,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10871544",
+      "floor": 2,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_1605356",
+      "floor": 2,
+      "family": "RS___Type_F_Door",
+      "status": "skipped",
+      "camera_side": null,
+      "note": "occluded both sides"
+    },
+    {
+      "door_id": "Doors_10871543",
+      "floor": 2,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10871533",
+      "floor": 2,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_1605363",
+      "floor": 2,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10871532",
+      "floor": 2,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10871531",
+      "floor": 2,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_5039704",
+      "floor": 2,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8285993",
+      "floor": 2,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10871530",
+      "floor": 2,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10871529",
+      "floor": 2,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_2456888",
+      "floor": 2,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10871525",
+      "floor": 2,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10871524",
+      "floor": 2,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10871523",
+      "floor": 2,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_2456951",
+      "floor": 2,
+      "family": "RS___Type_G_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10871332",
+      "floor": 2,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_5232222",
+      "floor": 2,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10869448",
+      "floor": 2,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8286057",
+      "floor": 2,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_1605836",
+      "floor": 3,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10280561",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_13714710",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8286951",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8453326",
+      "floor": 3,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8453324",
+      "floor": 3,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8288402",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9637942",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9637943",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9496138",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_4073859",
+      "floor": 3,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10649156",
+      "floor": 3,
+      "family": "RS___Type_FG_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10649710",
+      "floor": 3,
+      "family": "RS___Type_FG_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9637941",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8450804",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10648318",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8449233",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9638887",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429417",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8449376",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429410",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429434",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429418",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429439",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429411",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429428",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429419",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429438",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429412",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429429",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429420",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429437",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429413",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429430",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429421",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429436",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429414",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429431",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429422",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429435",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429415",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429432",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429423",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429416",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8448071",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8448323",
+      "floor": 3,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_12590968",
+      "floor": 3,
+      "family": "RS___Type_N_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429424",
+      "floor": 3,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10962472",
+      "floor": 3,
+      "family": "RS___Type_N_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9758858",
+      "floor": 4,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9498432",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8451580",
+      "floor": 4,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": -1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8451576",
+      "floor": 4,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8289418",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9499392",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9912633",
+      "floor": 4,
+      "family": "RS___Type_FG_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10842591",
+      "floor": 4,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9912794",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8443153",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9639147",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429364",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8442817",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429357",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429386",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429365",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429392",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429358",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429378",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429366",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429391",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429359",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429379",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429367",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429390",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429360",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429380",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429368",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429389",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429361",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429381",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429369",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429388",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429362",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429382",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429370",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429363",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429385",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8459665",
+      "floor": 4,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_2429516",
+      "floor": 4,
+      "family": "RS___Type_N_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8429371",
+      "floor": 4,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10962553",
+      "floor": 4,
+      "family": "RS___Type_N_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_1915613",
+      "floor": 5,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10294265",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10294267",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_7171063",
+      "floor": 5,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9500424",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431799",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431801",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431802",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431803",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431804",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9759311",
+      "floor": 5,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10517269",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9499760",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9499864",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_4078243",
+      "floor": 5,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9499896",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8432716",
+      "floor": 5,
+      "family": "RS___Type_FG_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9912400",
+      "floor": 5,
+      "family": "RS___Type_FG_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8432717",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431775",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431783",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431776",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431784",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431777",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431785",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431778",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431786",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431779",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431787",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431780",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431788",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431781",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431789",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431782",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431823",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9477386",
+      "floor": 5,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_8431790",
+      "floor": 5,
+      "family": "RS___Type_F_W_SIDELITE_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_10962575",
+      "floor": 5,
+      "family": "RS___Type_N_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_12419120",
+      "floor": 6,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_14275155",
+      "floor": 6,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_4090358",
+      "floor": 6,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_9596328",
+      "floor": 6,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    },
+    {
+      "door_id": "Doors_4077454",
+      "floor": 6,
+      "family": "RS___Type_F_Door",
+      "status": "ok",
+      "camera_side": 1,
+      "note": ""
+    }
+  ]
+}

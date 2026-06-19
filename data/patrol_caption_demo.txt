@@ -1,0 +1,34 @@
+Image:   data/no_window_no_door_image/Gemini_Generated_Image_quxknpquxknpquxk.png
+Adapter: data/qwen3vl_door_lora_v4_curated
+
+Prompt:
+You are an autonomous security patrol robot producing a structured log entry for a dispatcher. Scan this frame methodically and produce a short report with the exact format below.
+
+Fill in every field. Use concrete visual details, not speculation.
+Keep each field to one short sentence.
+
+SCENE: <type of space — corridor, lobby, stairwell, office, etc. — and one observable detail about it, e.g. 'narrow corridor with tiled flooring and overhead lighting'>
+OCCUPANTS: <number of people visible and what they are doing, or 'none visible'>
+OBJECTS: <list any free-standing items, equipment, furniture, bags, carts, debris, or signage actually visible in the frame; or 'none'>
+LIGHTING: <current state — bright/dim/mixed, any dark patches, any flickering, any smoke or haze>
+HAZARDS: <liquids on floor, damage, obstructions, broken items; or 'none observed'>
+PRIORITY: <LOW / MEDIUM / HIGH — based on whether anything in the frame would warrant a human response>
+NOTES: <one sentence summarizing anything unusual a dispatcher should know, or 'routine frame, no action required'>
+
+Rules:
+- Report only what is visually present. Do not invent objects.
+- Do not describe paint color, building architecture, or normal structural elements as if they were notable.
+- If a field is truly empty, say 'none' or 'none observed' — do not skip the field.
+- Output the fields in the exact order shown, one per line.
+
+======================================================================
+[fine-tuned]
+======================================================================
+SCENE: narrow corridor with tiled flooring and overhead lighting
+OCCUPANTS: none visible
+OBJECTS: fire extinguisher, wall-mounted digital clock, framed artwork, water cooler, potted plant, cabinet, overhead lighting, smoke detector, ceiling access panel, emergency exit sign, floor mat, wall-mounted handrail
+LIGHTING: bright, even illumination with no dark patches or flickering
+HAZARDS: none observed
+PRIORITY: LOW
+NOTES: routine frame, no action required
+

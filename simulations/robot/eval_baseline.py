@@ -68,9 +68,44 @@ def load_test_jsonl(jsonl_path: str):
     return samples
 
 
-def predict(model, processor, frame_array: np.ndarray, device: str) -> str:
+def build_decision_token_sets(tokenizer):
     """
-    Run one inference pass. Returns the raw model response string.
+    Return (closed_ids, open_ids) — the set of all vocab token IDs that
+    could start or contain the words 'CLOSED' or 'OPEN' (case-insensitive).
+    Used at inference time to read P([CLOSED]) vs P([OPEN]) from generation
+    scores.
+
+    Matches both:
+      1. Full substring — token text contains 'CLOSED' or 'OPEN'
+      2. Prefix — token text IS a prefix of 'CLOSED' or 'OPEN' with len >= 3
+         (catches cases where Qwen BPE splits 'CLOSED' into e.g. 'CLOSE'+'D')
+
+    One-time cost (~1-2s) over the full vocab at startup.
+    """
+    closed_prefixes = {"CLO", "CLOS", "CLOSE", "CLOSED"}
+    open_prefixes   = {"OPE", "OPEN"}
+
+    closed_ids, open_ids = set(), set()
+    for tok_id in range(len(tokenizer)):
+        s = tokenizer.decode([tok_id]).strip().upper()
+        if not s:
+            continue
+        if "CLOSED" in s or s in closed_prefixes:
+            closed_ids.add(tok_id)
+        elif "OPEN" in s or s in open_prefixes:
+            open_ids.add(tok_id)
+    return closed_ids, open_ids
+
+
+def predict(model, processor, frame_array: np.ndarray, device: str,
+            closed_token_ids: set, open_token_ids: set):
+    """
+    Run one inference pass. Returns (response_str, p_closed, p_open).
+
+    p_closed / p_open are the probabilities the model assigned to
+    CLOSED-like and OPEN-like tokens at the first generation step that
+    selected one of them. Either may be None if no decision token was
+    produced within MAX_NEW_TOKENS.
     """
     image = Image.fromarray(frame_array)
     messages = [
@@ -93,18 +128,31 @@ def predict(model, processor, frame_array: np.ndarray, device: str) -> str:
     ).to(device)
 
     with torch.no_grad():
-        output_ids = model.generate(
+        out = model.generate(
             **inputs,
             max_new_tokens=MAX_NEW_TOKENS,
             do_sample=False,
+            return_dict_in_generate=True,
+            output_scores=True,
         )
 
     # Decode only the newly generated tokens (not the prompt)
-    generated = output_ids[:, inputs["input_ids"].shape[1]:]
+    generated = out.sequences[:, inputs["input_ids"].shape[1]:]
     response     = processor.batch_decode(generated, skip_special_tokens=True)[0].strip()
     response_raw = processor.batch_decode(generated, skip_special_tokens=False)[0].strip()
     print(f"    [RAW] {response_raw!r}")
-    return response
+
+    # Walk generated tokens, find the first step whose chosen token is
+    # CLOSED- or OPEN-like, then compute p_closed / p_open at that step.
+    p_closed, p_open = None, None
+    for step, tok_id in enumerate(generated[0].tolist()):
+        if tok_id in closed_token_ids or tok_id in open_token_ids:
+            probs = torch.softmax(out.scores[step][0].float(), dim=-1)
+            p_closed = float(probs[list(closed_token_ids)].sum().item())
+            p_open   = float(probs[list(open_token_ids)].sum().item())
+            break
+
+    return response, p_closed, p_open
 
 
 def parse_prediction(response: str) -> str:
@@ -132,6 +180,9 @@ def main():
                         help="Path to held-out test JSONL (relative to project root)")
     parser.add_argument("--adapter",    default=None,
                         help="Path to LoRA adapter dir — omit for baseline (no fine-tuning)")
+    parser.add_argument("--output",     default=None,
+                        help="Output JSON path (relative to project root). "
+                             "Defaults to finetuned_eval_results_v2.json / baseline_eval_results_v2.json.")
     args = parser.parse_args()
 
     jsonl_path = os.path.join(_project_dir, args.test_jsonl)
@@ -179,6 +230,16 @@ def main():
     print(f"Model loaded in {time.time()-t0:.1f}s\n")
 
     # ------------------------------------------------------------------
+    # Build CLOSED/OPEN token ID sets for confidence extraction
+    # ------------------------------------------------------------------
+    print("Building decision token sets (CLOSED / OPEN) ...")
+    t0 = time.time()
+    closed_token_ids, open_token_ids = build_decision_token_sets(processor.tokenizer)
+    print(f"  CLOSED-like tokens: {len(closed_token_ids)}  "
+          f"OPEN-like tokens: {len(open_token_ids)}  "
+          f"({time.time()-t0:.1f}s)\n")
+
+    # ------------------------------------------------------------------
     # Load test split
     # ------------------------------------------------------------------
     print(f"Loading test split from {jsonl_path} ...")
@@ -198,10 +259,20 @@ def main():
 
     for i, (frame, true_label, img_path) in enumerate(samples):
         t_start  = time.time()
-        response = predict(model, processor, frame, device)
+        response, p_closed, p_open = predict(
+            model, processor, frame, device,
+            closed_token_ids, open_token_ids,
+        )
         pred     = parse_prediction(response)
         is_correct = (pred == true_label)
         elapsed  = time.time() - t_start
+
+        # Confidence in the chosen class — max(p_closed, p_open) when both are
+        # present. None if no decision token was generated.
+        if p_closed is not None and p_open is not None:
+            confidence = max(p_closed, p_open)
+        else:
+            confidence = None
 
         if is_correct:
             correct += 1
@@ -210,8 +281,9 @@ def main():
             per_class[true_label]["correct"] += 1
 
         status = "✓" if is_correct else "✗"
+        conf_str = f"{confidence:.3f}" if confidence is not None else "  -  "
         print(f"  [{i+1:3d}/{len(samples)}] {status}  true={true_label:6s}  "
-              f"pred={pred:7s}  response: {response!r}  ({elapsed:.1f}s)")
+              f"pred={pred:7s}  conf={conf_str}  response: {response!r}  ({elapsed:.1f}s)")
 
         results.append({
             "index":      i,
@@ -220,6 +292,9 @@ def main():
             "predicted":  pred,
             "correct":    is_correct,
             "response":   response,
+            "p_closed":   p_closed,
+            "p_open":     p_open,
+            "confidence": confidence,
         })
 
     # ------------------------------------------------------------------
@@ -262,10 +337,14 @@ def main():
     # ------------------------------------------------------------------
     # Save results JSON
     # ------------------------------------------------------------------
-    out_path = os.path.join(
-        _project_dir, "data",
-        "finetuned_eval_results.json" if args.adapter else "baseline_eval_results.json"
-    )
+    if args.output:
+        out_path = (args.output if os.path.isabs(args.output)
+                    else os.path.join(_project_dir, args.output))
+    else:
+        out_path = os.path.join(
+            _project_dir, "data",
+            "finetuned_eval_results_v2.json" if args.adapter else "baseline_eval_results_v2.json"
+        )
     summary = {
         "mode":             mode,
         "model":            VLM_MODEL_ID,

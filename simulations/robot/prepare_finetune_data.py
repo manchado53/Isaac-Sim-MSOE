@@ -1,80 +1,67 @@
 #!/usr/bin/env python3
 """
-prepare_finetune_data.py — Convert door_labels.npz → JSONL for Qwen2-VL fine-tuning.
+prepare_finetune_data.py — multi-shard NPZ → JSONL for Qwen2-VL fine-tuning.
 
-Reads data/door_labels.npz (produced by nova_carter_door_collection.py) and writes:
-  data/finetune_images/frame_XXXXX.jpg  — individual JPEG frames
-  data/train.jsonl                       — 70% training split  (1260 frames)
-  data/val.jsonl                         — 15% validation split ( 270 frames)
-  data/test.jsonl                        — 15% held-out test set ( 270 frames)
+Reads all training-role production-collection shards matching
+  data/door_production_v4_train_Doors_*.npz
+and writes:
+  data/finetune_images_v4/<door_id>_<idx>.jpg  — one JPEG per frame
+  data/train_v4.jsonl                          — 85% train split
+  data/val_v4.jsonl                            — 15% val split
 
-The test split is held out entirely and must NOT be used during training or
-hyperparameter selection. Run eval_baseline.py against test.jsonl only for
-final reported accuracy numbers.
+The holdout-role shards (door_production_v4_holdout_*.npz) are excluded by
+the default glob and consumed separately by the evaluation pipeline.
 
-Label thresholding (from VLM_fine-tuning.md):
-  angle_deg = label * 90.0
+Streaming design
+----------------
+Loading all frames at once would cost tens of GB of RAM. Instead we stream
+one shard at a time: write its JPEGs, record lightweight metadata (door_id,
+angle_band, light_idx, angles, image paths), then free the shard before
+loading the next. Peak RAM is capped by the largest shard.
+
+Stratification
+--------------
+Stratified shuffle-split on the joint key (door_id, angle_band, light_idx)
+so every door, angle band, and lighting preset is represented proportionally
+in both train and val.
+
+Label thresholding
+------------------
   angle_deg ≤ 5° → [CLOSED]
   angle_deg  > 5° → [OPEN]
 
-JSONL format (one JSON object per line):
-  {
-    "conversations": [
-      {"role": "user",      "content": "<vision tokens>Is this door open or closed?"},
-      {"role": "assistant", "content": "Door Status: [OPEN]."}
-    ],
-    "image": "data/finetune_images/frame_00042.jpg"
-  }
-
-Usage:
+Usage
+-----
+  # on a compute node (NFS write-through matters):
   python3 simulations/robot/prepare_finetune_data.py
-  python3 simulations/robot/prepare_finetune_data.py --npz data/door_labels.npz --out data/
+  python3 simulations/robot/prepare_finetune_data.py \
+      --shard-glob "data/door_production_v4_train_Doors_*.npz" \
+      --img-subdir finetune_images_v4 \
+      --train-name train_v4.jsonl --val-name val_v4.jsonl
 """
 
 import argparse
+import glob
 import json
 import os
-import random
 import sys
 
 import numpy as np
 from PIL import Image
+from sklearn.model_selection import StratifiedShuffleSplit
 
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
 
-CLOSED_THRESHOLD_DEG = 5.0   # angles ≤ this → CLOSED  (matches VLM_fine-tuning.md)
-TRAIN_FRACTION       = 0.70  # 70/15/15 train/val/test split
-VAL_FRACTION         = 0.15  # test gets the remainder (also 0.15)
-JPEG_QUALITY         = 92    # JPEG compression quality for saved frames
+CLOSED_THRESHOLD_DEG = 5.0
+VAL_FRACTION         = 0.15
+JPEG_QUALITY         = 92
 VISION_TOKEN_STR     = "<|vision_start|><|image_pad|><|vision_end|>"
 
-USER_PROMPT    = f"{VISION_TOKEN_STR}Is this door open or closed?"
-CLOSED_ANSWER  = "Door Status: [CLOSED]."
-OPEN_ANSWER    = "Door Status: [OPEN]."
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def load_npz(npz_path: str):
-    data = np.load(npz_path, allow_pickle=False)
-    frames = data["frames"]    # (N, H, W, 3) uint8
-    # Support both key names: door_labels_static_multi_camera.npz uses "angles"
-    # (raw degrees), older door_labels.npz uses "labels" (normalized [0,1]).
-    if "angles" in data:
-        # angles are already in degrees; normalize to [0,1] range over 90°
-        labels = (data["angles"] / 90.0).astype(np.float32)
-    else:
-        labels = data["labels"]    # (N,) float32 in [0, 1]
-    return frames, labels
-
-
-def label_to_class(label: float) -> str:
-    """Convert normalized label [0,1] to OPEN/CLOSED string."""
-    return "CLOSED" if label * 90.0 <= CLOSED_THRESHOLD_DEG else "OPEN"
+USER_PROMPT   = f"{VISION_TOKEN_STR}Is this door open or closed?"
+CLOSED_ANSWER = "Door Status: [CLOSED]."
+OPEN_ANSWER   = "Door Status: [OPEN]."
 
 
 def make_conversation(answer: str) -> list:
@@ -85,117 +72,143 @@ def make_conversation(answer: str) -> list:
 
 
 # ---------------------------------------------------------------------------
+# Pass 1 — stream shards, write JPEGs, record metadata
+# ---------------------------------------------------------------------------
+
+def stream_shards(shard_paths, img_dir, out_dir):
+    meta = {k: [] for k in
+            ("angles", "door_ids", "angle_band", "light_idx", "rel_img_paths")}
+
+    for sp in shard_paths:
+        print(f"  Streaming {os.path.basename(sp)} ...", flush=True)
+        with np.load(sp, allow_pickle=False) as data:
+            frames     = data["frames"]
+            angles     = data["angles"].astype(np.float32)
+            angle_band = data["angle_band"].astype(np.int32)
+            light_idx  = data["light_idx"].astype(np.int32)
+            door_id    = str(data["door_id"])
+            n = len(frames)
+
+            rel_paths = np.empty(n, dtype=object)
+            for i in range(n):
+                img_name = f"{door_id}_{i:05d}.jpg"
+                img_path = os.path.join(img_dir, img_name)
+                if not os.path.isfile(img_path):
+                    Image.fromarray(frames[i]).save(
+                        img_path, "JPEG", quality=JPEG_QUALITY)
+                rel_paths[i] = os.path.relpath(img_path, out_dir)
+
+                if (i + 1) % 2000 == 0:
+                    print(f"    {i+1}/{n} ...", flush=True)
+
+            meta["angles"].append(angles)
+            meta["angle_band"].append(angle_band)
+            meta["light_idx"].append(light_idx)
+            meta["door_ids"].append(np.array([door_id] * n, dtype=object))
+            meta["rel_img_paths"].append(rel_paths)
+            print(f"    wrote {n} JPEGs for door={door_id}", flush=True)
+
+        del frames
+
+    return {k: np.concatenate(v) for k, v in meta.items()}
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
-
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--npz", default="data/door_labels_static_multi_camera.npz")
+    parser.add_argument("--shard-glob",
+                        default="data/door_production_v4_train_Doors_*.npz",
+                        help="Glob for production NPZ shards (defaults to train role only)")
     parser.add_argument("--out", default="data/")
+    parser.add_argument("--img-subdir", default="finetune_images_v4",
+                        help="Subdir under --out for JPEG frames")
+    parser.add_argument("--train-name", default="train_v4.jsonl")
+    parser.add_argument("--val-name",   default="val_v4.jsonl")
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
-    random.seed(args.seed)
-    np.random.seed(args.seed)
+    project_dir = os.path.abspath(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
-    npz_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "..", "..", args.npz
-    )
-    out_dir  = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "..", "..", args.out
-    )
-    img_dir  = os.path.join(out_dir, "finetune_images")
+    shard_glob_abs = os.path.join(project_dir, args.shard_glob)
+    out_dir        = os.path.join(project_dir, args.out)
+    img_dir        = os.path.join(out_dir, args.img_subdir)
     os.makedirs(img_dir, exist_ok=True)
 
-    if not os.path.isfile(npz_path):
-        print(f"ERROR: {npz_path} not found. Run nova_carter_door_collection.py first.")
+    shard_paths = sorted(glob.glob(shard_glob_abs))
+    if not shard_paths:
+        print(f"ERROR: no shards matched {shard_glob_abs}")
         sys.exit(1)
 
-    print(f"Loading {npz_path} ...")
-    frames, labels = load_npz(npz_path)
-    N = len(frames)
-    print(f"  {N} frames, label range [{labels.min():.3f}, {labels.max():.3f}]")
+    print(f"Found {len(shard_paths)} shards:")
+    for sp in shard_paths:
+        print(f"  {sp}")
+    print()
 
-    # Build per-class index lists for stratified split
-    closed_idx = [i for i, l in enumerate(labels) if label_to_class(l) == "CLOSED"]
-    open_idx   = [i for i, l in enumerate(labels) if label_to_class(l) == "OPEN"]
+    print("Streaming shards → JPEG + metadata ...")
+    meta = stream_shards(shard_paths, img_dir, out_dir)
+    N = len(meta["angles"])
+    print(f"\nTotal frames: {N}")
 
-    print(f"\nClass distribution before split:")
-    print(f"  CLOSED: {len(closed_idx):5d} ({100*len(closed_idx)/N:.1f}%)")
-    print(f"  OPEN:   {len(open_idx):5d} ({100*len(open_idx)/N:.1f}%)")
+    angles = meta["angles"]
+    cls = np.where(angles <= CLOSED_THRESHOLD_DEG, "CLOSED", "OPEN")
+    n_closed = int((cls == "CLOSED").sum())
+    n_open   = int((cls == "OPEN").sum())
+    print(f"  CLOSED: {n_closed:6d} ({100*n_closed/N:.1f}%)")
+    print(f"  OPEN:   {n_open:6d} ({100*n_open/N:.1f}%)")
 
-    if len(closed_idx) == 0:
-        print("\nERROR: No CLOSED frames found.")
-        print("  Re-run data collection with stratified episode sampling.")
-        sys.exit(1)
-    if len(open_idx) == 0:
-        print("\nERROR: No OPEN frames found.")
-        sys.exit(1)
+    print("\nPer-door frame counts:")
+    unique_doors, door_counts = np.unique(meta["door_ids"], return_counts=True)
+    for d, c in zip(unique_doors, door_counts):
+        print(f"  {d:<24s} {c:6d}")
 
-    # Stratified 70/15/15 split
-    random.shuffle(closed_idx)
-    random.shuffle(open_idx)
+    strat_key = np.array([
+        f"{d}|{b}|{l}" for d, b, l in
+        zip(meta["door_ids"], meta["angle_band"], meta["light_idx"])
+    ])
 
-    def split3(idx_list):
-        n = len(idx_list)
-        train_cut = int(n * TRAIN_FRACTION)
-        val_cut   = int(n * (TRAIN_FRACTION + VAL_FRACTION))
-        return idx_list[:train_cut], idx_list[train_cut:val_cut], idx_list[val_cut:]
+    splitter = StratifiedShuffleSplit(
+        n_splits=1, test_size=VAL_FRACTION, random_state=args.seed)
+    train_idx, val_idx = next(splitter.split(np.zeros(N), strat_key))
 
-    train_closed, val_closed, test_closed = split3(closed_idx)
-    train_open,   val_open,   test_open   = split3(open_idx)
+    rng = np.random.default_rng(args.seed)
+    rng.shuffle(train_idx)
+    rng.shuffle(val_idx)
 
-    train_idx = train_closed + train_open
-    val_idx   = val_closed   + val_open
-    test_idx  = test_closed  + test_open
-    random.shuffle(train_idx)
-    random.shuffle(val_idx)
-    random.shuffle(test_idx)
+    print(f"\nStratified split (train/val = {100*(1-VAL_FRACTION):.0f}/{100*VAL_FRACTION:.0f}):")
+    for name, idx in (("train", train_idx), ("val", val_idx)):
+        nc = int((cls[idx] == "CLOSED").sum())
+        no = int((cls[idx] == "OPEN").sum())
+        print(f"  {name:<5s} total={len(idx):6d}  "
+              f"CLOSED={nc} ({100*nc/len(idx):.1f}%)  "
+              f"OPEN={no} ({100*no/len(idx):.1f}%)")
 
-    print(f"\nSplit (70/15/15 stratified):")
-    print(f"  Train — CLOSED: {len(train_closed)}, OPEN: {len(train_open)}, total: {len(train_idx)}")
-    print(f"  Val   — CLOSED: {len(val_closed)},   OPEN: {len(val_open)},   total: {len(val_idx)}")
-    print(f"  Test  — CLOSED: {len(test_closed)},  OPEN: {len(test_open)},  total: {len(test_idx)}  [HELD OUT]")
-
-    # Save frames as JPEG and build JSONL records
-    def process_split(indices, jsonl_path, split_name):
-        records = []
-        for i, idx in enumerate(indices):
-            img_filename = f"frame_{idx:05d}.jpg"
-            img_path     = os.path.join(img_dir, img_filename)
-
-            if not os.path.isfile(img_path):
-                img = Image.fromarray(frames[idx])
-                img.save(img_path, "JPEG", quality=JPEG_QUALITY)
-
-            cls    = label_to_class(labels[idx])
-            answer = CLOSED_ANSWER if cls == "CLOSED" else OPEN_ANSWER
-            records.append({
-                "conversations": make_conversation(answer),
-                "image":         os.path.relpath(img_path, out_dir),
-            })
-
-            if (i + 1) % 500 == 0:
-                print(f"  [{split_name}] processed {i+1}/{len(indices)} ...")
-
+    def write_split(indices, jsonl_path, split_name):
         with open(jsonl_path, "w") as f:
-            for rec in records:
+            for idx in indices:
+                answer = CLOSED_ANSWER if cls[idx] == "CLOSED" else OPEN_ANSWER
+                rec = {
+                    "conversations": make_conversation(answer),
+                    "image":         meta["rel_img_paths"][idx],
+                }
                 f.write(json.dumps(rec) + "\n")
             f.flush()
-            os.fsync(f.fileno())   # force NFS write-through before finetune job reads
-        print(f"  Saved {len(records)} records → {jsonl_path}")
+            os.fsync(f.fileno())
+        print(f"  [{split_name}] {len(indices)} records → {jsonl_path}")
 
-    print(f"\nSaving frames to {img_dir} ...")
-    process_split(train_idx, os.path.join(out_dir, "train.jsonl"), "train")
-    process_split(val_idx,   os.path.join(out_dir, "val.jsonl"),   "val")
-    process_split(test_idx,  os.path.join(out_dir, "test.jsonl"),  "test")
+    train_path = os.path.join(out_dir, args.train_name)
+    val_path   = os.path.join(out_dir, args.val_name)
+    print()
+    write_split(train_idx, train_path, "train")
+    write_split(val_idx,   val_path,   "val")
 
     print("\nDone.")
-    print(f"  train.jsonl : {len(train_idx)} records  (70%)")
-    print(f"  val.jsonl   : {len(val_idx)} records  (15%)")
-    print(f"  test.jsonl  : {len(test_idx)} records  (15%) — held out for final eval")
-    print(f"  Images      : {img_dir}")
+    print(f"  {args.train_name} : {len(train_idx)} records  ({100*(1-VAL_FRACTION):.0f}%)")
+    print(f"  {args.val_name}   : {len(val_idx)} records  ({100*VAL_FRACTION:.0f}%)")
+    print(f"  Images           : {img_dir}")
 
 
 if __name__ == "__main__":

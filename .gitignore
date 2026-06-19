@@ -9,13 +9,80 @@ tb_logs/
 *.log
 /logs/
 
-# Large data artifacts — store on Rosie, not in git
-data/qwen2vl_door_lora/
-data/*.npz
-data/door_inspection_frames_*/
+# ── Raw image datasets (large, regenerate from collection scripts) ────────────
+data/finetune_images_v*/
+data/v1_single_door/
+data/door_b1_jpegs*/
+data/door_b2_jpegs*/
+data/door_test_*/
+data/door_hinge_test*/
+data/door_snapshots*/
+data/door_candidates/
+data/door_family_samples/
+data/door_labels_*_jpegs/
+data/lighting_test/
+data/material_*/
+data/render_comparison/
+data/vlm_baseline/
+data/vlm_comparison_plots/
+data/visual_review_grid*/
+data/glass_review_grid/
+data/camera_grid_preview/
+data/selected_doors_preview/
+data/variation_video_frames/
+data/black_image_review/
+data/c1_test_jpegs*/
+data/val_images_labeled*/
 data/door_static_sanity/
+data/door_inspection_frames_*/
+data/no_window_no_door_image/
+
+# ── Production textures (large, regenerate) ───────────────────────────────────
+data/production_textures_*/
+
+# ── Raw collection binaries ───────────────────────────────────────────────────
+data/*.npz
+*.npz
+frame_cache.npz
+data/train_v4_embeddings.npy
+data/*.npy
+
+# ── Model adapters (host on HuggingFace Hub — see README) ────────────────────
+data/qwen2vl_door_lora/
+data/qwen2vl_door_lora_dgx/
+data/qwen2vl_unified_lora_v4/
+data/qwen3vl_door_lora_v4_curated/
+data/qwen3vl_unified_lora_v4/
+data/*.tar.gz
+
+# ── Large binary / video artifacts ───────────────────────────────────────────
+data/*.mp4
+data/dh_doors_labels_check.mp4
+*.mp4
+vendor_libs/
+
+# ── Datasets that are too large or regenerable ───────────────────────────────
+data_glass/tanner_vlm_dataset/
+data_glass/tanner_vlm_dataset_balanced/
+data/sam2_checkpoints/
+
+# ── Stale / superseded JSONL splits ──────────────────────────────────────────
 data/train.jsonl
 data/val.jsonl
+data/val_bright_only.jsonl
+data/train_v3.jsonl
+data/val_v3.jsonl
+
+# ── Real photograph collections (too large for git; use LFS or host separately) ──
+dh_glass_panels/
+real_doors_final/
+val_real_doors/
+data/dh_doors/
+data/dh_doors_heic/
+data/dh_cracked_eval/
+
+# ── Misc ──────────────────────────────────────────────────────────────────────
 frames/
 frames_external_camera/
-frame_cache.npz
+Dr.riley_notes/
+public_safety_notes/

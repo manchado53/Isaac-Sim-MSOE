@@ -8,7 +8,7 @@ simulation_app = SimulationApp({"headless": True})
 from pxr import Usd, UsdGeom
 
 _project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-usd_path = os.path.join(_project_dir, "innovation_center_finalV1.usd")
+usd_path = os.path.join(_project_dir, "MSOEBuildingV4_physics.usd")
 stage = Usd.Stage.Open(usd_path)
 
 # Collect XY of mesh prims at the known floor levels (Z between 10 and 35)

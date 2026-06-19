@@ -1,0 +1,243 @@
+{
+  "mode": "BASELINE (no fine-tuning)",
+  "model": "OpenGVLab/InternVL3-2B-hf",
+  "model_class": "internvl3",
+  "adapter": null,
+  "val_jsonl": "data/val.jsonl",
+  "n_samples": 20,
+  "overall_accuracy": 0.5,
+  "closed_accuracy": 0.7777777777777778,
+  "open_accuracy": 0.2727272727272727,
+  "precision": 0.6,
+  "recall": 0.2727272727272727,
+  "f1": 0.37499999999999994,
+  "unknown_count": 0,
+  "confusion": {
+    "tp": 3,
+    "tn": 7,
+    "fp": 2,
+    "fn": 8
+  },
+  "per_sample": [
+    {
+      "index": 0,
+      "image": "finetune_images_v2/Doors_7171063_01968.jpg",
+      "true_label": "OPEN",
+      "predicted": "CLOSED",
+      "correct": false,
+      "response": "Door Status: [CLOSED].",
+      "p_closed": 0.9999324679374695,
+      "p_open": 6.302850670181215e-05,
+      "confidence": 0.9999324679374695
+    },
+    {
+      "index": 1,
+      "image": "finetune_images_v2/Doors_7171063_03579.jpg",
+      "true_label": "CLOSED",
+      "predicted": "CLOSED",
+      "correct": true,
+      "response": "Door Status: [CLOSED].",
+      "p_closed": 0.9999179244041443,
+      "p_open": 7.602618279634044e-05,
+      "confidence": 0.9999179244041443
+    },
+    {
+      "index": 2,
+      "image": "finetune_images_v2/Doors_10649156_05336.jpg",
+      "true_label": "OPEN",
+      "predicted": "CLOSED",
+      "correct": false,
+      "response": "Door Status: [CLOSED].",
+      "p_closed": 0.9984435439109802,
+      "p_open": 0.001524794497527182,
+      "confidence": 0.9984435439109802
+    },
+    {
+      "index": 3,
+      "image": "finetune_images_v2/Doors_8286057_05340.jpg",
+      "true_label": "OPEN",
+      "predicted": "OPEN",
+      "correct": true,
+      "response": "Door Status: [OPEN].",
+      "p_closed": 0.1732649952173233,
+      "p_open": 0.8265993595123291,
+      "confidence": 0.8265993595123291
+    },
+    {
+      "index": 4,
+      "image": "finetune_images_v2/Doors_3135827_01419.jpg",
+      "true_label": "OPEN",
+      "predicted": "CLOSED",
+      "correct": false,
+      "response": "Door Status: [CLOSED].",
+      "p_closed": 0.9997203350067139,
+      "p_open": 0.00026541168335825205,
+      "confidence": 0.9997203350067139
+    },
+    {
+      "index": 5,
+      "image": "finetune_images_v2/Doors_13606466_01318.jpg",
+      "true_label": "CLOSED",
+      "predicted": "CLOSED",
+      "correct": true,
+      "response": "Door Status: [CLOSED].",
+      "p_closed": 0.5504016876220703,
+      "p_open": 0.4492048919200897,
+      "confidence": 0.5504016876220703
+    },
+    {
+      "index": 6,
+      "image": "finetune_images_v2/Doors_13606466_02215.jpg",
+      "true_label": "CLOSED",
+      "predicted": "CLOSED",
+      "correct": true,
+      "response": "Door Status: [CLOSED].",
+      "p_closed": 0.967319130897522,
+      "p_open": 0.032586127519607544,
+      "confidence": 0.967319130897522
+    },
+    {
+      "index": 7,
+      "image": "finetune_images_v2/Doors_13606056_03712.jpg",
+      "true_label": "OPEN",
+      "predicted": "OPEN",
+      "correct": true,
+      "response": "Door Status: [OPEN].",
+      "p_closed": 0.005469524301588535,
+      "p_open": 0.9944987297058105,
+      "confidence": 0.9944987297058105
+    },
+    {
+      "index": 8,
+      "image": "finetune_images_v2/Doors_8286057_04847.jpg",
+      "true_label": "OPEN",
+      "predicted": "OPEN",
+      "correct": true,
+      "response": "Door Status: [OPEN].",
+      "p_closed": 0.2974233329296112,
+      "p_open": 0.7023394107818604,
+      "confidence": 0.7023394107818604
+    },
+    {
+      "index": 9,
+      "image": "finetune_images_v2/Doors_3135827_04392.jpg",
+      "true_label": "CLOSED",
+      "predicted": "CLOSED",
+      "correct": true,
+      "response": "Door Status: [CLOSED].",
+      "p_closed": 0.986297607421875,
+      "p_open": 0.013635720126330853,
+      "confidence": 0.986297607421875
+    },
+    {
+      "index": 10,
+      "image": "finetune_images_v2/Doors_13606466_02966.jpg",
+      "true_label": "CLOSED",
+      "predicted": "CLOSED",
+      "correct": true,
+      "response": "Door Status: [CLOSED].",
+      "p_closed": 0.9839210510253906,
+      "p_open": 0.015906544402241707,
+      "confidence": 0.9839210510253906
+    },
+    {
+      "index": 11,
+      "image": "finetune_images_v2/Doors_3135827_01281.jpg",
+      "true_label": "CLOSED",
+      "predicted": "OPEN",
+      "correct": false,
+      "response": "Door Status: [OPEN].",
+      "p_closed": 0.02716967836022377,
+      "p_open": 0.9727968573570251,
+      "confidence": 0.9727968573570251
+    },
+    {
+      "index": 12,
+      "image": "finetune_images_v2/Doors_3135827_01318.jpg",
+      "true_label": "CLOSED",
+      "predicted": "OPEN",
+      "correct": false,
+      "response": "Door Status: [OPEN].",
+      "p_closed": 0.11122492700815201,
+      "p_open": 0.888618528842926,
+      "confidence": 0.888618528842926
+    },
+    {
+      "index": 13,
+      "image": "finetune_images_v2/Doors_12302795_03467.jpg",
+      "true_label": "OPEN",
+      "predicted": "CLOSED",
+      "correct": false,
+      "response": "Door Status: [CLOSED].",
+      "p_closed": 0.9985975027084351,
+      "p_open": 0.00138851348310709,
+      "confidence": 0.9985975027084351
+    },
+    {
+      "index": 14,
+      "image": "finetune_images_v2/Doors_13606466_00281.jpg",
+      "true_label": "OPEN",
+      "predicted": "CLOSED",
+      "correct": false,
+      "response": "Door Status: [CLOSED].",
+      "p_closed": 0.8932042717933655,
+      "p_open": 0.10667721927165985,
+      "confidence": 0.8932042717933655
+    },
+    {
+      "index": 15,
+      "image": "finetune_images_v2/Doors_10649156_01934.jpg",
+      "true_label": "OPEN",
+      "predicted": "CLOSED",
+      "correct": false,
+      "response": "Door Status: [CLOSED].",
+      "p_closed": 0.9999760389328003,
+      "p_open": 2.046337613137439e-05,
+      "confidence": 0.9999760389328003
+    },
+    {
+      "index": 16,
+      "image": "finetune_images_v2/Doors_13606056_00837.jpg",
+      "true_label": "CLOSED",
+      "predicted": "CLOSED",
+      "correct": true,
+      "response": "Door Status: [CLOSED].",
+      "p_closed": 0.7309693694114685,
+      "p_open": 0.268876850605011,
+      "confidence": 0.7309693694114685
+    },
+    {
+      "index": 17,
+      "image": "finetune_images_v2/Doors_12590968_02919.jpg",
+      "true_label": "OPEN",
+      "predicted": "CLOSED",
+      "correct": false,
+      "response": "Door Status: [CLOSED].",
+      "p_closed": 0.9978968501091003,
+      "p_open": 0.0020829669665545225,
+      "confidence": 0.9978968501091003
+    },
+    {
+      "index": 18,
+      "image": "finetune_images_v2/Doors_10649156_04140.jpg",
+      "true_label": "OPEN",
+      "predicted": "CLOSED",
+      "correct": false,
+      "response": "Door Status: [CLOSED].",
+      "p_closed": 0.9999814629554749,
+      "p_open": 1.618798887648154e-05,
+      "confidence": 0.9999814629554749
+    },
+    {
+      "index": 19,
+      "image": "finetune_images_v2/Doors_13606466_06326.jpg",
+      "true_label": "CLOSED",
+      "predicted": "CLOSED",
+      "correct": true,
+      "response": "Door Status: [CLOSED].",
+      "p_closed": 0.9944750666618347,
+      "p_open": 0.005470830015838146,
+      "confidence": 0.9944750666618347
+    }
+  ]
+}
