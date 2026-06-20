@@ -57,15 +57,15 @@ Tracks all Nova Carter Patrol training runs with their configurations, results, 
 | [TBD (Job 240869)](#tbd-job-240869) | 240869 | — | — | — | Running |
 | [EVAL: 2026-04-06_02-35-55 latest_model_stage3.zip (scenarios)](#eval-240875) | 240875 | — | — | latest_model_stage3.zip | Running (scenario eval) |
 | [TBD (Job 241387)](#tbd-job-241387) | 241387 | — | — | — | Running |
-| [TBD (Job 241962)](#tbd-job-241962) | 241962 | — | — | — | Running |
+| [2026-04-10_01-00-34 (Job 241962)](#tbd-job-241962) | 241962 | — | — | — | Running |
 
 ---
 
 ## Detailed Run Notes
 
-### TBD-Job-241962
+### 2026-04-10_01-00-34 (Job 241962)
 - **Job**: 241962 | **Logs**: `training/logs/train_241962.out/.err`
-- **Weights**: `training/logs/sb3/NovaCarter-Patrol/TBD (Job 241962)/`
+- **Weights**: `training/logs/sb3/NovaCarter-Patrol/2026-04-10_01-00-34/`
 - **Partition**: teaching (T4, 7-day time limit)
 - **What changed**: All curriculum stage durations doubled (stage1: 51200→102400 steps, stage2: 128000→256000 steps, stage3: 230400→460800 steps). Time limit increased from 12h → 7 days.
 - **Why**: Previous 12h runs timed out before reaching Stage 3/4 with original stage lengths. Doubling stage lengths requires ~900 iters to complete all transitions; needed 7-day window to allow the robot to experience all 4 curriculum stages.
