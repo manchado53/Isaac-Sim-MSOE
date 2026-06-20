@@ -5,7 +5,8 @@ __pycache__/
 checkpoints/
 tb_logs/
 .claude/
-docs/
+docs/*
+!docs/paper/
 images/
 datasets/
 *.usd
