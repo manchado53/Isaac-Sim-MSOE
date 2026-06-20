@@ -1,5 +1,9 @@
 # Revit to Robot: BIM-Derived Digital Twins for Sim-to-Real Autonomous Building Patrol
 
+> **Submission target:** WACV 2027 — **Applications track**
+> (subject area: *Other* — none of the listed Applications domains fit cleanly).
+> Round 2 deadline: registration Aug 21, 2026 / paper Aug 28, 2026.
+
 ## Abstract
 
 Autonomous indoor service robots are normally trained only after a building is
