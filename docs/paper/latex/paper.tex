@@ -36,11 +36,11 @@
 Sim-to-Real Autonomous Building Patrol}
 
 \author{%
-Owen Pacetti \quad Steven Thomas \quad Joseph Loduca \quad Nicolas Picha\\
-Tanner Cellio \quad Diego Gonzalo \quad Delsoro Some \quad Adrian Manchado\thanks{Corresponding author.}\\
+Adrian Manchado\thanks{Corresponding author.} \quad Tanner Cellio \quad Owen Pacetti \quad Steven Thomas\\
+Joseph Loduca \quad Nicolas Picha \quad Diego Gonzalo \quad Delsoro Some\\
 College of Dwight and Dian Diercks School of Advanced Computing\\
 Milwaukee School of Engineering, 1025 N Broadway St, Milwaukee, WI 53202\\
-{\tt\small \{pacettio, manchadoa\}@msoe.edu}
+{\tt\small \{manchadoa, celliot, pacettio, thomasst, loducaj, pichan, gonzaloborged, somed\}@msoe.edu}
 }
 
 \begin{document}
@@ -150,11 +150,11 @@ building imagery at over $90\%$ accuracy.
 
 \begin{figure}[t]
   \centering
-  \figbox{3.2cm}{[FIGURE 1: Overview of the integrated BIM-to-Robot pipeline ---
-  Revit/BIM $\rightarrow$ Omniverse/USD $\rightarrow$ physics-accurate digital
-  twin $\rightarrow$ \{SWAGGER navigation graph + TSP route, Nav2 local
-  navigation, Qwen3-VL anomaly perception\} $\rightarrow$ Nova Carter patrol.]}
-  \caption{Overview of the integrated BIM-to-Robot pipeline.}
+  \includegraphics[width=0.86\linewidth]{figures/fig_overview.pdf}
+  \caption{Overview of the integrated BIM-to-Robot pipeline. A single Autodesk
+  Revit model becomes a physics-accurate Isaac Sim digital twin that feeds three
+  streams --- navigation-graph routing, ROS\,2 Nav2 local navigation, and
+  Qwen3-VL anomaly perception --- converging on an autonomous Nova Carter patrol.}
   \label{fig:overview}
 \end{figure}
 
@@ -233,6 +233,20 @@ MSOE from Ramlow Stein Architecture and Interior in Revit 2024
 format~\cite{msoe2026construction}. The Revit file was 818~MB and was pared down
 to $\approx35$~MB by deleting elements unnecessary for navigation and perception;
 the elements retained were walls, floors, ceilings, railings, doors, and stairs.
+\Cref{fig:twin} shows the resulting digital twin rendered in Isaac Sim, with the
+building's signature red-mullioned curtain wall and brick massing preserved from
+the architectural model.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/innovation_center_exterior.png}
+  \caption{The Robert D. Kern Engineering Innovation Center as a physics-accurate
+  digital twin in NVIDIA Isaac Sim, rendered from the BIM-derived USD. The
+  red-mullioned curtain wall, brick massing, landscaping, and per-floor interior
+  structure are carried over directly from the Revit model --- the same geometry
+  the robot navigates and the onboard camera perceives.}
+  \label{fig:twin}
+\end{figure}
 
 \subsection{Scene Preparation}
 
@@ -316,7 +330,8 @@ conversion.
 
 \noindent\textbf{Door labeling and route planning.}
 Using each door's position, the nearest graph node is labeled a \emph{door node}
-(e.g., 54 door nodes on floor~4). A patrol that inspects every door is then a
+(e.g., 57 doors collapsing to 47 unique door nodes on floor~4). A patrol that
+inspects every door is then a
 traveling-salesman problem (TSP) over the door nodes. We first run
 \textbf{Dijkstra's algorithm}~\cite{dijkstra1959note} from each node to build a
 complete all-pairs distance table that reflects true travel distance through
@@ -330,14 +345,18 @@ corridor path via Dijkstra shortest path, and the entire expanded waypoint
 sequence is handed to the navigation stack as a single goal
 (\cref{sec:nav2}).
 
-\begin{figure}[t]
+\begin{figure*}[t]
   \centering
-  \figbox{4.0cm}{[FIGURE 4: Floor-4 occupancy map with the SWAGGER navigation
-  graph overlaid, door nodes highlighted, and the 2-opt-optimized
-  door-inspection tour drawn through the corridors.]}
-  \caption{Occupancy map, navigation graph, and optimized door-inspection route.}
+  \includegraphics[width=0.92\linewidth]{figures/fig_navgraph.pdf}
+  \caption{Occupancy map, navigation graph, and optimized door-inspection route
+  on Innovation Center floor~4. (a)~the SWAGGER navigation graph (219 nodes /
+  226 edges) with the 57 doors marked at their true world positions (each door is
+  assigned the nearest graph node, giving 47 unique door nodes for the tour);
+  (b)~the door-inspection tour (greedy nearest-neighbor + 2-opt) expanded by
+  Dijkstra shortest paths into the 210-waypoint route the robot actually drives
+  through the corridors.}
   \label{fig:navgraph}
-\end{figure}
+\end{figure*}
 
 \subsection{Local Navigation with ROS\,2 Nav2}
 \label{sec:nav2}
@@ -402,10 +421,14 @@ multi-pose tour tolerates small drift.
 
 \begin{figure}[t]
   \centering
-  \figbox{3.6cm}{[FIGURE 5: Nav2 in action --- global plan (SWAGGER route), local
-  DWB trajectory, and LiDAR costmap as the robot avoids an obstacle placed in a
-  corridor (Foxglove capture).]}
-  \caption{Nav2 local planning and obstacle avoidance inside the twin.}
+  \includegraphics[width=\linewidth]{figures/fig_nav2.pdf}
+  \caption{The deployed stack in action: real frames from a floor-4 patrol run
+  in which ROS\,2 Nav2 autonomously drives the Nova Carter robot between
+  inspection waypoints in the BIM-derived twin. (a) Third-person follow camera
+  with the robot stopped at a glass-door waypoint; (b) its forward-facing
+  first-person camera---the input to the VLM (\cref{sec:vlm})---viewing the
+  closed glass door it has reached. Both are rendered sensor streams from the
+  same run, not illustrations.}
   \label{fig:nav2}
 \end{figure}
 
@@ -447,9 +470,25 @@ stay consistent. Three crack styles provide variety: a physics-grounded
 \emph{tempered} style (Voronoi tessellation matching real tempered-glass
 fracture), an \emph{impact} style (spider-web cracks generated by Stable Diffusion
 XL line-art passed through a Sobel filter into a normal map), and an \emph{edge}
-style (a branching random walk from a panel edge). Domain randomization spans
-lighting presets, the fraction of panels cracked per frame, the tiling/impact-
-point toggle, and camera pose.
+style (a branching random walk from a panel edge), all illustrated on the same
+panel in \cref{fig:synthdata}. Domain randomization spans lighting presets, the
+fraction of panels cracked per frame, the tiling/impact-point toggle, and camera
+pose.
+
+\begin{figure*}[t]
+  \centering
+  % TODO(figure): swap these tight crops of the panel00 renders for the
+  % real high-res heavy-shatter frames from datasets/cracked_glass/<run>/rgb/
+  % (on another machine; not in this checkout). Regenerate via
+  % docs/paper/figures_src/make_synthdata.py.
+  \includegraphics[width=0.92\linewidth]{figures/fig_synthdata.pdf}
+  \caption{Synthetic anomaly data rendered from the digital twin's onboard
+  robot camera. The same curtain-wall panel is shown intact and with the three
+  crack styles (tempered Voronoi, impact spider-web, edge random-walk). Because
+  the anomaly is programmed into the twin, every frame carries an exact,
+  free ground-truth label.}
+  \label{fig:synthdata}
+\end{figure*}
 
 The \textbf{door pipeline} holds a door at a fixed angle per episode and captures
 frames from a multi-camera arc; per-episode angle randomization produces a smooth
@@ -516,13 +555,29 @@ spawned in corridors at known world coordinates. With the tuned parameters of
 the Nav2 behavior tree; with the upstream defaults it either disables its
 emergency stop or drives through obstacles, motivating the changes we report.
 
-\noindent\emph{[TODO: insert quantitative route-execution results --- per-scale
-route completion rate, mean path length vs.\ graph-optimal, number of recovery
-behaviors triggered, and obstacle-avoidance success --- once the Nav2 evaluation
-runs are tabulated.]}
+A full quantitative characterization --- per-scale route completion rate, mean
+path length relative to the graph-optimal tour, number of recovery behaviors
+triggered, and obstacle-avoidance success rate --- is the focus of an ongoing
+evaluation campaign and is the primary remaining gap before physical deployment.
 
 \subsection{Vision-Language Perception Evaluation}
 \label{sec:vlm-eval}
+
+\begin{figure*}[t]
+  \centering
+  % TODO(figure): door/glass held-out cell counts are reconstructed under a
+  % balanced-class assumption (the eval IS stratified 50/50, so this is exact in
+  % method, +/-1 from rounded per-class %). Replace with exact integers from
+  % data/finetuned_eval_results.json (on another machine) when available.
+  \includegraphics[width=0.82\linewidth]{figures/fig_confusion.pdf}
+  \caption{Confusion matrices for the fine-tuned Qwen3-VL-2B model on the
+  held-out door, held-out glass, and real-world Diercks Hall door test sets
+  (rows: true class; cells: count and per-class recall). The real-world split is
+  exact; counts for the two synthetic splits are reconstructed from the reported
+  per-class accuracies under a balanced-class assumption, which reproduces the
+  overall accuracies of \cref{tab:vlm}.}
+  \label{fig:vlm}
+\end{figure*}
 
 \noindent\textbf{Model selection (zero-shot baselines).}
 We first evaluated several small open VLMs zero-shot on synthetic door frames. No
@@ -553,8 +608,11 @@ smallest deployable option (\cref{tab:baselines}).
 After LoRA + projector co-training, the unified Qwen3-VL-2B model reaches
 $\mathbf{97.4\%}$ on held-out door frames ($n=4{,}472$; open $97.4\%$, closed
 $97.4\%$) and $\mathbf{97.2\%}$ on held-out glass frames ($n=810$; cracked
-$98.8\%$, intact $95.6\%$). \Cref{tab:vlm} summarizes performance across test
-sets, including the out-of-distribution and real-world transfer tests.
+$98.8\%$, intact $95.6\%$). The glass gain is the clearest evidence that
+fine-tuning, not the base model, does the work: zero-shot glass accuracy is only
+$37.6\%$ (near chance), which co-training lifts to $97.2\%$. \Cref{tab:vlm}
+summarizes performance across test sets, including the out-of-distribution and
+real-world transfer tests.
 
 \begin{table}[t]
   \centering
@@ -564,13 +622,16 @@ sets, including the out-of-distribution and real-world transfer tests.
     \textbf{Test set} & $\mathbf{n}$ & \textbf{Zero-shot} & \textbf{Fine-tuned} \\
     \midrule
     Door (held-out frames)         & 4{,}472 & ---     & \textbf{97.4\%} \\
-    Glass (held-out frames)        &   810   & ---     & \textbf{97.2\%} \\
+    Glass (held-out frames)        &   810   & 37.6\%  & \textbf{97.2\%} \\
     Door (held-out inst./swing)    & 7{,}776 & 84.1\%  & \textbf{90.2\%} \\
     Real-world doors (Diercks Hall)&   100   & ---     & \textbf{93.0\%} \\
+    Real-world glass (Diercks Hall)$^{\dagger}$ & 100 & --- & \textbf{81.0\%} \\
     \bottomrule
   \end{tabular}
   \caption{Fine-tuned Qwen3-VL-2B accuracy across held-out, out-of-distribution,
-  and real-world test sets.}
+  and real-world test sets. $^{\dagger}$The real-world glass set comprises
+  photographs of intact glass in Diercks Hall with crack patterns applied by a
+  diffusion model (Gemini), not photographs of physically cracked glass.}
   \label{tab:vlm}
 \end{table}
 
@@ -589,16 +650,14 @@ We tested on \textbf{100 real photographs of doors in Diercks Hall}, an existing
 MSOE building designed by the same architect with the same general design language
 as the Innovation Center. Trained only on synthetic imagery, the model reaches
 $\mathbf{93.0\%}$ (closed $100\%$, open $88.3\%$), confirming that the
-digital-twin-only training pipeline transfers to real buildings.
-
-\begin{figure}[t]
-  \centering
-  \figbox{3.6cm}{[FIGURE 8: Confusion matrices for the fine-tuned model on the
-  held-out door and glass test sets, plus example real-world Diercks Hall frames
-  with predictions.]}
-  \caption{Fine-tuned perception results and real-world transfer examples.}
-  \label{fig:vlm}
-\end{figure}
+digital-twin-only training pipeline transfers to real buildings. We additionally
+evaluated glass on $100$ Diercks Hall images in which a diffusion model (Gemini)
+applied crack patterns to photographs of intact glass --- a semi-synthetic test,
+since physically cracked glass cannot be staged on demand. Here the model reaches
+$\mathbf{81.0\%}$ (intact $100\%$, cracked $62.0\%$): real-glass intact frames
+transfer perfectly, but the diffusion-applied cracks differ enough from the twin's
+procedural cracks that cracked-glass recall drops, indicating the glass branch is
+more sensitive to the crack-appearance domain gap than the door branch.
 
 \section{Discussion}
 
@@ -610,8 +669,10 @@ and stairwells are not yet integrated into the graph. The BIM-to-USD conversion
 still requires some manual intervention for certain Revit export conditions, which
 bounds how quickly a new building can be onboarded. Quantitative Nav2
 route-execution metrics are still being tabulated. Finally, the strongest
-perception result is on doors; the cracked-glass model is validated on synthetic
-held-out frames but not yet on real cracked-glass photographs.
+perception result is on doors; cracked-glass detection is validated on synthetic
+held-out frames ($97.2\%$) and on diffusion-edited real-glass imagery ($81.0\%$,
+with cracked recall falling to $62.0\%$), but not yet on photographs of physically
+cracked glass --- closing that crack-appearance domain gap is future work.
 
 \subsection{Sim-to-Real Transfer}
 Using the same Nova Carter platform and ROS\,2 command interface in simulation and
