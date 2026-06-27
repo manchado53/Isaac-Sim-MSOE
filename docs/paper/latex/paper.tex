@@ -56,10 +56,10 @@ Starting from Revit/BIM models of the MSOE campus, we automatically convert
 architecture into simulation-ready USD digital twins in NVIDIA Isaac Sim,
 applying triangle-mesh colliders to static structure (walls, floors, glazing,
 stairs) and articulated revolute joints with calibrated hinge offsets and motor
-torque to make every door functional. From each twin we extract a 2D occupancy
-map by ray-tracing the model from 125 vantage points
-($129\,\text{m}\times142\,\text{m}$, $98.4\%$ floor coverage), place a navigation
-graph with NVIDIA SWAGGER, and compute an efficient door-inspection patrol route
+torque to make every hinged door functional. From each twin we extract a 2D
+occupancy map by ray-tracing the model from 75--175 vantage points per floor
+($102.6\,\text{m}\times100.3\,\text{m}$, ${\sim}99\%$ floor coverage), place a
+navigation graph with NVIDIA SWAGGER, and compute an efficient door-inspection patrol route
 via Dijkstra distance tables refined with greedy nearest-neighbor and 2-opt
 search (a traveling-salesman formulation). A differential-drive Nova Carter robot
 (``ROSCOE'') drives this route with the ROS\,2 Nav2 stack, using its onboard
@@ -280,9 +280,8 @@ workflow.
 Doors required particular care. An initial approach that guessed the hinge
 location produced doors that clipped into walls. The working solution places the
 hinge at the vertical edge of the door with a slight offset to avoid colliding
-with the door's bounding box, and applies a drive motor whose minimum torque is
-set from the door's moment of inertia and width so the leaf opens cleanly on
-command. The full physics process --- element categorization, collider and
+with the door's bounding box, and applies a drive motor with a per-class torque
+limit (single- vs.\ double-leaf) tuned so the leaf opens cleanly on command. The full physics process --- element categorization, collider and
 material assignment, and door articulation --- is implemented as a
 \textbf{replicable, automated pipeline} that runs on any Revit-exported USD, which
 is what makes the six-building digital campus feasible (\cref{sec:eval}).
@@ -301,10 +300,13 @@ grid of origin points. Each cell is labeled free, occupied, or unknown. Door
 primitives are excluded from the collision layer during scanning so rays can pass
 through doorways and reach inside rooms. The scanner runs multiple passes, seeding
 additional origin points inside remaining unknown regions and stopping
-automatically once less than $\sim0.5\%$ of the floor grid is unknown. Across the
-Innovation Center this yields \textbf{125 scan origins} over a
-$129\,\text{m}\times142\,\text{m}$ footprint with $\mathbf{98.4\%}$ floor
-coverage, leaving under $2\%$ unknown per floor ($0.6\%$ on floor~4). Maps are
+automatically once the unknown fraction drops below $\sim0.5\%$ of the floor grid
+or stops improving between passes (a handful of cells behind walls remain
+permanently unreachable). Across the Innovation Center this uses
+\textbf{75--175 scan origins per floor} (125 on floor~4) over a
+$102.6\,\text{m}\times100.3\,\text{m}$ footprint, leaving under $2\%$ of each
+floor grid unknown ($0.86\%$ on floor~4) for $\mathbf{{\sim}99\%}$ mean floor
+coverage. Maps are
 produced at $0.05$~m/pixel and exported as a grayscale PNG (black = wall, white =
 free, grey = unknown), a NumPy array, and a metadata file. The PNG is written in
 the ROS \texttt{map\_server} convention (row~0 = world $y_{\max}$; origin is the
@@ -378,7 +380,7 @@ We use it because it has a validated USD model in the NVIDIA asset library and a
 native ROS\,2 driver, so the same platform and command interface are used in
 simulation and (planned) physical deployment, minimizing the sim-to-real gap for
 locomotion. For perception we additionally mount a forward-facing first-person RGB
-camera ($640\times480$, $20$~fps, $5$~mm focal length) that always points in the
+camera ($640\times480$, $15$~fps, $5$~mm focal length) that always points in the
 direction of travel; this is the input to the VLM (\cref{sec:vlm}).
 
 \noindent\textbf{Sensing and localization.}
@@ -536,8 +538,9 @@ across levels.
 \subsection{Navigation Graph Coverage}
 
 Occupancy maps were produced for all four above-ground floors. Unknown cells
-ranged from $0.6\%$ (floor~4) to under $2\%$ (floor~1), with $98.4\%$ overall
-floor coverage at $0.05$~m/pixel. We validated floor~4 by overlaying the computed
+ranged from $0.47\%$ (floor~1) to $1.65\%$ (floor~2) --- under $2\%$ on every
+floor --- for ${\sim}99\%$ mean floor coverage at $0.05$~m/pixel ($0.86\%$
+unknown on floor~4). We validated floor~4 by overlaying the computed
 world coordinates onto the occupancy image and confirming in NVIDIA Omniverse that
 every navigation node falls in free space, not inside walls or obstacles. Route
 correctness was demonstrated with Dijkstra's shortest path traversing the full
