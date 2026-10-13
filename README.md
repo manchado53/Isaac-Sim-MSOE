@@ -13,7 +13,7 @@ Student research project at the Milwaukee School of Engineering (MSOE). The targ
 
 - **BIM → USD → Isaac Sim pipeline.** Turns the Revit 2024 model into a simulation-ready twin with collision geometry, articulated doors, and semantic labels.
 - **Synthetic data with free labels.** Door open/closed and glass cracked/intact frames come out of the simulator already labeled, with domain randomization (lighting, viewpoint, door families, crack styles).
-- **Fine-tuned VLM** (`Qwen/Qwen3-VL-2B-Instruct` + LoRA). Trained on synthetic renders only. **97.4% / 97.2%** on held-out *synthetic* door / glass frames. **93.0%** on 100 *real* door photos from an existing campus building ([results](#results)).
+- **Fine-tuned VLM** (`Qwen/Qwen3-VL-2B-Instruct` + LoRA). Trained on synthetic renders only. **97.4% / 97.2%** on held-out *synthetic* door / glass frames. **93.0%** on 100 *real* door photos from an existing campus building, where the base model already scored 100% ([results](#results)).
 - **DINOv2-based data curation.** Stratified k-means on DINOv2 embeddings picks a diverse, label-balanced training subset.
 - **Autonomous patrol in the twin.** Occupancy maps → NVIDIA SWAGGER navigation graph → traveling-salesman door-inspection route → ROS 2 Nav2 drives a simulated Nova Carter with 360° LiDAR.
 - **Runs headless at scale** on MSOE's **Rosie** supercomputer (SLURM; T4 and V100 GPUs).
@@ -105,16 +105,36 @@ Revit model ──► USD ──► Isaac Sim twin ──► labeled camera fram
 
 ## Results
 
-> **Read this first:** the "held-out" door and glass numbers are on **simulated (synthetic) images**. The real-world number is a small 100-photo door test. Navigation results have not been tabulated yet.
+> **Read this first:** the first three rows are **simulated (synthetic) images**. The real-world row is a small 100-photo door test. Navigation results have not been tabulated yet.
 
-| Test set | n | Zero-shot | Fine-tuned |
-|---|---|---|---|
-| Door, held-out frames (**synthetic**) | 4,472 | — | **97.4%** |
-| Glass, held-out frames (**synthetic**) | 810 | — | **97.2%** |
-| Door, held-out door instance / swing (**synthetic**) | 7,776 | 84.1% | **90.2%** |
-| Real-world door photos (Diercks Hall, MSOE) | 100 | — | **93.0%** |
+Qwen3-VL-2B-Instruct, before (zero-shot) and after fine-tuning:
 
-- Real-world door test: closed 100%, open 88.3%. Diercks Hall is an existing MSOE building from the same architect, with the same design language.
+| Test set | n | Zero-shot | Fine-tuned | Change |
+|---|---|---|---|---|
+| Door, held-out frames (**synthetic**) | 4,472 | 74.9% | **97.4%** | +22.5 |
+| Glass, held-out frames (**synthetic**) | 810 | 37.5% | **97.2%** | +59.7 |
+| Door, unseen door instance / swing (**synthetic**) | 7,776 | 84.1% | **90.2%** | +6.1 |
+| Real-world door photos (Diercks Hall, MSOE) | 100 | 100.0% | 93.0% | −7.0 |
+
+- **Fine-tuning fixed what the base model couldn't do.** Cracked vs. intact glass went from 37.5% to 97.2%. Synthetic door frames went from 74.9% to 97.4%.
+- **On real door photos it lost ground.** The base model already got all 100 right. The fine-tuned model got 93: every closed door right, 88.3% of open doors. Training only on synthetic images cost some accuracy on this easy real set. Closing that gap is the first item under [What's next](#whats-next).
+- Diercks Hall is an existing MSOE building from the same architect, with the same design language.
+
+**Picking the base model.** We compared six small open VLMs zero-shot on synthetic door frames. None was usable as-is; Qwen3-VL-2B was the best and the smallest:
+
+| Model | Params | Zero-shot accuracy |
+|---|---|---|
+| **Qwen3-VL-2B-Instruct** | 2B | **69.3%** |
+| Qwen2.5-VL-7B-Instruct\* | 7B | 68.7% |
+| Qwen2.5-VL-3B-Instruct | 3B | 64.9% |
+| InternVL3-2B | 2B | 62.9% |
+| Qwen2-VL-2B-Instruct | 2B | 62.1% |
+| SmolVLM2-2.2B-Instruct\* | 2.2B | 62.1% |
+
+<sub>\*Evaluated on the brighter-lighting subset only. This comparison used a different synthetic door set than the table above, so the Qwen3-VL numbers differ.</sub>
+
+Raw results: `data/*.json` on the `tanner_vlm` branch (`eval_baseline_unified.json`, `holdout_eval_qwen3vl_2b_unified_v4_*.json`, `dh_doors_eval_qwen3vl_2b_unified_v4_*.json`).
+
 - Scale: the pipeline was applied to a six-building digital campus, using over 3,500 GPU jobs and about 2,000 GPU-hours on Rosie.
 <!-- TODO(Adrian): add Nav2 patrol metrics (route completion, collisions, time per tour) once tabulated. -->
 
@@ -133,6 +153,7 @@ Built in coordination with MSOE's Public Safety Office, on MSOE's Rosie supercom
 
 ## What's next
 
+- **Close the real-photo gap.** Mix a small set of real photos into training, or keep the base model's answer when it is confident, so fine-tuning stops costing accuracy on real doors.
 - **Sim-to-real on a physical Nova Carter.** Run the same SWAGGER + TSP + Nav2 patrol on real hardware, supervised by Public Safety.
 - **Wider real-image validation.** Test the VLM on more real photos: cracked/intact glass (not yet tested on real images), more buildings, and harder lighting.
 - **Navigation metrics.** Report route-completion and obstacle-avoidance results for Nav2 in the twin.
