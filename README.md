@@ -24,6 +24,11 @@ Student research project at the Milwaukee School of Engineering (MSOE). The targ
 
 ## Demos
 
+<p align="center">
+  <img src="docs/media/vlm_door_inspection.gif" alt="Two robot camera feeds approach the same glass door. The VLM first writes a scene description, then labels the left door OPEN and the right door CLOSED." width="100%">
+</p>
+<p align="center"><sub><b>The VLM at work.</b> Two runs of the robot's camera approaching the same door, open on the left and closed on the right. First the base model describes the scene and checks for hazards. Closer to the door, the fine-tuned model labels it: <b>OPEN</b> (left), <b>CLOSED</b> (right). Simulated images; this clip uses the earlier Qwen2-VL version of the model.</sub></p>
+
 <table>
   <tr>
     <td width="50%"><img src="docs/media/articulated_doors.gif" alt="A door swinging on its hinge in the digital twin" width="100%"></td>
