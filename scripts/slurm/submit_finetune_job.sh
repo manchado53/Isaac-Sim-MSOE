@@ -5,8 +5,8 @@
 # Falls back to SDPA automatically on T4 (teaching partition) if you change --partition.
 #
 # Usage:
-#   sbatch submit_finetune_job.sh
-#   sbatch submit_finetune_job.sh --epochs 5 --lr 5e-6   # pass args to finetune_qwen2vl.py
+#   sbatch scripts/slurm/submit_finetune_job.sh
+#   sbatch scripts/slurm/submit_finetune_job.sh --epochs 5 --lr 5e-6   # pass args to finetune_qwen2vl.py
 #
 # Prerequisites:
 #   1. Run nova_carter_door_collection.py to produce data/door_labels.npz
@@ -73,7 +73,7 @@ if [ $FT_EXIT -eq 0 ]; then
     echo "Adapter saved to: data/qwen2vl_door_lora/"
     echo ""
     echo "Next: run inference with the adapter:"
-    echo "  sbatch submit_isaac_job.sh simulations/robot/nova_carter_vlm_phase23.py --adapter data/qwen2vl_door_lora/"
+    echo "  sbatch scripts/slurm/submit_isaac_job.sh simulations/robot/nova_carter_vlm_phase23.py --adapter data/qwen2vl_door_lora/"
 fi
 
 exit $FT_EXIT

@@ -8,7 +8,7 @@
 #SBATCH --error=logs/isaac_%j.err
 
 # Isaac Sim SLURM Job Script
-# Submit with: sbatch submit_isaac_job.sh <your_script.py>
+# Submit with: sbatch scripts/slurm/submit_isaac_job.sh <your_script.py>
 
 # Set environment variables
 export OMNI_KIT_ACCEPT_EULA=YES
@@ -51,7 +51,7 @@ fi
 if [ -n "${SLURM_SUBMIT_DIR:-}" ]; then
     PROJECT_DIR="$SLURM_SUBMIT_DIR"
 else
-    PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 fi
 cd "$PROJECT_DIR" || exit 1
 

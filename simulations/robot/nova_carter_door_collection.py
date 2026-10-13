@@ -14,7 +14,7 @@ After N_EPISODES, saves data/door_labels.npz with keys:
   frame_ids — (N,) int32 simulation step number
 
 Usage:
-  sbatch submit_isaac_job.sh simulations/robot/nova_carter_door_collection.py
+  sbatch scripts/slurm/submit_isaac_job.sh simulations/robot/nova_carter_door_collection.py
 
 IMPORTANT: Fill in DOOR_PRIMS below with paths from floor4_door_diagnostic.py
 before running. The script will fail loudly if DOOR_PRIMS is empty.
@@ -136,7 +136,7 @@ except FileNotFoundError:
 
 if not DOOR_PRIMS:
     print("ERROR: DOOR_PRIMS is empty.")
-    print("  1. Run the diagnostic:  sbatch submit_isaac_job.sh "
+    print("  1. Run the diagnostic:  sbatch scripts/slurm/submit_isaac_job.sh "
           "simulations/robot/floor4_door_diagnostic.py")
     print("  2. Copy the DOOR_PRIMS list from the log output into this script.")
     sys.exit(1)

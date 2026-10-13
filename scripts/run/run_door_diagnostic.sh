@@ -12,9 +12,9 @@
 #   4. Generate side-by-side comparison images
 #
 # Usage:
-#   ./run_door_diagnostic.sh
-#   ./run_door_diagnostic.sh --skip-physics   # if physics USD already exists
-#   ./run_door_diagnostic.sh --input path/to/other.usd
+#   ./scripts/run/run_door_diagnostic.sh
+#   ./scripts/run/run_door_diagnostic.sh --skip-physics   # if physics USD already exists
+#   ./scripts/run/run_door_diagnostic.sh --input path/to/other.usd
 
 set -euo pipefail
 
@@ -70,7 +70,7 @@ else
     PHYSICS_JOB_ID=$(sbatch --parsable \
         --job-name="diag-physics" \
         --partition="$PARTITION" --gres=gpu:1 --mem="$MEM" --time="$TIME" \
-        submit_isaac_job.sh simulations/environment/setup_building_physics.py \
+        scripts/slurm/submit_isaac_job.sh simulations/environment/setup_building_physics.py \
         --input "$INPUT_USD")
     echo "  Job ID: $PHYSICS_JOB_ID"
 fi
@@ -80,7 +80,7 @@ echo "Step 2: Submitting 'before' screenshots..."
 BEFORE_JOB_ID=$(sbatch --parsable \
     --job-name="diag-before" \
     --partition="$PARTITION" --gres=gpu:1 --mem=16G --time=01:00:00 \
-    submit_isaac_job.sh simulations/environment/diagnostic_screenshots.py \
+    scripts/slurm/submit_isaac_job.sh simulations/environment/diagnostic_screenshots.py \
     --input "$INPUT_USD" --prefix before)
 echo "  Job ID: $BEFORE_JOB_ID"
 
@@ -94,7 +94,7 @@ AFTER_JOB_ID=$(sbatch --parsable \
     $AFTER_DEPS \
     --job-name="diag-after" \
     --partition="$PARTITION" --gres=gpu:1 --mem=16G --time=01:00:00 \
-    submit_isaac_job.sh simulations/environment/diagnostic_screenshots.py \
+    scripts/slurm/submit_isaac_job.sh simulations/environment/diagnostic_screenshots.py \
     --input "$PHYSICS_USD" --prefix after)
 echo "  Job ID: $AFTER_JOB_ID"
 

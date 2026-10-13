@@ -8,7 +8,7 @@ camera so the viewer sees fresh impacts on the near side as the camera
 sweeps around the building.
 
 Usage:
-    sbatch submit_isaac_job.sh simulations/environment/dierks_ball_barrage.py \
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/dierks_ball_barrage.py \
         --input assets/environments/msoe_building/DierksHallV2_physics.usd
 
 Output:

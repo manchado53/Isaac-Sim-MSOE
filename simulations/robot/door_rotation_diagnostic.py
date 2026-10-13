@@ -19,7 +19,7 @@ Output: data/door_rot_diagnostic/
   <prim>_rot<axis>_<angle>deg.jpg     — one image per rotation test
 
 Usage:
-  sbatch submit_isaac_job.sh simulations/robot/door_rotation_diagnostic.py
+  sbatch scripts/slurm/submit_isaac_job.sh simulations/robot/door_rotation_diagnostic.py
 """
 
 import os

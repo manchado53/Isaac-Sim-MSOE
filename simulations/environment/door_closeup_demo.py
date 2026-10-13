@@ -7,7 +7,7 @@ all 4 sides of the door, and records from each angle. All coordinates
 in feet (Revit stage units, metersPerUnit=0.3048).
 
 Usage:
-    sbatch submit_isaac_job.sh simulations/environment/door_closeup_demo.py
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/door_closeup_demo.py
 """
 import math
 import os

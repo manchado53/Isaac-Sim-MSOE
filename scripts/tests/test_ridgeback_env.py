@@ -5,7 +5,7 @@ and prints obs/action shapes to verify everything works.
 
 Usage (on a GPU node):
     cd ~/IsaacLab
-    ./isaaclab.sh -p ~/isaac-sim-msoe/scripts/test_ridgeback_env.py --headless
+    ./isaaclab.sh -p ~/isaac-sim-msoe/scripts/tests/test_ridgeback_env.py --headless
 
 Expected output:
     Observation shape: (256, 26)

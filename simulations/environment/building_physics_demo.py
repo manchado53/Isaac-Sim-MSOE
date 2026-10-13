@@ -6,7 +6,7 @@ Discovers floor surfaces dynamically, drops colorful objects on multiple
 floors, lets them settle, then records a 360-degree orbital camera tour.
 
 Usage:
-    sbatch submit_isaac_job.sh simulations/environment/building_physics_demo.py \
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/building_physics_demo.py \
         --input assets/environments/msoe_building/MSOEBuildingTake2_physics.usd
 
 Output:

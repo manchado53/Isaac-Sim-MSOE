@@ -9,7 +9,7 @@ The 2FG doors are double-width curtain-wall glass doors at the building's
 ground floor — the closest thing to a "front door" in the Revit export.
 
 Run on Rosie:
-    sbatch submit_isaac_job.sh simulations/environment/door_opening_showcase.py
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/door_opening_showcase.py
 """
 
 import os

@@ -13,7 +13,7 @@ pipeline looked like before the axis-detection fix.
 This is the "before" visual for the physics-pipeline story.
 
 Usage:
-    sbatch submit_isaac_job.sh simulations/environment/door_chaos_showcase.py \
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/door_chaos_showcase.py \
         --input assets/environments/msoe_building/MSOEBuildingV4_physics.usd
 
 Output:

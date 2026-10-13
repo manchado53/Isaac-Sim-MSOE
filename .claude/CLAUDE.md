@@ -119,7 +119,7 @@ export OMNI_KIT_ACCEPT_EULA=YES
 Submit a batch job to run simulations:
 ```bash
 cd ~/isaacsim/isaac-sim-msoe
-sbatch submit_isaac_job.sh simulations/environment/your_script.py
+sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/your_script.py
 ```
 
 Monitor progress:
@@ -137,7 +137,7 @@ srun --partition=teaching --gres=gpu:1 --time=2:00:00 --pty bash
 
 # Run simulation
 cd ~/isaacsim/isaac-sim-msoe
-./run_isaac_interactive.sh simulations/rigid_body/your_script.py
+./scripts/run/run_isaac_interactive.sh simulations/rigid_body/your_script.py
 ```
 
 ### Running Simulations on Rosie
@@ -216,10 +216,10 @@ cd ~/isaacsim/isaac-sim-msoe
 ├── validate_physics.py                  # Validation pipeline runner (submits SLURM jobs, aggregates results)
 ├── extract_validation_metrics.py        # Before/after comparison: extracts metrics from JSON results → summary/CSV/JSON
 ├── generate_validation_charts.py        # Generates matplotlib charts (PNGs) from validation results for slides
-├── submit_isaac_job.sh                  # SLURM batch job submission
-├── submit_validation_job.sh             # SLURM submission for validation tests
-├── run_isaac_interactive.sh             # Interactive GPU runner
-├── run_physics_pipeline.sh              # Physics pipeline orchestrator (chains 4 SLURM jobs)
+├── scripts/slurm/submit_isaac_job.sh    # SLURM batch job submission (all SLURM job scripts live in scripts/slurm/)
+├── scripts/slurm/submit_validation_job.sh # SLURM submission for validation tests
+├── scripts/run/run_isaac_interactive.sh # Interactive GPU runner
+├── scripts/run/run_physics_pipeline.sh # Physics pipeline orchestrator (chains 4 SLURM jobs)
 ├── requirements.txt                     # Python dependencies
 ├── .claude/                             # Claude Code configuration
 │   ├── CLAUDE.md                       # This file
@@ -239,7 +239,7 @@ cd ~/isaacsim/isaac-sim-msoe
 
 **Best Practices**:
 - Create new simulation scripts in the appropriate `simulations/` subdirectory
-- Use `submit_isaac_job.sh` to submit jobs
+- Use `scripts/slurm/submit_isaac_job.sh` to submit jobs
 - Check `logs/` for job output and errors
 - Test scripts interactively before batch submission
 - Use exit code to verify simulation success (0 = success)
@@ -383,11 +383,11 @@ These functions query the PhysX simulation engine for data only available **afte
 
 ## Physics Pipeline Orchestrator
 
-`run_physics_pipeline.sh` chains 4 SLURM jobs with dependencies to process any raw Revit-exported USD:
+`scripts/run/run_physics_pipeline.sh` chains 4 SLURM jobs with dependencies to process any raw Revit-exported USD:
 
 ```bash
-./run_physics_pipeline.sh assets/environments/msoe_building/MSOEBuildingTake2.usd
-./run_physics_pipeline.sh assets/environments/msoe_building/MyBuilding.usd --mem 48G --margin 1.5
+./scripts/run/run_physics_pipeline.sh assets/environments/msoe_building/MSOEBuildingTake2.usd
+./scripts/run/run_physics_pipeline.sh assets/environments/msoe_building/MyBuilding.usd --mem 48G --margin 1.5
 ```
 
 **Pipeline steps** (each a separate SLURM job):
@@ -454,7 +454,7 @@ python validate_physics.py --usd my_physics.usd --skip robot_movement --partitio
 python validate_physics.py --usd my_physics.usd --dry-run   # preview without submitting
 ```
 
-**4 Test Scripts** (each runs as a separate SLURM job via `submit_validation_job.sh`):
+**4 Test Scripts** (each runs as a separate SLURM job via `scripts/slurm/submit_validation_job.sh`):
 
 | Test | Script | What it does |
 |------|--------|-------------|
@@ -533,7 +533,7 @@ ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose \
 | `dgx` | V100 | 21 days | Large simulations |
 | `dgxh100` | H100 | 21 days | Maximum performance |
 
-**Choosing a partition**: Edit `#SBATCH --partition=` in `submit_isaac_job.sh`
+**Choosing a partition**: Edit `#SBATCH --partition=` in `scripts/slurm/submit_isaac_job.sh`
 
 ## Troubleshooting
 

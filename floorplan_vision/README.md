@@ -32,8 +32,8 @@ Key behavior:
 Run:
 
 ```bash
-sbatch submit_isaac_job.sh floorplan_vision/generate_occupancy_map.py           # all 4 floors
-OMAP_FLOOR=floor_4 sbatch submit_isaac_job.sh floorplan_vision/generate_occupancy_map.py   # just one
+sbatch scripts/slurm/submit_isaac_job.sh floorplan_vision/generate_occupancy_map.py           # all 4 floors
+OMAP_FLOOR=floor_4 sbatch scripts/slurm/submit_isaac_job.sh floorplan_vision/generate_occupancy_map.py   # just one
 ~/isaacsim/python.sh floorplan_vision/generate_occupancy_map.py --floor floor_4   # local, no SLURM
 ```
 
@@ -116,7 +116,7 @@ tar -czf /tmp/maps_backup_$(date +%s).tar.gz \
   assets/environments/InnovationCenter/navgraphs
 
 # 1. Regenerate all 4 occupancy maps (SLURM or local GPU, ~3-6 min each)
-sbatch submit_isaac_job.sh floorplan_vision/generate_occupancy_map.py
+sbatch scripts/slurm/submit_isaac_job.sh floorplan_vision/generate_occupancy_map.py
 # OR locally:
 export OMNI_KIT_ACCEPT_EULA=YES PRIVACY_CONSENT=Y
 ~/isaacsim/python.sh floorplan_vision/generate_occupancy_map.py

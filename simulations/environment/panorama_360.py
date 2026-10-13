@@ -18,7 +18,7 @@ Three targeted fixes for common 360-video problems:
      midpoint.  Hidden prims are excluded from the centroid and bbox math.
 
 Usage:
-    sbatch submit_isaac_job.sh simulations/environment/panorama_360.py \
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/panorama_360.py \
         --input assets/environments/msoe_building/MSOEBuildingV4.usd \
         --hide-patterns "Tree,Planting,Vegetation,Entourage,RPC,Plant,Shrub,Bush,Landscape,Topography,Site_"
 

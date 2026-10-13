@@ -9,7 +9,7 @@ into the interior.
 Target: Doors_9494852 (2FG curtain-wall glass door, ground floor).
 
 Run on Rosie:
-    sbatch submit_isaac_job.sh simulations/environment/door_walkthrough_showcase.py
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/door_walkthrough_showcase.py
 """
 
 import os

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Wait for physics pipeline jobs to complete, then run validation pipeline
-# Usage: ./run_full_pipeline.sh <physics_setup_job_id> <last_pipeline_job_id> <physics_usd_path>
+# Usage: ./scripts/run/run_full_pipeline.sh <physics_setup_job_id> <last_pipeline_job_id> <physics_usd_path>
 
 set -euo pipefail
 

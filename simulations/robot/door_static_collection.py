@@ -34,7 +34,7 @@ Output: data/door_labels_static.npz
   episode  (N,) int32
 
 Usage:
-  sbatch submit_isaac_job.sh simulations/robot/door_static_collection.py
+  sbatch scripts/slurm/submit_isaac_job.sh simulations/robot/door_static_collection.py
 """
 
 import os

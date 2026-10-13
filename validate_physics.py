@@ -71,7 +71,7 @@ def submit_job(test_name, script_path, usd_path, partition="teaching"):
     cmd = [
         "sbatch",
         f"--partition={partition}",
-        str(PROJECT_DIR / "submit_validation_job.sh"),
+        str(PROJECT_DIR / "scripts/slurm/submit_validation_job.sh"),
         script_path,
         usd_path,
     ]
@@ -401,7 +401,7 @@ def main():
             continue
 
         if args.dry_run:
-            print(f"  [{test_name}] DRY RUN: sbatch submit_validation_job.sh "
+            print(f"  [{test_name}] DRY RUN: sbatch scripts/slurm/submit_validation_job.sh "
                   f"{script_path} {usd_path}")
             continue
 

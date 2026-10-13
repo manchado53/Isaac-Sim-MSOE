@@ -155,7 +155,7 @@ training/                     Archived RL navigation experiments (superseded by 
 sim_utils/                    Shared helpers (follow camera, ffmpeg video capture)
 docs/                         Pipeline notes; docs/media/ holds the demo GIFs above
 DEVELOPMENT.md                Developer guide: Isaac Sim on Rosie, WebRTC streaming
-submit_*.sh                   SLURM job scripts for Rosie
+scripts/                      Shell scripts: slurm/ (sbatch jobs), run/ (launchers), setup/, tests/. See scripts/README.md
 ```
 
 > The large `.usd` building models are stored with **Git LFS**. Run `git lfs install` before cloning.

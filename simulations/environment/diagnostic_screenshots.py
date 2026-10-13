@@ -7,10 +7,10 @@ positions (G, 1, 2, 3).  Run once on the raw USD, once on the physics USD,
 then use compare_screenshots.py to create side-by-side diffs.
 
 Usage:
-    sbatch submit_isaac_job.sh simulations/environment/diagnostic_screenshots.py \
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/diagnostic_screenshots.py \
         --input assets/environments/msoe_building/MSOEBuildingApril.usd --prefix before
 
-    sbatch submit_isaac_job.sh simulations/environment/diagnostic_screenshots.py \
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/diagnostic_screenshots.py \
         --input assets/environments/msoe_building/MSOEBuildingApril_physics.usd --prefix after
 
 Output:

@@ -12,7 +12,7 @@ Outputs:
   logs/dierks_auditorium.txt    -- human-readable discovery report
 
 Usage:
-  sbatch submit_isaac_job.sh simulations/environment/discover_auditorium.py \\
+  sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/discover_auditorium.py \\
       --input assets/environments/msoe_building/DierksHallV2_physics.usd
 """
 

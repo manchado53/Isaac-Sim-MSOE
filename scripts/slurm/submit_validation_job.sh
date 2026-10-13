@@ -8,7 +8,7 @@
 #SBATCH --error=logs/validate_%j.err
 
 # Physics Validation SLURM Job Script
-# Submit with: sbatch submit_validation_job.sh <script.py> <usd_path>
+# Submit with: sbatch scripts/slurm/submit_validation_job.sh <script.py> <usd_path>
 
 # Set environment variables
 export OMNI_KIT_ACCEPT_EULA=YES
@@ -20,7 +20,7 @@ ISAAC_SIM_DIR="${ISAAC_SIM_DIR:-$HOME/isaacsim}"
 ISAAC_PYTHON="$ISAAC_SIM_DIR/python.sh"
 
 # Arguments
-SCRIPT="${1:?Usage: sbatch submit_validation_job.sh <script.py> <usd_path>}"
+SCRIPT="${1:?Usage: sbatch scripts/slurm/submit_validation_job.sh <script.py> <usd_path>}"
 USD_FILE="${2}"
 
 echo "========================================="
@@ -43,7 +43,7 @@ echo ""
 if [ -n "${SLURM_SUBMIT_DIR:-}" ]; then
     PROJECT_DIR="$SLURM_SUBMIT_DIR"
 else
-    PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 fi
 cd "$PROJECT_DIR" || exit 1
 

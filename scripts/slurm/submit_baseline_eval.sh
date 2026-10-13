@@ -5,8 +5,8 @@
 # Uses conda 'vlm' env to avoid GLIBC mismatch from isaacsim/python.sh on dgx nodes.
 #
 # Usage:
-#   sbatch submit_baseline_eval.sh               # baseline (no adapter)
-#   sbatch submit_baseline_eval.sh --adapter data/qwen2vl_door_lora  # fine-tuned
+#   sbatch scripts/slurm/submit_baseline_eval.sh               # baseline (no adapter)
+#   sbatch scripts/slurm/submit_baseline_eval.sh --adapter data/qwen2vl_door_lora  # fine-tuned
 #
 # One-time conda env setup (run on a GPU node):
 #   conda create -n vlm python=3.10 -y && conda activate vlm
@@ -37,7 +37,7 @@ echo ""
 NPZ="data/door_labels_static_multi_camera.npz"
 if [ ! -f "$NPZ" ]; then
     echo "ERROR: $NPZ not found."
-    echo "  Run: sbatch submit_isaac_job.sh simulations/robot/door_static_collection.py"
+    echo "  Run: sbatch scripts/slurm/submit_isaac_job.sh simulations/robot/door_static_collection.py"
     exit 1
 fi
 echo "Dataset: $NPZ  ($(du -sh "$NPZ" | cut -f1))"

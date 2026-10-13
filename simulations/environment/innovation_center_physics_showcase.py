@@ -8,7 +8,7 @@ doors swinging open and closed — all while an orbital camera records a 360°
 tour of the building skeleton.
 
 Run on Rosie:
-    sbatch submit_isaac_job.sh simulations/environment/innovation_center_physics_showcase.py
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/innovation_center_physics_showcase.py
 
 Output:
     videos/environment/innovation_center_physics_showcase.mp4  (20s @ 30fps, 1920x1080)

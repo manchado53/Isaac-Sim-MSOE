@@ -13,7 +13,7 @@ summary to stdout so the caller can pick a cluster and feed its camera
 into a showcase script via --cam-pos / --cam-target.
 
 Usage:
-    sbatch submit_isaac_job.sh tools/find_door_cluster.py \
+    sbatch scripts/slurm/submit_isaac_job.sh tools/find_door_cluster.py \
         --input assets/environments/msoe_building/MSOEBuildingV4_physics.usd
 """
 

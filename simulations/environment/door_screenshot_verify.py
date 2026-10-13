@@ -4,7 +4,7 @@ Quick door screenshot — places camera 5ft from the largest door and saves a PN
 Used to verify camera position before recording video.
 
 Usage:
-    sbatch submit_isaac_job.sh simulations/environment/door_screenshot_verify.py \
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/door_screenshot_verify.py \
         assets/environments/msoe_building/MSOEBuildingV4_physics.usd
 """
 import math

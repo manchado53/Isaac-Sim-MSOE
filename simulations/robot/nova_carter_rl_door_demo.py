@@ -10,9 +10,9 @@ Policy inference uses onnxruntime (no torch) inside the Isaac Sim process.
 Export the checkpoint once with:  python training/export_policy_onnx.py --checkpoint <zip>
 
 Usage:
-  sbatch submit_isaac_job.sh simulations/robot/nova_carter_rl_door_demo.py
-  sbatch submit_isaac_job.sh simulations/robot/nova_carter_rl_door_demo.py --door-angle 0
-  sbatch submit_isaac_job.sh simulations/robot/nova_carter_rl_door_demo.py --door-angle 90
+  sbatch scripts/slurm/submit_isaac_job.sh simulations/robot/nova_carter_rl_door_demo.py
+  sbatch scripts/slurm/submit_isaac_job.sh simulations/robot/nova_carter_rl_door_demo.py --door-angle 0
+  sbatch scripts/slurm/submit_isaac_job.sh simulations/robot/nova_carter_rl_door_demo.py --door-angle 90
 
 Args:
   --door-angle  door angle in degrees — 0=closed, 90=open (default: 45.0)

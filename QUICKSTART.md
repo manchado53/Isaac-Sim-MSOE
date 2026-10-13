@@ -15,7 +15,7 @@ The easiest way to run a simulation:
 
 ```bash
 cd ~/isaac-sim-msoe
-sbatch submit_isaac_job.sh
+sbatch scripts/slurm/submit_isaac_job.sh
 ```
 
 This will:
@@ -47,7 +47,7 @@ srun --partition=teaching --gres=gpu:1 --time=2:00:00 --pty bash
 
 # 2. Run your simulation
 cd ~/isaacsim/isaac-sim-msoe
-./run_isaac_interactive.sh test-simulations/hello_isaac.py
+./scripts/run/run_isaac_interactive.sh test-simulations/hello_isaac.py
 ```
 
 ## Running Your Own Simulations
@@ -74,7 +74,7 @@ simulation_app.close()
 
 ```bash
 cd ~/isaacsim/isaac-sim-msoe
-sbatch submit_isaac_job.sh path/to/your_script.py
+sbatch scripts/slurm/submit_isaac_job.sh path/to/your_script.py
 ```
 
 ## Available GPU Partitions
@@ -86,7 +86,7 @@ sbatch submit_isaac_job.sh path/to/your_script.py
 | `dgx` | V100 | 21 days | Large-scale simulations |
 | `dgxh100` | H100 | 21 days | Maximum performance |
 
-To use a different partition, edit `submit_isaac_job.sh`:
+To use a different partition, edit `scripts/slurm/submit_isaac_job.sh`:
 ```bash
 #SBATCH --partition=dgxh100  # Change from 'teaching' to desired partition
 ```
@@ -119,7 +119,7 @@ squeue -u $USER
 ```
 
 ### Need More Resources?
-Edit `submit_isaac_job.sh`:
+Edit `scripts/slurm/submit_isaac_job.sh`:
 ```bash
 #SBATCH --time=04:00:00  # Request more time
 #SBATCH --mem=32G        # Request more memory
@@ -159,10 +159,10 @@ Building USD and IFC files are stored on shared storage so the whole team can ac
 
 ```bash
 # First time setup — copy shared assets to your local repo
-./setup_shared_assets.sh
+./scripts/setup/setup_shared_assets.sh
 
 # See what's available
-./setup_shared_assets.sh --list
+./scripts/setup/setup_shared_assets.sh --list
 ```
 
 **Shared location**: `/data/ai_club/isaac-sim-msoe/`
@@ -176,13 +176,13 @@ Building USD and IFC files are stored on shared storage so the whole team can ac
 ### Running the Physics Pipeline
 
 ```bash
-# After running setup_shared_assets.sh:
+# After running scripts/setup/setup_shared_assets.sh:
 
 # Option 1: From raw USD (physics pipeline only)
-./run_physics_pipeline.sh assets/environments/msoe-engineering-innovation-USD.usd
+./scripts/run/run_physics_pipeline.sh assets/environments/msoe-engineering-innovation-USD.usd
 
 # Option 2: From IFC (full conversion + physics)
-./run_physics_pipeline.sh assets/environments/msoe-engineering-innovation-center.ifc
+./scripts/run/run_physics_pipeline.sh assets/environments/msoe-engineering-innovation-center.ifc
 
 # Option 3: Use the pre-built physics USD directly in your scripts
 # (already at assets/environments/msoe_building/innovation_center_physics.usd)
@@ -206,6 +206,6 @@ chmod 664 /data/ai_club/isaac-sim-msoe/my_building_physics.usd
 
 Run scripts without arguments to see usage:
 ```bash
-./run_isaac_interactive.sh
-./submit_isaac_job.sh
+./scripts/run/run_isaac_interactive.sh
+./scripts/slurm/submit_isaac_job.sh
 ```

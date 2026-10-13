@@ -14,7 +14,7 @@ Outputs:
   logs/dierks_floor2_rooms.txt   -- human-readable table, candidates starred
 
 Usage:
-  sbatch submit_isaac_job.sh simulations/environment/discover_rosie.py \\
+  sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/discover_rosie.py \\
       --input assets/environments/msoe_building/DierksHallV2_physics.usd
 """
 

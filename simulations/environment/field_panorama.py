@@ -16,7 +16,7 @@ Key differences from panorama_360.py:
   * Tighter framing (smaller framing_mult) because aerial view forgives gaps.
 
 Usage:
-    sbatch submit_isaac_job.sh simulations/environment/field_panorama.py \
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/field_panorama.py \
         --input assets/environments/msoe_building/VietsField.usd \
         --hide-patterns "Tree,Planting,RPC"
 

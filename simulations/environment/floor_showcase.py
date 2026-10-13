@@ -7,7 +7,7 @@ drops colorful balls onto every discovered floor. An orbital camera records
 a 360-degree tour showing the balls resting on each floor.
 
 Run on Rosie:
-    sbatch submit_isaac_job.sh simulations/environment/floor_showcase.py
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/floor_showcase.py
 
 Output:
     videos/environment/floor_showcase.mp4  (20s @ 30fps, 1920x1080)

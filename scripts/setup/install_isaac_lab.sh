@@ -9,7 +9,7 @@
 # Usage:
 #   srun --partition=teaching --gres=gpu:1 --time=1:00:00 --mem=16G --pty bash
 #   cd ~/isaac-sim-msoe
-#   bash scripts/install_isaac_lab.sh
+#   bash scripts/setup/install_isaac_lab.sh
 #
 
 set -euo pipefail
@@ -113,4 +113,4 @@ log "  ./isaaclab.sh -p -c \"import rl_games; print('rl_games OK')\""
 log ""
 log "To verify later:"
 log "  cd ~/isaac-sim-msoe"
-log "  bash scripts/verify_isaac_lab.sh"
+log "  bash scripts/setup/verify_isaac_lab.sh"

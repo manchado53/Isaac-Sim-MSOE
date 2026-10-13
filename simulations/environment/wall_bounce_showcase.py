@@ -9,7 +9,7 @@ tree/planting/entourage geometry hidden for a clean establishing shot.
 Parameters are lifted from `logs/wall_bounce_showcase.txt`.
 
 Usage:
-    sbatch submit_isaac_job.sh simulations/environment/wall_bounce_showcase.py
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/wall_bounce_showcase.py
 
 Output:
     - videos/environment/wall_bounce_showcase_no_trees.mp4 (15s @ 30fps, 1920x1080)

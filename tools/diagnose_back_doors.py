@@ -21,7 +21,7 @@ Outputs:
   - images/diagnostics/door_diag/<prim_name>_{0deg,60deg}.png for top-5
 
 Usage:
-    sbatch submit_isaac_job.sh tools/diagnose_back_doors.py \
+    sbatch scripts/slurm/submit_isaac_job.sh tools/diagnose_back_doors.py \
         --input assets/environments/msoe_building/MSOEBuildingV4_physics.usd
 """
 

@@ -7,7 +7,7 @@ to 80 degrees, measures rotation, and reports pass/fail. Generic — works on
 any building USD processed by setup_building_physics.py.
 
 Usage:
-    sbatch submit_isaac_job.sh simulations/environment/test_door_swing_generic.py \
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/test_door_swing_generic.py \
         --input assets/environments/msoe_building/MSOEBuildingTake2_physics.usd
 
 Exit codes:

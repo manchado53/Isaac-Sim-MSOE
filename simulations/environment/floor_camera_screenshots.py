@@ -14,7 +14,7 @@ Output:
   - stdout JSON summary of camera positions
 
 Usage:
-  sbatch submit_isaac_job.sh simulations/environment/floor_camera_screenshots.py
+  sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/floor_camera_screenshots.py
 """
 
 import os
