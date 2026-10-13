@@ -56,51 +56,45 @@ Student research project at the Milwaukee School of Engineering (MSOE). The targ
 
 ---
 
-## The pipeline: first mile → middle mile → last mile
+## How it works
 
 ```
- FIRST MILE: sensing before the building exists
-   Revit 2024 BIM ──► USD ──► NVIDIA Isaac Sim digital twin
-        collision + physics materials, articulated doors, semantic labels
-        synthetic onboard camera + LiDAR, ray-traced occupancy maps
-                               │
- MIDDLE MILE: models
-   DINOv2 embeddings ──► diversity-curated, label-balanced training set
-   Qwen3-VL-2B-Instruct + LoRA ──► "door open / closed / glass cracked / intact"
-                               │
- LAST MILE: so what
-   SWAGGER nav graph + TSP route ──► ROS 2 Nav2 (LiDAR) ──► Nova Carter patrol
-   flags open/unsecured doors and cracked glass for campus Public Safety
+Revit model ──► USD ──► Isaac Sim twin ──► labeled camera frames ──► fine-tuned VLM
+                              │                                          │
+                              └──► occupancy maps ──► patrol route ──► Nav2 robot
 ```
 
-### First mile: sensing before the building exists
+### 1. Build the twin
 
-- **BIM to USD.** MSOE's architects supplied the Kern Center model in Revit 2024. It is exported to USD and cleaned up for simulation: only structural parts are kept (walls, floors, doors, stairs), with collision geometry and physics materials added. See [`revit_to_usd.py`](revit_to_usd.py) and [`assets/environments/InnovationCenter/`](assets/environments/InnovationCenter/README.md).
-- **Working doors.** Hinged doors become revolute joints, so the robot sees doors in many open/closed states. Every frame gets an exact label for free.
-- **Occupancy maps.** Ray-tracing the twin floor by floor gives Nav2-ready occupancy grids. See [`floorplan_vision/`](floorplan_vision/README.md).
-- **Synthetic sensor data.** Onboard-camera frames of doors and glass panels, with lighting and viewpoint randomization. Cracked glass is made by swapping procedurally generated crack materials onto random panels. See [`SyntheticDataGen/cracked_glass/`](SyntheticDataGen/cracked_glass/README.md) and [`docs/cracked-glass-pipeline.md`](docs/cracked-glass-pipeline.md).
+- **Revit to USD.** MSOE's architects gave us the Kern Center model in Revit 2024. We export it to USD and keep only what the robot needs: walls, floors, doors, stairs. Then we add collision geometry and physics materials. See [`revit_to_usd.py`](revit_to_usd.py) and [`assets/environments/InnovationCenter/`](assets/environments/InnovationCenter/README.md).
+- **Doors that move.** Each hinged door becomes a revolute joint. The robot sees doors at many angles, and every frame is labeled automatically.
+- **Occupancy maps.** We ray-trace each floor of the twin to get the grid maps Nav2 uses. See [`floorplan_vision/`](floorplan_vision/README.md).
+
+### 2. Teach a VLM to spot problems
+
+- **Synthetic frames.** The robot's camera records doors and glass panels under random lighting and viewpoints. Cracked glass comes from swapping generated crack materials onto random panels. See [`SyntheticDataGen/cracked_glass/`](SyntheticDataGen/cracked_glass/README.md).
+- **Pick a varied training set.** We embed every frame with DINOv2 and run k-means inside each label group. Keeping the frame closest to each cluster center gives varied images and an exact 50/50 class split. See [`curate_diversity.py`](SyntheticDataGen/cracked_glass/curate_diversity.py).
+- **Fine-tune.** We started with Qwen2-VL and moved to **Qwen3-VL-2B-Instruct**, which had the best zero-shot score of the small VLMs we tried. LoRA plus the vision projector trains about 1.6% of the weights. One model answers one question with four answers: door open, door closed, glass cracked, glass intact. See [`vlm/qwen3vl_unified_lora_v4/`](vlm/qwen3vl_unified_lora_v4/USAGE.md).
+- **What went wrong first.** Our first dataset used one door. The model scored high on it and **0%** on a door it had never seen, because it had memorized that one door. We rebuilt the data across 8 doors and several Revit door families, and held some doors out for testing.
 
 <p align="center">
-  <img src="paper_figures/hero/hero_cracked_panel.jpg" alt="Synthetic cracked-glass panel rendered in Isaac Sim" width="48%">
-  <img src="assets/environments/InnovationCenter/navgraphs/floor_4_auto_navgraph.png" alt="Floor 4 occupancy map with auto-generated navigation graph" width="48%">
+  <img src="paper_figures/hero/hero_cracked_panel.jpg" alt="Synthetic cracked-glass panel rendered in Isaac Sim" width="60%">
 </p>
-<p align="center"><sub>Left: synthetic cracked-glass render. Right: floor-4 occupancy map with the auto-generated navigation graph.</sub></p>
+<p align="center"><sub>A synthetic cracked-glass panel from the training data.</sub></p>
 
-### Middle mile: models
+### 3. Patrol
 
-- **Data curation with DINOv2.** Frames are embedded with DINOv2, then k-means runs inside each (label, panel/door) bucket. The frame nearest each centroid is kept, giving visual diversity with an exact 50/50 class balance. See [`curate_diversity.py`](SyntheticDataGen/cracked_glass/curate_diversity.py) and [`embed_train_frames.py`](SyntheticDataGen/cracked_glass/embed_train_frames.py).
-- **VLM fine-tuning.** We first tried Qwen2-VL, then moved to **Qwen3-VL-2B-Instruct**, the strongest zero-shot baseline among the small VLMs we compared. We train it with LoRA plus vision-projector co-training (~1.6% of parameters). One unified model answers a single four-way question: door open, door closed, glass cracked, or glass intact. Adapter card and usage: [`vlm/qwen3vl_unified_lora_v4/`](vlm/qwen3vl_unified_lora_v4/USAGE.md).
-- **Lesson learned.** An early single-door dataset scored high in-distribution but got **0%** on a door it had never seen: it memorized one door. Rebuilding the dataset across 8 doors and several Revit door families, with held-out doors, fixed it.
-
-### Last mile: so what
-
-- **The problem.** Campus security officers walk the halls checking that doors are secured and glass is intact. The two anomaly types were chosen with **MSOE Public Safety** as their highest priorities.
-- **The robot.** A simulated **NVIDIA Nova Carter** AMR ("ROSCOE") with 360° LiDAR and an onboard camera.
-- **Route planning.** NVIDIA SWAGGER places a navigation graph on each floor's occupancy map, and the node nearest each door is marked as a door node. Dijkstra builds all-pairs corridor distances. A traveling-salesman door-inspection tour comes from greedy nearest-neighbor, improved with 2-opt and 10 random restarts. The tour is then expanded into a full waypoint path. See [`floorplan_vision/visualize_door_tsp.py`](floorplan_vision/visualize_door_tsp.py).
-- **Driving.** **ROS 2 Nav2** (classical LiDAR navigation) handles local planning and obstacle avoidance, with parameters tuned for long architectural corridors. See [`navigation/`](navigation/README.md).
-  An earlier version used a custom **reinforcement-learning** policy. Nav2 replaced it because it was faster to make reliable and needs no reward engineering. The RL work is kept only as an archive in [`training/`](training/) and on the `archive/rl-building-finetune` branch.
-- **Impact target.** Taking over routine patrols could save about **3,000 officer-hours per year**. This figure came from interviews with MSOE Public Safety.
+- **Why.** Campus security officers walk the halls to check that doors are locked and glass is intact. MSOE Public Safety told us these two checks matter most.
+- **Robot.** A simulated **NVIDIA Nova Carter** ("ROSCOE") with 360° LiDAR and a camera.
+- **Route.** NVIDIA SWAGGER builds a navigation graph on each floor map. The graph node closest to each door becomes a stop. Dijkstra gives the walking distance between every pair of stops. A traveling-salesman tour visits all of them: greedy nearest-neighbor, then 2-opt, best of 10 random starts. See [`floorplan_vision/visualize_door_tsp.py`](floorplan_vision/visualize_door_tsp.py).
+- **Driving.** **ROS 2 Nav2** follows the route and steers around obstacles using LiDAR. See [`navigation/`](navigation/README.md). An earlier version used a reinforcement-learning policy. We switched to Nav2 because it was quicker to make reliable. The RL code is archived in [`training/`](training/) and on the `archive/rl-building-finetune` branch.
+- **Goal.** MSOE Public Safety estimated that automating routine patrols could save about **3,000 officer-hours a year**.
   <!-- TODO(Adrian): confirm the ~3,000 officer-hours/yr figure and how it was derived. It is not documented in this repo. -->
+
+<p align="center">
+  <img src="docs/media/floor4_navgraph.png" alt="Floor 4 occupancy map with the auto-generated navigation graph" width="90%">
+</p>
+<p align="center"><sub>Floor 4 of the Kern Center: occupancy map with the auto-generated navigation graph (red nodes, blue edges).</sub></p>
 
 ---
 
