@@ -5,6 +5,11 @@
 </p>
 <p align="center"><sub>A simulated NVIDIA Nova Carter driving along a glass-walled corridor inside the Isaac Sim twin of the Kern Center (2× speed).</sub></p>
 
+<p align="center">
+  <img src="docs/media/kern_center_orbit.gif" alt="Camera orbiting the full Kern Center building model in Isaac Sim, with trees around it and a reflective ground plane" width="100%">
+</p>
+<p align="center"><sub>Camera orbit around the Kern Center digital twin in NVIDIA Isaac Sim. The building comes from the architects' Revit model.</sub></p>
+
 **Train a building's security-patrol robot before the building exists.** We turn an architect's Revit model into a physics-accurate NVIDIA Isaac Sim digital twin. Inside it we generate auto-labeled synthetic camera/LiDAR data, fine-tune a vision-language model to spot safety anomalies, and drive a Nova Carter robot on planned patrol routes with ROS 2 Nav2.
 
 Student research project at the Milwaukee School of Engineering (MSOE). The target is the **Robert D. Kern Engineering Innovation Center**, a 97,000 sq ft building that was still under construction during this work.
