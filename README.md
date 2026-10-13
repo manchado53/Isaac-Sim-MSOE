@@ -145,7 +145,7 @@ Built in coordination with MSOE's Public Safety Office, on MSOE's Rosie supercom
 
 ```
 revit_to_usd.py               Revit/IFC → USD conversion entry point
-assets/environments/          Building USDs (Git LFS), occupancy maps, nav graphs
+assets/environments/          Occupancy maps, nav graphs, environment notes
 floorplan_vision/             Occupancy maps, auto nav graph, door → node mapping, TSP visuals
 navigation/                   ROS 2 Nav2 package: params, launch, orchestrator, TSP demo recording
 SyntheticDataGen/             Cracked-glass synthetic data + DINOv2 curation
@@ -158,7 +158,7 @@ DEVELOPMENT.md                Developer guide: Isaac Sim on Rosie, WebRTC stream
 scripts/                      Shell scripts: slurm/ (sbatch jobs), run/ (launchers), setup/, tests/. See scripts/README.md
 ```
 
-> The large `.usd` building models are stored with **Git LFS**. Run `git lfs install` before cloning.
+> The 3D building models (`.usd`) are not published in this repo. The code expects them under `assets/environments/`; ask the team for access.
 
 An early 10-second demo (Nova Carter in the stock Isaac Sim hospital scene, from before the Kern Center twin) is at [`assets/demos/hospital_follow_cam_10s.mp4`](assets/demos/hospital_follow_cam_10s.mp4).
 

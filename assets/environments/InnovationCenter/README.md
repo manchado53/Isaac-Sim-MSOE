@@ -2,6 +2,8 @@
 
 The MSOE Innovation Center is a multi-story engineering facility on the Milwaukee School of Engineering campus. It is the target environment for the BIM-to-Sim navigation research project — robots are trained in simulation on this building's digital twin before being deployed in the physical space.
 
+> **Note:** the building model (`InnovationCenter.usd`) is not published in this repo. Scripts that load it expect it at `assets/environments/InnovationCenter/InnovationCenter.usd`. Ask the team for access.
+
 ## Structure
 
 The building has **4 above-ground floors** that are relevant for robot navigation:
