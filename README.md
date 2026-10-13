@@ -9,6 +9,11 @@
 
 Student research project at the Milwaukee School of Engineering (MSOE). The target is the **Robert D. Kern Engineering Innovation Center**, a 97,000 sq ft building that was still under construction during this work.
 
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=CEd0eEXGTiU"><img src="https://img.youtube.com/vi/CEd0eEXGTiU/hqdefault.jpg" alt="Watch the Revit to Robot project video on YouTube" width="60%"></a>
+</p>
+<p align="center"><sub><b>Project video:</b> <a href="https://www.youtube.com/watch?v=CEd0eEXGTiU">Revit to Robot, MSOE Rosie Supercomputer Super Challenge 2026</a> (MSOE YouTube channel).</sub></p>
+
 ## Highlights
 
 - **BIM → USD → Isaac Sim pipeline.** Turns the Revit 2024 model into a simulation-ready twin with collision geometry, articulated doors, and semantic labels.
@@ -56,7 +61,6 @@ Student research project at the Milwaukee School of Engineering (MSOE). The targ
   </tr>
 </table>
 
-<!-- TODO(Adrian): link full video "Video_Submission_Digital_Twin.mp4" (~21 min project presentation) once it is on YouTube. -->
 <!-- TODO(Adrian): optionally link full-length "CostMapNavigation.mp4", "Djikstras Algo.mp4", "TSP-Video.mp4" if uploaded. -->
 
 ---
