@@ -1,53 +1,133 @@
-# Isaac Sim — MSOE Digital Twin Research
+# From Revit to Robot: BIM-Driven Digital Twin for Autonomous Building Operations
 
-Autonomous robot simulation platform built with NVIDIA Isaac Sim 5.1.0, deployed on MSOE's Rosie HPC cluster (T4 GPUs, SLURM).
+**Train a building's security-patrol robot before the building exists.** We turn an architect's Revit model into a physics-accurate NVIDIA Isaac Sim digital twin. Inside it we generate auto-labeled synthetic camera/LiDAR data, fine-tune a vision-language model to spot safety anomalies, and drive a Nova Carter robot on planned patrol routes with ROS 2 Nav2.
 
-## What This Project Is
+Student research project at the Milwaukee School of Engineering (MSOE). The target is the **Robert D. Kern Engineering Innovation Center**, a 97,000 sq ft building that was still under construction during this work.
 
-This repository is the simulation infrastructure for a research project at the Milwaukee School of Engineering (MSOE). We are building a framework that converts **architectural BIM data (Revit) into simulation-ready digital twins** where autonomous robots can be trained and evaluated entirely in software — before the physical building is even complete.
+## Highlights
 
-The target environment is the **Robert D. Kern Engineering Innovation Center**, a 97,000 sq ft facility currently under construction at MSOE that will connect to two existing campus buildings, forming a multi-building complex. Using the building's Revit model, we convert the design into USD format and import it into NVIDIA Isaac Sim for physics-realistic robot simulation.
-
-### Research Goals
-
-- **BIM-to-Sim Pipeline** — Convert Revit architectural models to USD, augment with collision geometry and semantic annotations, and import into Isaac Sim
-- **Navigation Graph Extraction** — Generate NavMesh from building geometry, compute optimized patrol routes using classical path planning
-- **Robot Training** — Train a simulated mobile robot (LiDAR + camera) via reinforcement learning for local navigation and obstacle avoidance across multi-building routes
-- **Synthetic Data Generation** — Generate onboard sensor data to train visual anomaly detection models (open doors, obstructions, irregular room states)
-- **Scalable HPC Deployment** — Run parallelized training on MSOE's Rosie cluster with NVIDIA T4 GPUs via SLURM
-
-### Current Stage
-
-We are in the **environment setup and navigation phase**:
-- Isaac Sim 5.1 is deployed and running headlessly on Rosie via SLURM batch jobs
-- The Isaac Sim hospital environment is loaded with a Nova Carter AMR navigating corridors (follow camera + overhead camera demos working)
-- The MSOE Kern Center Revit model has been exported to USD and is being imported into Isaac Sim (scale conversion, collision setup, ceiling/roof hiding for overhead views)
-- NavMesh generation from building geometry is next — this will feed the topological navigation graph for route planning
-
-### What's Next
-
-- Generate NavMesh for the hospital ground floor using `omni.anim.navigation.core`
-- Build the topological navigation graph with pairwise walkable distances
-- Integrate reinforcement learning for local navigation policy training
-- Import the full Kern Center multi-building complex
-- Generate synthetic sensor data for anomaly detection model training
-
-### Demo: Hospital Follow Camera
-
-A Nova Carter AMR navigating the Isaac Sim hospital environment with a third-person follow camera:
-
-![Hospital Follow Camera Demo](assets/demos/hospital_follow_cam_10s.mp4)
-
-### Current Simulations
-
-| Simulation | Description |
-|---|---|
-| `jetbot_hospital_demo.py` | Nova Carter navigating hospital corridors — follow camera (640x480) |
-| `jetbot_hospital_overhead.py` | Same hospital from a bird's-eye static camera — ceiling hidden (1280x720) |
-| `testbuilding_overhead.py` | MSOE TestBuilding (Revit export) — overhead view with roof hidden |
-| `franka_camera_demo.py` | Franka robotic arm with side-angle camera |
+- **BIM → USD → Isaac Sim pipeline.** Turns the Revit 2024 model into a simulation-ready twin with collision geometry, articulated doors, and semantic labels.
+- **Synthetic data with free labels.** Door open/closed and glass cracked/intact frames come out of the simulator already labeled, with domain randomization (lighting, viewpoint, door families, crack styles).
+- **Fine-tuned VLM** (`Qwen/Qwen3-VL-2B-Instruct` + LoRA). Trained on synthetic renders only. **97.4% / 97.2%** on held-out *synthetic* door / glass frames. **93.0%** on 100 *real* door photos from an existing campus building ([results](#results)).
+- **DINOv2-based data curation.** Stratified k-means on DINOv2 embeddings picks a diverse, label-balanced training subset.
+- **Autonomous patrol in the twin.** Occupancy maps → NVIDIA SWAGGER navigation graph → traveling-salesman door-inspection route → ROS 2 Nav2 drives a simulated Nova Carter with 360° LiDAR.
+- **Runs headless at scale** on MSOE's **Rosie** supercomputer (SLURM; T4 and V100 GPUs).
+- **Recognition:** Rosie Supercomputer Challenge 2026 finalist (5 of 27 teams) and Honorable Mention. Co-authored a paper published at MICS 2026.
+  <!-- TODO(Adrian): add the MICS 2026 paper title + link, and a Rosie Challenge link if public. -->
 
 ---
+
+## The pipeline: first mile → middle mile → last mile
+
+```
+ FIRST MILE: sensing before the building exists
+   Revit 2024 BIM ──► USD ──► NVIDIA Isaac Sim digital twin
+        collision + physics materials, articulated doors, semantic labels
+        synthetic onboard camera + LiDAR, ray-traced occupancy maps
+                               │
+ MIDDLE MILE: models
+   DINOv2 embeddings ──► diversity-curated, label-balanced training set
+   Qwen3-VL-2B-Instruct + LoRA ──► "door open / closed / glass cracked / intact"
+                               │
+ LAST MILE: so what
+   SWAGGER nav graph + TSP route ──► ROS 2 Nav2 (LiDAR) ──► Nova Carter patrol
+   flags open/unsecured doors and cracked glass for campus Public Safety
+```
+
+### First mile: sensing before the building exists
+
+- **BIM to USD.** MSOE's architects supplied the Kern Center model in Revit 2024. It is exported to USD and cleaned up for simulation: only structural parts are kept (walls, floors, doors, stairs), with collision geometry and physics materials added. See [`revit_to_usd.py`](revit_to_usd.py) and [`assets/environments/InnovationCenter/`](assets/environments/InnovationCenter/README.md).
+- **Working doors.** Hinged doors become revolute joints, so the robot sees doors in many open/closed states. Every frame gets an exact label for free.
+- **Occupancy maps.** Ray-tracing the twin floor by floor gives Nav2-ready occupancy grids. See [`floorplan_vision/`](floorplan_vision/README.md).
+- **Synthetic sensor data.** Onboard-camera frames of doors and glass panels, with lighting and viewpoint randomization. Cracked glass is made by swapping procedurally generated crack materials onto random panels. See [`SyntheticDataGen/cracked_glass/`](SyntheticDataGen/cracked_glass/README.md) and [`docs/cracked-glass-pipeline.md`](docs/cracked-glass-pipeline.md).
+
+<p align="center">
+  <img src="paper_figures/hero/hero_cracked_panel.jpg" alt="Synthetic cracked-glass panel rendered in Isaac Sim" width="48%">
+  <img src="assets/environments/InnovationCenter/navgraphs/floor_4_auto_navgraph.png" alt="Floor 4 occupancy map with auto-generated navigation graph" width="48%">
+</p>
+<p align="center"><sub>Left: synthetic cracked-glass render. Right: floor-4 occupancy map with the auto-generated navigation graph.</sub></p>
+
+### Middle mile: models
+
+- **Data curation with DINOv2.** Frames are embedded with DINOv2, then k-means runs inside each (label, panel/door) bucket. The frame nearest each centroid is kept, giving visual diversity with an exact 50/50 class balance. See [`curate_diversity.py`](SyntheticDataGen/cracked_glass/curate_diversity.py) and [`embed_train_frames.py`](SyntheticDataGen/cracked_glass/embed_train_frames.py).
+- **VLM fine-tuning.** We first tried Qwen2-VL, then moved to **Qwen3-VL-2B-Instruct**, the strongest zero-shot baseline among the small VLMs we compared. We train it with LoRA plus vision-projector co-training (~1.6% of parameters). One unified model answers a single four-way question: door open, door closed, glass cracked, or glass intact. Adapter card and usage: [`vlm/qwen3vl_unified_lora_v4/`](vlm/qwen3vl_unified_lora_v4/USAGE.md).
+- **Lesson learned.** An early single-door dataset scored high in-distribution but got **0%** on a door it had never seen: it memorized one door. Rebuilding the dataset across 8 doors and several Revit door families, with held-out doors, fixed it.
+
+### Last mile: so what
+
+- **The problem.** Campus security officers walk the halls checking that doors are secured and glass is intact. The two anomaly types were chosen with **MSOE Public Safety** as their highest priorities.
+- **The robot.** A simulated **NVIDIA Nova Carter** AMR ("ROSCOE") with 360° LiDAR and an onboard camera.
+- **Route planning.** NVIDIA SWAGGER places a navigation graph on each floor's occupancy map, and the node nearest each door is marked as a door node. Dijkstra builds all-pairs corridor distances. A traveling-salesman door-inspection tour comes from greedy nearest-neighbor, improved with 2-opt and 10 random restarts. The tour is then expanded into a full waypoint path. See [`floorplan_vision/visualize_door_tsp.py`](floorplan_vision/visualize_door_tsp.py).
+- **Driving.** **ROS 2 Nav2** (classical LiDAR navigation) handles local planning and obstacle avoidance, with parameters tuned for long architectural corridors. See [`navigation/`](navigation/README.md).
+  An earlier version used a custom **reinforcement-learning** policy. Nav2 replaced it because it was faster to make reliable and needs no reward engineering. The RL work is kept only as an archive in [`training/`](training/) and on the `archive/rl-building-finetune` branch.
+- **Impact target.** Taking over routine patrols could save about **3,000 officer-hours per year**. This figure came from interviews with MSOE Public Safety.
+  <!-- TODO(Adrian): confirm the ~3,000 officer-hours/yr figure and how it was derived. It is not documented in this repo. -->
+
+---
+
+## Results
+
+> **Read this first:** the "held-out" door and glass numbers are on **simulated (synthetic) images**. The real-world number is a small 100-photo door test. Navigation results have not been tabulated yet.
+
+| Test set | n | Zero-shot | Fine-tuned |
+|---|---|---|---|
+| Door, held-out frames (**synthetic**) | 4,472 | — | **97.4%** |
+| Glass, held-out frames (**synthetic**) | 810 | — | **97.2%** |
+| Door, held-out door instance / swing (**synthetic**) | 7,776 | 84.1% | **90.2%** |
+| Real-world door photos (Diercks Hall, MSOE) | 100 | — | **93.0%** |
+
+- Real-world door test: closed 100%, open 88.3%. Diercks Hall is an existing MSOE building from the same architect, with the same design language.
+- Scale: the pipeline was applied to a six-building digital campus, using over 3,500 GPU jobs and about 2,000 GPU-hours on Rosie.
+<!-- TODO(Adrian): add Nav2 patrol metrics (route completion, collisions, time per tour) once tabulated. -->
+
+---
+
+## Team
+
+MSOE student research group, led by **Adrian Manchado** through the MSOE AI Club.
+
+Adrian Manchado (lead) · Owen Pacetti · Steven Thomas · Joseph Loduca · Nicolas Picha · Tanner Cellio · Diego Gonzalo · Delsoro Some
+
+Built in coordination with MSOE's Public Safety Office, on MSOE's Rosie supercomputer.
+<!-- TODO(Adrian): add a faculty advisor name, if you want to credit one. -->
+
+---
+
+## What's next
+
+- **Sim-to-real on a physical Nova Carter.** Run the same SWAGGER + TSP + Nav2 patrol on real hardware, supervised by Public Safety.
+- **Wider real-image validation.** Test the VLM on more real photos: cracked/intact glass (not yet tested on real images), more buildings, and harder lighting.
+- **Navigation metrics.** Report route-completion and obstacle-avoidance results for Nav2 in the twin.
+- **More anomaly types.** Hallway obstructions and irregular room states.
+- **The Kern Center itself.** Re-run the pipeline once the building opens, and compare twin and real data.
+
+---
+
+## Repository map
+
+```
+revit_to_usd.py               Revit/IFC → USD conversion entry point
+assets/environments/          Building USDs (Git LFS), occupancy maps, nav graphs
+floorplan_vision/             Occupancy maps, auto nav graph, door → node mapping, TSP visuals
+navigation/                   ROS 2 Nav2 package: params, launch, orchestrator, TSP demo recording
+SyntheticDataGen/             Cracked-glass synthetic data + DINOv2 curation
+simulations/                  Isaac Sim scenes: environment checks, robot + door data collection
+vlm/                          Fine-tuned Qwen3-VL LoRA adapter card + usage
+training/                     Archived RL navigation experiments (superseded by Nav2)
+sim_utils/                    Shared helpers (follow camera, ffmpeg video capture)
+docs/                         Pipeline notes
+submit_*.sh                   SLURM job scripts for Rosie
+```
+
+> The large `.usd` building models are stored with **Git LFS**. Run `git lfs install` before cloning.
+
+An early 10-second demo (Nova Carter in the stock Isaac Sim hospital scene, from before the Kern Center twin) is at [`assets/demos/hospital_follow_cam_10s.mp4`](assets/demos/hospital_follow_cam_10s.mp4).
+
+---
+
+# Developer guide: running on Rosie
+
+The rest of this page is the team's setup guide for running Isaac Sim 5.1 headless on MSOE's Rosie cluster.
 
 ## How It Runs
 
@@ -76,8 +156,9 @@ ssh <username>@ad.msoe.edu@dh-mgmt2.hpc.msoe.edu
 Clone the repo:
 ```bash
 cd ~
-git clone https://gitlab.com/manchado53/isaac-sim-msoe.git
-cd isaac-sim-msoe
+git lfs install
+git clone https://github.com/manchado53/Isaac-Sim-MSOE.git
+cd Isaac-Sim-MSOE
 ```
 
 ---
@@ -120,10 +201,10 @@ Run a simulation fully in the background via SLURM. The script records the camer
 All simulations are run through a single generic job script:
 
 ```bash
-sbatch submit_isaac_job.sh simulations/jetbot_hospital_demo.py
+sbatch submit_isaac_job.sh simulations/robot/jetbot_hospital_demo.py
 sbatch submit_isaac_job.sh simulations/jetbot_hospital_overhead.py
 sbatch submit_isaac_job.sh simulations/testbuilding_overhead.py
-sbatch submit_isaac_job.sh simulations/franka_camera_demo.py
+sbatch submit_isaac_job.sh simulations/robot/franka_camera_demo.py
 ```
 
 ### Monitor progress
@@ -135,7 +216,7 @@ tail -f logs/isaac_<job_id>.out              # live log output
 
 ### Output
 
-Videos are saved to `~/isaac-sim-msoe/output/<simulation_name>/` when the job completes.
+Videos are saved to `~/Isaac-Sim-MSOE/output/<simulation_name>/` when the job completes.
 
 To target a specific node:
 ```bash
@@ -212,76 +293,6 @@ squeue -u <username>@ad.msoe.edu    # check the NODELIST column
 
 ---
 
-## Connecting to the Lab Server (rosita) via Tailscale
-
-The lab server **rosita** has an RTX 5090 GPU and runs Isaac Sim locally (not on Rosie). To connect from your personal machine, you need Tailscale (a VPN) and SSH access.
-
-### 1. Install Tailscale
-
-Download and install Tailscale on your machine:
-- **Windows**: https://tailscale.com/download/windows
-- **Mac**: https://tailscale.com/download/mac
-- **Linux**: https://tailscale.com/download/linux
-
-### 2. Log in to Tailscale
-
-Open Tailscale and sign in. After logging in, it may prompt you to pair/authenticate your device in a browser — complete that step.
-
-### 3. Join the shared network
-
-You'll receive a **share link** from the team admin. Open it in your browser and accept the invitation. This connects your machine to rosita's Tailscale network.
-
-Verify the connection:
-```
-tailscale ping 100.107.199.57
-```
-
-You should see `pong` responses.
-
-### 4. Set up SSH access
-
-#### Save your SSH key (one-time)
-
-Generate an SSH key if you don't already have one:
-```bash
-ssh-keygen -t ed25519
-```
-
-Press Enter for all prompts (default location, no passphrase is fine).
-
-Send your **public key** (`~/.ssh/id_ed25519.pub` on Mac/Linux, `C:\Users\<you>\.ssh\id_ed25519.pub` on Windows) to the admin so they can add it to rosita.
-
-#### Add the SSH config
-
-Add this to your SSH config file:
-- **Windows**: `C:\Users\<you>\.ssh\config`
-- **Mac/Linux**: `~/.ssh/config`
-
-```
-Host rosita
-    HostName 100.107.199.57
-    User thescript
-    ForwardX11 yes
-    ForwardX11Trusted yes
-    XAuthLocation /usr/bin/xauth
-```
-
-> **Note**: The `HostName` IP (`100.107.199.57`) is rosita's Tailscale IP. If it changes, update this value. On Windows, you can remove the `XAuthLocation` line.
-
-#### Get the login password
-
-Ask the team admin for the `thescript` account password on rosita.
-
-### 5. Connect
-
-```bash
-ssh rosita
-```
-
-Enter the password when prompted. You're now on the lab server.
-
----
-
 ## Option C: WebRTC Streaming from a Remote Machine (Non-Rosie)
 
 Stream Isaac Sim's GUI from a standalone server (not Rosie) to a remote computer over Tailscale or any network where both machines can reach each other.
@@ -300,7 +311,7 @@ Stream Isaac Sim's GUI from a standalone server (not Rosie) to a remote computer
 
 ### Step C1: Find the server's IP address
 
-The default team server is **100.107.199.57** (Tailscale). If using a different server, find its reachable IP:
+Find the server's reachable IP:
 
 ```bash
 # Same LAN:
@@ -321,13 +332,13 @@ cd ~/isaacsim
   --/app/window/drawMouse=true \
   --/app/livestream/allowResize=true \
   --/app/livestream/nvcf/quitOnSessionEnded=false \
-  --/app/livestream/publicEndpointAddress=100.107.199.57 \
+  --/app/livestream/publicEndpointAddress=<SERVER_IP> \
   --/app/livestream/port=49100 \
   --/app/renderer/skipWhileMinimized=false \
   --/app/renderer/sleepMsOutOfFocus=0
 ```
 
-Replace `100.107.199.57` with your server's IP if using a different machine.
+Replace `<SERVER_IP>` with your server's IP.
 
 > **Important:** The `publicEndpointAddress` flag is required when the client is on a different network. Without it, Isaac Sim advertises its local LAN IP for the media stream, which remote clients can't reach.
 
@@ -341,7 +352,7 @@ curl http://localhost:8011/v1/streaming/ready
 ### Step C3: Connect with the Streaming Client
 
 1. Open the Isaac Sim WebRTC Streaming Client on your local machine
-2. Enter the server IP (default: `100.107.199.57`)
+2. Enter the server IP
 3. Click **Connect**
 4. Isaac Sim's full GUI should appear within a few seconds
 
@@ -359,36 +370,11 @@ These ports must be reachable from your local machine. Tailscale and most VPNs h
 
 **Black screen then disconnect** — You're missing `--/app/livestream/publicEndpointAddress=<SERVER_IP>`. This is the most common issue when connecting from a different network.
 
-**Client can't connect at all** — Check that port 49100 is reachable: `nc -z 100.107.199.57 49100`. If using Tailscale, verify both machines are online with `tailscale status`.
+**Client can't connect at all** — Check that port 49100 is reachable: `nc -z <SERVER_IP> 49100`. If using Tailscale, verify both machines are online with `tailscale status`.
 
 **App quits when client disconnects** — Add `--/app/livestream/nvcf/quitOnSessionEnded=false` to keep Isaac Sim running between sessions.
 
 **Health check returns "Rtx not ready"** — Isaac Sim is still starting up. Wait a few more seconds and try again.
-
----
-
-## Project Structure
-
-```
-isaac-sim-msoe/
-├── simulations/                          # All simulation scripts
-│   ├── hello_isaac.py                    # Minimal test (cube drop)
-│   ├── jetbot_hospital_demo.py           # Hospital — follow camera
-│   ├── jetbot_hospital_overhead.py       # Hospital — overhead camera
-│   ├── testbuilding_overhead.py          # MSOE building — overhead camera
-│   └── franka_camera_demo.py             # Franka arm demo
-├── sim_utils/                            # Reusable utilities
-│   ├── follow_camera.py                  # FollowCamera class (quaternion tracking)
-│   └── video_capture.py                  # VideoRecorder (ffmpeg pipe)
-├── assets/
-│   ├── demos/                            # Demo video clips
-│   │   └── hospital_follow_cam_10s.mp4   # 10s hospital follow-cam clip
-│   └── environments/                     # Custom building USDs (Revit exports)
-│       └── msoe_building/TestBuilding.usd
-├── submit_isaac_job.sh                   # Generic SLURM submission script
-├── logs/                                 # SLURM logs (gitignored)
-└── output/                               # Video outputs (gitignored)
-```
 
 ---
 
