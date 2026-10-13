@@ -30,8 +30,8 @@ Clone the repo:
 ```bash
 cd ~
 git lfs install
-git clone https://github.com/manchado53/Isaac-Sim-MSOE.git
-cd Isaac-Sim-MSOE
+git clone https://github.com/manchado53/revit-to-robot.git
+cd revit-to-robot
 ```
 
 ---
@@ -89,7 +89,7 @@ tail -f logs/isaac_<job_id>.out              # live log output
 
 ### Output
 
-Videos are saved to `~/Isaac-Sim-MSOE/output/<simulation_name>/` when the job completes.
+Videos are saved to `~/revit-to-robot/output/<simulation_name>/` when the job completes.
 
 To target a specific node:
 ```bash
