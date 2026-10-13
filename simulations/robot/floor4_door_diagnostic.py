@@ -12,7 +12,7 @@ Opens the building USD and scans all mesh prims in the Floor 4 Z range
 Also prints a summary of ALL Floor 4 mesh prims for orientation.
 
 Run via:
-  sbatch submit_isaac_job.sh simulations/robot/floor4_door_diagnostic.py
+  sbatch scripts/slurm/submit_isaac_job.sh simulations/robot/floor4_door_diagnostic.py
 
 Results appear in logs/isaac_<JOBID>.out
 """

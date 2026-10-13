@@ -6,7 +6,7 @@ Positions a camera 5ft in front of each door near Camera G and takes a
 screenshot to confirm whether the door geometry actually renders.
 
 Usage:
-    sbatch submit_isaac_job.sh simulations/environment/door_closeup_screenshots.py \
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/door_closeup_screenshots.py \
         assets/environments/msoe_building/MSOEBuildingApril.usd
 """
 

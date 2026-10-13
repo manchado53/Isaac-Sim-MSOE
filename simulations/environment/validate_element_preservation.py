@@ -14,7 +14,7 @@ Checks:
   - Per-level counts match (no entire floors lost)
 
 Usage:
-    sbatch submit_isaac_job.sh simulations/environment/validate_element_preservation.py <usd_path>
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/validate_element_preservation.py <usd_path>
 
 Output:
     logs/validation/element_preservation_results.json

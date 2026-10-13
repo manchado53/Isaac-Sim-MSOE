@@ -6,10 +6,10 @@ Loads a Revit-exported USD, applies physics collisions, materials, and joints,
 then exports a physics-ready USD.
 
 Usage:
-    sbatch submit_isaac_job.sh simulations/environment/setup_building_physics.py \
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/setup_building_physics.py \
         --input assets/environments/msoe_building/MSOEBuildingTake2.usd
 
-    sbatch submit_isaac_job.sh simulations/environment/setup_building_physics.py \
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/setup_building_physics.py \
         --input assets/environments/msoe_building/MyBuilding.usd \
         --output assets/environments/msoe_building/MyBuilding_physics.usd \
         --margin 1.5

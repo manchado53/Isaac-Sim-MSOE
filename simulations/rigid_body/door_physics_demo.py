@@ -14,7 +14,7 @@ Concepts covered:
   - Camera sensor + VideoRecorder for MP4 output
 
 Run on Rosie:
-    sbatch submit_isaac_job.sh simulations/rigid_body/door_physics_demo.py
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/rigid_body/door_physics_demo.py
 """
 
 import os

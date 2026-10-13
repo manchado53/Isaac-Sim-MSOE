@@ -9,9 +9,9 @@
 
 # SLURM submission wrapper for the IRA (W3) people demo.
 # Submit with:
-#   sbatch submit_ira_job.sh
+#   sbatch scripts/slurm/submit_ira_job.sh
 # or pass extra flags through to sdg_scheduler.py:
-#   sbatch submit_ira_job.sh --save_usd
+#   sbatch scripts/slurm/submit_ira_job.sh --save_usd
 #
 # Log output lands in logs/ira_<JOBID>.{out,err}.
 # Rendered RGB frames land in $HOME/ReplicatorResult/<timestamped subdir>/.
@@ -45,7 +45,7 @@ fi
 if [ -n "${SLURM_SUBMIT_DIR:-}" ]; then
     PROJECT_DIR="$SLURM_SUBMIT_DIR"
 else
-    PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 fi
 cd "$PROJECT_DIR" || exit 1
 

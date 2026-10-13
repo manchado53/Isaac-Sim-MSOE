@@ -14,9 +14,9 @@
 #   train_curated_summary.json
 #
 # Usage:
-#   sbatch submit_curate_diversity.sh --dataset datasets/cracked_glass/20261204_1500
-#   sbatch submit_curate_diversity.sh --dataset <path> --k 5000
-#   sbatch submit_curate_diversity.sh --dataset <path> --skip_embed
+#   sbatch scripts/slurm/submit_curate_diversity.sh --dataset datasets/cracked_glass/20261204_1500
+#   sbatch scripts/slurm/submit_curate_diversity.sh --dataset <path> --k 5000
+#   sbatch scripts/slurm/submit_curate_diversity.sh --dataset <path> --skip_embed
 
 #SBATCH --job-name=cracked-glass-curate
 #SBATCH --partition=dgx

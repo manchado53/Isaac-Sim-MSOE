@@ -5,7 +5,7 @@ Nova Carter — VLM Patrol Demo  (Phase 1: Simulation)
 Drives Nova Carter through the MSOE Innovation Center and collects onboard
 + follow-cam RGBA frames.  Saves them to a .npz cache file for Phase 2+3.
 
-Run via submit_isaac_job.sh which calls this script then nova_carter_vlm_phase23.py.
+Run via scripts/slurm/submit_isaac_job.sh which calls this script then nova_carter_vlm_phase23.py.
 
 Tuning notes:
   ROBOT_SPAWN_Z  — currently Floor 4 (Z≈26.8 m slab + 0.5 m clearance = 27.3).
@@ -273,7 +273,7 @@ print(f"[Phase 1] Done — {len(onboard_frames)} onboard, "
 # ---------------------------------------------------------------------------
 # Save frame cache for Phase 2+3
 # simulation_app.close() calls os._exit(0), so Phase 2+3 runs as a separate
-# process (nova_carter_vlm_phase23.py) invoked by submit_isaac_job.sh.
+# process (nova_carter_vlm_phase23.py) invoked by scripts/slurm/submit_isaac_job.sh.
 # ---------------------------------------------------------------------------
 
 _cache_path = os.path.join(_project_dir, "frame_cache.npz")

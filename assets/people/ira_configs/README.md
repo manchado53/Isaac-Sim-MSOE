@@ -15,7 +15,7 @@ Innovation Center physics USD. Only reach for this path if the simpler
 | `ground_floor_commands.txt` | Character command file. `Character_0` walks a 3-waypoint path around the Event Floor (IC 100) with short idle pauses between legs. |
 | `ground_floor_cameras.json` | Single camera placement matching `TEST_CAMERAS['G']` from `sim_utils/test_cameras.py` (top corner of event space, 12 mm wide-angle). |
 | `../../simulations/environment/run_ira_ground_floor.sh` | Wrapper that invokes `~/isaacsim/tools/actor_sdg/sdg_scheduler.py` with the right flags. |
-| `../../submit_ira_job.sh` | SLURM submission wrapper (partition=teaching, 1 GPU, 1 h, 32 GB). |
+| `../../../scripts/slurm/submit_ira_job.sh` | SLURM submission wrapper (partition=teaching, 1 GPU, 1 h, 32 GB). |
 
 ## How to launch
 
@@ -32,8 +32,8 @@ chmod +x simulations/environment/run_ira_ground_floor.sh   # once
 
 ```bash
 cd ~/isaacsim/isaac-sim-msoe
-chmod +x submit_ira_job.sh simulations/environment/run_ira_ground_floor.sh   # once
-sbatch submit_ira_job.sh
+chmod +x scripts/slurm/submit_ira_job.sh simulations/environment/run_ira_ground_floor.sh   # once
+sbatch scripts/slurm/submit_ira_job.sh
 squeue -u $USER
 tail -f logs/ira_<JOBID>.out
 ```

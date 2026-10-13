@@ -7,7 +7,7 @@ standing characters along the stage front, and renders one screenshot
 from the audience camera discovered by discover_auditorium.py.
 
 Usage:
-  sbatch submit_isaac_job.sh simulations/environment/dierks_presentation_demo.py \\
+  sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/dierks_presentation_demo.py \\
       --input assets/environments/msoe_building/DierksHallV2_physics.usd \\
       --anchors logs/dierks_auditorium.json
 

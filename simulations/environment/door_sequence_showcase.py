@@ -9,7 +9,7 @@ values (Z-axis hinges, proper damping, angle limits) — this is the
 "perfect pipeline" payoff shot.
 
 Usage:
-    sbatch submit_isaac_job.sh simulations/environment/door_sequence_showcase.py \
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/door_sequence_showcase.py \
         --input assets/environments/msoe_building/MSOEBuildingV4_physics.usd
 
 Output:

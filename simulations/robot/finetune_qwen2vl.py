@@ -15,7 +15,7 @@ Output:
   data/qwen2vl_door_lora/           (adapter weights, loadable with peft)
 
 Usage:
-  sbatch submit_finetune_job.sh
+  sbatch scripts/slurm/submit_finetune_job.sh
   # or directly:
   python3 simulations/robot/finetune_qwen2vl.py [--data_dir data/] [--output_dir data/qwen2vl_door_lora]
 

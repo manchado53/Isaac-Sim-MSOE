@@ -7,7 +7,7 @@ No people yet — just the empty room, so we can see the framing before
 spending iterations on pose tuning.
 
 Usage:
-  sbatch submit_isaac_job.sh simulations/environment/auditorium_preview.py \\
+  sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/auditorium_preview.py \\
       --input assets/environments/msoe_building/DierksHallV2_physics.usd \\
       --anchors logs/dierks_auditorium.json
 

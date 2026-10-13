@@ -9,7 +9,7 @@ Traverses the USD and collects quantitative statistics:
   - Per-camera screenshot (non-black check)
 
 Usage:
-    sbatch submit_isaac_job.sh simulations/environment/validate_building_stats.py <usd_path>
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/validate_building_stats.py <usd_path>
 
 Output:
     logs/validation/building_stats_results.json

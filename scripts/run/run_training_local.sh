@@ -1,6 +1,6 @@
 #!/bin/bash
 # Local training launcher for RTX 5090
-# Usage: ./run_training_local.sh [extra args...]
+# Usage: ./scripts/run/run_training_local.sh [extra args...]
 
 set -e
 

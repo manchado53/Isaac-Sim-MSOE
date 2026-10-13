@@ -8,8 +8,8 @@ and runs a simple P-controller that approaches the ball then steers it
 toward the target goal. Recorded with a chase-cam behind the robot.
 
 Usage:
-    sbatch submit_isaac_job.sh simulations/environment/vietsfield_soccer_demo.py
-    sbatch submit_isaac_job.sh simulations/environment/vietsfield_soccer_demo.py <usd_path>
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/vietsfield_soccer_demo.py
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/vietsfield_soccer_demo.py <usd_path>
 
 Output:
     videos/vietsfield_soccer_goal.mp4

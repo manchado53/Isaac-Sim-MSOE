@@ -6,7 +6,7 @@ For each test camera, finds nearby doors (within DOOR_SEARCH_RADIUS feet),
 drives them to 80 degrees, measures final angle, and records video.
 
 Usage:
-    sbatch submit_isaac_job.sh simulations/environment/validate_door_physics.py <usd_path>
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/validate_door_physics.py <usd_path>
 
 Output:
     logs/validation/door_physics_results.json

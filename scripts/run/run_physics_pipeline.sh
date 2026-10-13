@@ -10,7 +10,7 @@
 #   Step 3:  Demo video (orbital camera tour with drop objects) — after 2a+2b
 #
 # Usage:
-#   ./run_physics_pipeline.sh <building.ifc|building.usd> [options]
+#   ./scripts/run/run_physics_pipeline.sh <building.ifc|building.usd> [options]
 #
 # Options:
 #   --margin FLOAT      Door collision filter margin (default: 1.0)
@@ -21,10 +21,10 @@
 #   --config PATH       IFC conversion config file (default: config.yaml)
 #
 # Examples:
-#   ./run_physics_pipeline.sh building.ifc
-#   ./run_physics_pipeline.sh building.ifc --config custom_config.yaml
-#   ./run_physics_pipeline.sh assets/environments/msoe_building/MSOEBuildingTake2.usd
-#   ./run_physics_pipeline.sh assets/environments/msoe_building/MyBuilding.usd --mem 48G --margin 1.5
+#   ./scripts/run/run_physics_pipeline.sh building.ifc
+#   ./scripts/run/run_physics_pipeline.sh building.ifc --config custom_config.yaml
+#   ./scripts/run/run_physics_pipeline.sh assets/environments/msoe_building/MSOEBuildingTake2.usd
+#   ./scripts/run/run_physics_pipeline.sh assets/environments/msoe_building/MyBuilding.usd --mem 48G --margin 1.5
 
 set -euo pipefail
 
@@ -61,7 +61,7 @@ done
 if [ ! -f "$INPUT_FILE" ]; then
     echo "ERROR: Input file not found: $INPUT_FILE"
     echo ""
-    echo "Run ./setup_shared_assets.sh to copy building files from shared storage."
+    echo "Run ./scripts/setup/setup_shared_assets.sh to copy building files from shared storage."
     echo "Shared assets are at: /data/ai_club/isaac-sim-msoe/"
     exit 1
 fi
@@ -113,7 +113,7 @@ echo ""
 # This means file paths with spaces will BREAK. All our asset paths
 # use hyphens/underscores, so this is safe.
 
-# Submit a GPU job via submit_isaac_job.sh (for Isaac Sim scripts)
+# Submit a GPU job via scripts/slurm/submit_isaac_job.sh (for Isaac Sim scripts)
 submit_gpu_job() {
     local JOB_NAME="$1"
     local SCRIPT="$2"
@@ -135,7 +135,7 @@ submit_gpu_job() {
         --output="logs/isaac_%j.out" \
         --error="logs/isaac_%j.err" \
         $DEP_FLAG \
-        submit_isaac_job.sh "$SCRIPT" $EXTRA_ARGS \
+        scripts/slurm/submit_isaac_job.sh "$SCRIPT" $EXTRA_ARGS \
         | cut -d';' -f1)
 
     echo "$JOB_ID"
@@ -162,7 +162,7 @@ submit_ifc_job() {
         --error="logs/ifc_%j.err" \
         --export=ALL \
         $DEP_FLAG \
-        submit_ifc_job.sh $EXTRA_ARGS \
+        scripts/slurm/submit_ifc_job.sh $EXTRA_ARGS \
         | cut -d';' -f1)
 
     echo "$JOB_ID"

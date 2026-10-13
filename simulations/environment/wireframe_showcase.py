@@ -9,7 +9,7 @@ Output:
   - videos/environment/wireframe_showcase.mp4  (~15s @ 30fps, 1920x1080)
 
 Usage:
-  sbatch submit_isaac_job.sh simulations/environment/wireframe_showcase.py
+  sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/wireframe_showcase.py
 """
 
 import os

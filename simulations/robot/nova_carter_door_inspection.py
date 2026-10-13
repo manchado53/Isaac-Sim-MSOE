@@ -21,7 +21,7 @@ The door state (OPEN / CLOSED) is set manually before running this script.
 Run twice — once with the door closed, once with the door open — to compare.
 
 Usage:
-  sbatch submit_isaac_job.sh simulations/robot/nova_carter_door_inspection.py
+  sbatch scripts/slurm/submit_isaac_job.sh simulations/robot/nova_carter_door_inspection.py
 
 Outputs (never overwrites — each run gets a unique timestamp):
   videos/door_inspection_YYYYMMDD_HHMMSS.mp4          — annotated onboard video

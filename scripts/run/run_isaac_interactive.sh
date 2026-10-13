@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Run Isaac Sim interactively on Rosie
-# Usage: ./run_isaac_interactive.sh [script.py]
+# Usage: ./scripts/run/run_isaac_interactive.sh [script.py]
 #
 # NOTE: This script must be run on a GPU node (via srun or in an interactive session)
 #
@@ -54,6 +54,6 @@ else
     fi
 
     # Run the script
-    cd "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || exit 1
+    cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)" || exit 1
     "$ISAAC_PYTHON" "$SCRIPT"
 fi

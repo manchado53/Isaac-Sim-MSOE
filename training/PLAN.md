@@ -19,7 +19,7 @@ Isaac Lab 2.3.x is NVIDIA's official RL framework for Isaac Sim 5.1.0. It provid
 
 Isaac Sim 5.1.0 is already installed at `~/isaacsim`. We install Isaac Lab alongside it.
 
-**Create `scripts/install_isaac_lab.sh`**:
+**Create `scripts/setup/install_isaac_lab.sh`**:
 ```bash
 #!/bin/bash
 # Run on a GPU node (srun --partition=teaching --gres=gpu:1 --time=1:00:00 --pty bash)

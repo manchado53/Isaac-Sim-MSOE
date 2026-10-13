@@ -7,7 +7,7 @@ patrol in front of the camera, records video, and verifies the robot
 stays on the floor surface.
 
 Usage:
-    sbatch submit_isaac_job.sh simulations/environment/validate_robot_movement.py <usd_path>
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/validate_robot_movement.py <usd_path>
 
 Output:
     logs/validation/robot_movement_results.json

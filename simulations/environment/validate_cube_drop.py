@@ -6,7 +6,7 @@ Drops 9 randomly scattered cubes near each test camera, lets them settle,
 records video from each camera, and checks that cubes rest on surfaces.
 
 Usage:
-    sbatch submit_isaac_job.sh simulations/environment/validate_cube_drop.py <usd_path>
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/validate_cube_drop.py <usd_path>
 
 Output:
     logs/validation/cube_drop_results.json

@@ -8,7 +8,7 @@
 # Usage:
 #   srun --partition=teaching --gres=gpu:1 --time=0:15:00 --pty bash
 #   cd ~/isaac-sim-msoe
-#   bash scripts/verify_isaac_lab.sh
+#   bash scripts/setup/verify_isaac_lab.sh
 #
 
 set -euo pipefail
@@ -30,7 +30,7 @@ log "Verifying Isaac Lab installation"
 
 # Check directory exists
 if [ ! -d "$ISAAC_LAB_PATH" ]; then
-    error "Isaac Lab not found at $ISAAC_LAB_PATH. Run scripts/install_isaac_lab.sh first."
+    error "Isaac Lab not found at $ISAAC_LAB_PATH. Run scripts/setup/install_isaac_lab.sh first."
 fi
 
 # Check symlink

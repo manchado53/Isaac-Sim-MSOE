@@ -7,11 +7,11 @@
 #SBATCH --error=logs/ifc_%j.err
 
 # IFC to USD Conversion Job (CPU only - no GPU required)
-# Submit with: sbatch submit_ifc_job.sh input.ifc output.usd [--config config.yaml]
+# Submit with: sbatch scripts/slurm/submit_ifc_job.sh input.ifc output.usd [--config config.yaml]
 #
 # Requires: ifcopenshell, usd-core, pyyaml
 # If these are in a conda env, set IFC_CONDA_ENV before submitting:
-#   export IFC_CONDA_ENV=myenv && sbatch submit_ifc_job.sh ...
+#   export IFC_CONDA_ENV=myenv && sbatch scripts/slurm/submit_ifc_job.sh ...
 
 export PYTHONUNBUFFERED=1
 
@@ -19,7 +19,7 @@ export PYTHONUNBUFFERED=1
 if [ -n "${SLURM_SUBMIT_DIR:-}" ]; then
     PROJECT_DIR="$SLURM_SUBMIT_DIR"
 else
-    PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 fi
 cd "$PROJECT_DIR" || exit 1
 

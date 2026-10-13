@@ -8,7 +8,7 @@ simulation_app.close() calls os._exit(0), killing any in-process code that follo
 Loads door_demo_cache.npz written by Phase 1, runs Qwen2-VL on the door frames,
 and writes the annotated video + per-frame PNGs + text log.
 
-Called automatically by submit_isaac_job.sh when door_demo_cache.npz is present.
+Called automatically by scripts/slurm/submit_isaac_job.sh when door_demo_cache.npz is present.
 """
 
 import os

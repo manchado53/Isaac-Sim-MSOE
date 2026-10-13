@@ -7,7 +7,7 @@ door with visible mesh geometry, and records a slow-orbit video around it
 with strong interior lighting.
 
 Usage:
-    sbatch submit_isaac_job.sh simulations/environment/single_door_view.py
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/single_door_view.py
 """
 import math
 import os

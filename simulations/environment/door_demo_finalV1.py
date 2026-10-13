@@ -7,7 +7,7 @@ door with a working drive, positions a camera INSIDE the room facing the
 door, and records the door swinging open and closed.
 
 Run on Rosie:
-    sbatch submit_isaac_job.sh simulations/environment/door_demo_finalV1.py
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/door_demo_finalV1.py
 
 Output:
     videos/environment/door_demo_finalV1.mp4  (12s @ 30fps, 1920x1080)

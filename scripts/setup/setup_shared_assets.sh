@@ -6,8 +6,8 @@
 # directory into your local repo so you can run the physics pipeline.
 #
 # Usage:
-#   ./setup_shared_assets.sh           # Copy all shared assets
-#   ./setup_shared_assets.sh --list    # Show what's available
+#   ./scripts/setup/setup_shared_assets.sh           # Copy all shared assets
+#   ./scripts/setup/setup_shared_assets.sh --list    # Show what's available
 #
 # Shared assets are readable by all ai_club members. If you generate
 # new physics USD files, copy them back with:
@@ -79,7 +79,7 @@ echo "Physics-ready USDs (for simulations):"
 ls -lh "$LOCAL_BUILDING"/*.usd 2>/dev/null || echo "  (none)"
 echo ""
 echo "Run the physics pipeline:"
-echo "  ./run_physics_pipeline.sh $LOCAL_ENV/msoe-engineering-innovation-USD.usd"
+echo "  ./scripts/run/run_physics_pipeline.sh $LOCAL_ENV/msoe-engineering-innovation-USD.usd"
 echo ""
 echo "Or use the IFC pipeline (full conversion):"
-echo "  ./run_physics_pipeline.sh $LOCAL_ENV/msoe-engineering-innovation-center.ifc"
+echo "  ./scripts/run/run_physics_pipeline.sh $LOCAL_ENV/msoe-engineering-innovation-center.ifc"

@@ -10,11 +10,11 @@ per room. All captures run in a single Isaac Sim session so we pay the
 
 Usage:
   # Render three specific rooms by name substring match
-  sbatch submit_isaac_job.sh simulations/environment/rosie_preview.py \\
+  sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/rosie_preview.py \\
       --rooms SERVICE_153,STORAGE_147,CONTROL_131
 
   # Render the top 3 server-shape candidates by default
-  sbatch submit_isaac_job.sh simulations/environment/rosie_preview.py --top-n 3
+  sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/rosie_preview.py --top-n 3
 
 Output:
   images/rosie_<room_name>.png         per-room PNG

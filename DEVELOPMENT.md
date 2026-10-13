@@ -74,10 +74,10 @@ Run a simulation fully in the background via SLURM. The script records the camer
 All simulations are run through a single generic job script:
 
 ```bash
-sbatch submit_isaac_job.sh simulations/robot/jetbot_hospital_demo.py
-sbatch submit_isaac_job.sh simulations/jetbot_hospital_overhead.py
-sbatch submit_isaac_job.sh simulations/testbuilding_overhead.py
-sbatch submit_isaac_job.sh simulations/robot/franka_camera_demo.py
+sbatch scripts/slurm/submit_isaac_job.sh simulations/robot/jetbot_hospital_demo.py
+sbatch scripts/slurm/submit_isaac_job.sh simulations/jetbot_hospital_overhead.py
+sbatch scripts/slurm/submit_isaac_job.sh simulations/testbuilding_overhead.py
+sbatch scripts/slurm/submit_isaac_job.sh simulations/robot/franka_camera_demo.py
 ```
 
 ### Monitor progress
@@ -93,7 +93,7 @@ Videos are saved to `~/Isaac-Sim-MSOE/output/<simulation_name>/` when the job co
 
 To target a specific node:
 ```bash
-sbatch --nodelist=dh-node17 submit_isaac_job.sh simulations/jetbot_hospital_demo.py
+sbatch --nodelist=dh-node17 scripts/slurm/submit_isaac_job.sh simulations/jetbot_hospital_demo.py
 ```
 
 ---

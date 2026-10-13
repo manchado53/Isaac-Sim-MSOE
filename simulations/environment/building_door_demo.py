@@ -13,7 +13,7 @@ Output:
   - videos/environment/building_door_demo.mp4  (10s @ 30fps)
 
 Run on Rosie:
-    sbatch submit_isaac_job.sh simulations/environment/building_door_demo.py
+    sbatch scripts/slurm/submit_isaac_job.sh simulations/environment/building_door_demo.py
 """
 
 import os

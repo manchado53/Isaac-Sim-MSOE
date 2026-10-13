@@ -9,13 +9,13 @@ view by eyeball; the script prints a ready-to-copy CLI snippet of the cam
 position + target for the showcase scripts.
 
 Usage:
-    sbatch submit_isaac_job.sh tools/preview_door_cameras.py \
+    sbatch scripts/slurm/submit_isaac_job.sh tools/preview_door_cameras.py \
         --input assets/environments/msoe_building/MSOEBuildingV4_physics.usd \
         --centroid -16.5,78.2,23.8 \
         --extent 8.2,6.0,8.5
 
 Or pull straight from the cluster JSON:
-    sbatch submit_isaac_job.sh tools/preview_door_cameras.py \
+    sbatch scripts/slurm/submit_isaac_job.sh tools/preview_door_cameras.py \
         --input assets/environments/msoe_building/MSOEBuildingV4_physics.usd \
         --clusters-json logs/MSOEBuildingV4_physics_door_clusters.json \
         --cluster-rank 1

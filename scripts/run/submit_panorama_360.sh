@@ -3,16 +3,16 @@
 # Each job takes ~4-6 min on a T4.
 #
 # Usage:
-#   ./submit_panorama_360.sh            # ground-level orbit of all 3 buildings
-#   ./submit_panorama_360.sh innovation # just MSOEBuildingV4 (trees stripped)
-#   ./submit_panorama_360.sh dierks     # just DierksHallV2
-#   ./submit_panorama_360.sh viets      # just VietsField (ground-level)
-#   ./submit_panorama_360.sh field      # ELEVATED drone-style orbit of Viets Field
+#   ./scripts/run/submit_panorama_360.sh            # ground-level orbit of all 3 buildings
+#   ./scripts/run/submit_panorama_360.sh innovation # just MSOEBuildingV4 (trees stripped)
+#   ./scripts/run/submit_panorama_360.sh dierks     # just DierksHallV2
+#   ./scripts/run/submit_panorama_360.sh viets      # just VietsField (ground-level)
+#   ./scripts/run/submit_panorama_360.sh field      # ELEVATED drone-style orbit of Viets Field
 #                                       # (uses field_panorama.py, not panorama_360.py)
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$SCRIPT_DIR"
 
 ASSETS="assets/environments/msoe_building"
@@ -27,7 +27,7 @@ VIETS_CLUTTER="Tree,Planting,RPC"
 submit() {
     local tag="$1"; shift
     echo "[submit_panorama_360] sbatch $tag"
-    sbatch --job-name="panorama-$tag" submit_isaac_job.sh \
+    sbatch --job-name="panorama-$tag" scripts/slurm/submit_isaac_job.sh \
         simulations/environment/panorama_360.py "$@"
 }
 
@@ -57,7 +57,7 @@ esac
 case "$target" in
     field|field-only)
         echo "[submit_panorama_360] sbatch field-elevated"
-        sbatch --job-name="panorama-field-elevated" submit_isaac_job.sh \
+        sbatch --job-name="panorama-field-elevated" scripts/slurm/submit_isaac_job.sh \
             simulations/environment/field_panorama.py \
             --input "$ASSETS/VietsField.usd" \
             --hide-patterns "$VIETS_CLUTTER"

@@ -6,10 +6,10 @@ Scans from multiple origin points across the building to eliminate unknown
 regions that a single-origin scan can't reach (areas behind walls).
 
 Run with:
-  sbatch submit_isaac_job.sh floorplan_vision/generate_occupancy_map.py
+  sbatch scripts/slurm/submit_isaac_job.sh floorplan_vision/generate_occupancy_map.py
   OR (interactive):
   srun --partition=teaching --gres=gpu:1 --time=2:00:00 --pty bash
-  ./run_isaac_interactive.sh floorplan_vision/generate_occupancy_map.py
+  ./scripts/run/run_isaac_interactive.sh floorplan_vision/generate_occupancy_map.py
 """
 
 import os
@@ -648,7 +648,7 @@ def main():
     ]
 
     # Parse floor filter from OMAP_FLOOR env var or --floor command line arg
-    # Usage: OMAP_FLOOR=floor_2 sbatch submit_isaac_job.sh ...
+    # Usage: OMAP_FLOOR=floor_2 sbatch scripts/slurm/submit_isaac_job.sh ...
     #   OR:  ./python.sh script.py --floor floor_2
     floor_filter = os.environ.get("OMAP_FLOOR", None)
     if not floor_filter:
