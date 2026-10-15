@@ -85,7 +85,7 @@ Student research project at the Milwaukee School of Engineering (MSOE). The targ
 <p align="center">
   <img src="docs/media/revit-cleanup.jpg" alt="Left: the full Revit model including the old science building next door. Right: the same model cut down to the new building's walls, floors and structure" width="100%">
 </p>
-<p align="center"><sub>The Revit file came with the old science building, HVAC, electrical, plumbing, and furniture. We kept walls, floors, ceilings, stairs, and railings, which cut the file from 818 MB to 35 MB.</sub></p>
+<p align="center"><sub>We cut the old science building, HVAC, electrical, plumbing, and furniture. 818 MB became 35 MB.</sub></p>
 
 <details>
 <summary><b>How we made the twin behave like a building</b></summary>
@@ -98,7 +98,7 @@ Our first import had no physics, so the robot fell straight through the floor.
   <img src="docs/media/physics-fix.jpg" alt="Two Isaac Sim frames of the atrium: on the left the robot hangs in the air with physics off, on the right it rests on the mezzanine floor with physics on" width="100%">
 </p>
 
-The fix is a pipeline that sorts all 8,268 Revit elements by type. Walls, floors, and ceilings get static triangle-mesh colliders. Doors get convex-hull colliders and a revolute joint each.
+The fix sorts all 8,268 Revit elements by type. Walls, floors, and ceilings get static mesh colliders. Each door gets a convex-hull collider and a revolute joint.
 
 <p align="center">
   <img src="assets/demos/physics_pipeline_diagram.png" alt="Flowchart of the physics pipeline: load the USD, categorize 8,268 elements, add static mesh colliders, convex-hull door colliders, revolute joints, export, validate" width="45%">
@@ -106,7 +106,7 @@ The fix is a pipeline that sorts all 8,268 Revit elements by type. Walls, floors
 </p>
 <p align="center"><sub>Collision view: blue is structure, cyan is glazing, orange is doors, green is stairs.</sub></p>
 
-Revit doesn't say which edge of a door is the hinge. With the default pivot, doors swung through their own frames. We compute the hinge edge from each door's geometry instead.
+Revit doesn't mark a door's hinge edge. With the default pivot, doors swung through their frames, so we compute the hinge from each door's geometry.
 
 <p align="center">
   <img src="docs/media/door-hinge.jpg" alt="Left: a glass door rotated around the wrong pivot so it cuts through its frame. Right: the same doorway with its computed edges highlighted" width="100%">
@@ -117,7 +117,7 @@ Revit doesn't say which edge of a door is the hinge. With the default pivot, doo
 <p align="center">
   <img src="docs/media/occupancy-scan.gif" alt="Animation of floor 1's occupancy map being filled in by a ray-trace scan" width="45%">
 </p>
-<p align="center"><sub>Ray-tracing floor 1 to build its occupancy map. Dark cells are walls; light cells are open floor.</sub></p>
+<p align="center"><sub>Ray-tracing floor 1 into an occupancy map.</sub></p>
 
 <details>
 <summary><b>All four floors, and the bug that drove the robot into walls</b></summary>
@@ -128,7 +128,7 @@ Revit doesn't say which edge of a door is the hinge. With the default pivot, doo
   <img src="docs/media/occupancy-floors.png" alt="Occupancy maps for floors 1 to 4 of the Kern Center" width="100%">
 </p>
 
-Nav2 kept driving the robot into walls. Our generator writes row 0 of the map image as the world's lowest y, and Nav2 reads row 0 as the highest. Nav2 planned on a vertically mirrored map, where 271,056 of 1,683,278 cells (16.1%) disagree with the building. Making both sides agree on row 0 fixed it.
+Nav2 kept driving the robot into walls. Our map generator puts the world's lowest y in row 0; Nav2 expects the highest. Nav2 was planning on a mirrored map where 16.1% of cells were wrong. Agreeing on row 0 fixed it.
 
 <p align="center">
   <img src="paper_figures/methods/y_flip_explainer.png" alt="Explainer figure comparing the occupancy map's Y-axis convention with Nav2's, showing the mismatched cells" width="80%">
@@ -145,14 +145,14 @@ Nav2 kept driving the robot into walls. Our generator writes row 0 of the map im
 <p align="center">
   <img src="docs/media/crack-types.jpg" alt="Six renders of the same glass panel: intact, impact spider-web, stress, edge, thermal, and tempered dice cracks" width="100%">
 </p>
-<p align="center"><sub>One glass panel, intact and with five crack types. The simulator writes the label at render time, so every frame comes labeled.</sub></p>
+<p align="center"><sub>One panel, intact and with five crack types. The simulator labels every frame as it renders.</sub></p>
 
 <details>
 <summary><b>How the labels and the training set are built</b></summary>
 
 <br>
 
-**Door labels come from the joint.** Each door is a revolute joint, so we read its angle θ from the simulator and threshold it:
+**Door labels.** We read each door joint's angle θ from the simulator:
 
 <p align="center">
   <picture>
@@ -167,7 +167,7 @@ Nav2 kept driving the robot into walls. Our generator writes row 0 of the map im
 
 **Glass is randomized on seven axes:** 13 panels, 5 lighting presets, 4 glass states, 3 camera angles, 3 distances, 3 crack textures, and 4 camera heights.
 
-**Picking a varied subset.** Frames from one camera sweep look almost identical, so we train on a varied subset. We embed each frame with DINOv2 (768-d, L2-normalized) and run k-means separately inside each label group *g*:
+**Picking a varied subset.** Frames from one camera sweep look nearly identical. We embed each frame with DINOv2 (768-d, unit length) and run k-means inside each label group:
 
 <p align="center">
   <picture>
@@ -176,9 +176,9 @@ Nav2 kept driving the robot into walls. Our generator writes row 0 of the map im
   </picture>
 </p>
 
-We keep frame <i>i</i><sup>*</sup><sub>c</sub>, the one nearest each centroid. Because every <i>z</i><sub>i</sub> has unit length, &#8214;<i>a</i> &minus; <i>b</i>&#8214;<sup>2</sup> = 2 &minus; 2&nbsp;cos(<i>a</i>, <i>b</i>), so this is k-means on cosine distance. Running it per label group gives an exact 50/50 class split.
+We keep <i>i</i><sup>*</sup><sub>c</sub>, the frame nearest each centroid. With unit vectors, &#8214;<i>a</i> &minus; <i>b</i>&#8214;<sup>2</sup> = 2 &minus; 2&nbsp;cos(<i>a</i>, <i>b</i>), so this is k-means on cosine distance. Per-group clustering also gives an exact 50/50 class split.
 
-**What fine-tuning changes.** LoRA freezes each weight matrix <i>W</i><sub>0</sub> and learns a low-rank update on the attention projections `q_proj` and `v_proj`:
+**Fine-tuning.** LoRA freezes <i>W</i><sub>0</sub> and learns a low-rank update on `q_proj` and `v_proj`:
 
 <p align="center">
   <picture>
@@ -187,7 +187,7 @@ We keep frame <i>i</i><sup>*</sup><sub>c</sub>, the one nearest each centroid. B
   </picture>
 </p>
 
-We also train the full vision projector, the layer that turns image patches into tokens the language model reads. It was built for real photos, and without adapting it the LLM gets no useful signal from synthetic frames. Together that is about 2.2M LoRA weights plus 34M projector weights, 1.62% of the model.
+We also train the full vision projector, which turns image patches into tokens. It was built for real photos; frozen, it passes the LLM nothing useful from our renders. Total: 2.2M LoRA + 34M projector weights, 1.62% of the model.
 
 </details>
 
@@ -196,7 +196,7 @@ We also train the full vision projector, the layer that turns image patches into
 - **Why.** Campus security officers walk the halls to check that doors are locked and glass is intact. MSOE Public Safety told us these two checks matter most.
 - **Robot.** A simulated **NVIDIA Nova Carter** ("ROSCOE") with 360° LiDAR and a camera.
 - **Route.** NVIDIA SWAGGER builds a navigation graph on each floor map. The graph node closest to each door becomes a stop. Dijkstra gives the walking distance between every pair of stops. A traveling-salesman tour visits all of them: greedy nearest-neighbor, then 2-opt, best of 10 random starts. See [`floorplan_vision/visualize_door_tsp.py`](floorplan_vision/visualize_door_tsp.py).
-- **Driving.** **ROS 2 Nav2** follows the route and steers around obstacles using LiDAR. See [`navigation/`](navigation/README.md). An earlier version used a reinforcement-learning policy. We switched to Nav2 because it was quicker to make reliable. The RL code is archived in [`training/`](training/) and on the `archive/rl-building-finetune` branch.
+- **Driving.** **ROS 2 Nav2** follows the route and steers around obstacles with LiDAR. See [`navigation/`](navigation/README.md). We tried reinforcement learning first; see [The reinforcement-learning attempt](#the-reinforcement-learning-attempt).
 - **Goal.** MSOE Public Safety estimated that automating routine patrols could save about **3,000 officer-hours a year**.
   <!-- TODO(Adrian): confirm the ~3,000 officer-hours/yr figure and how it was derived. It is not documented in this repo. -->
 
@@ -208,14 +208,14 @@ We also train the full vision projector, the layer that turns image patches into
 <p align="center">
   <img src="docs/media/nav2-patrol.jpg" alt="Left: follow camera behind the Nova Carter at a patrol waypoint facing a glass door. Right: the robot's own camera view of the same door" width="100%">
 </p>
-<p align="center"><sub>At a patrol stop. Left: a follow camera. Right: what the robot's camera sees, which is the frame the VLM classifies.</sub></p>
+<p align="center"><sub>A patrol stop. Left: follow camera. Right: the robot's camera, the frame the VLM classifies.</sub></p>
 
 <details>
 <summary><b>How the route and the driving work</b></summary>
 
 <br>
 
-**The tour.** With <i>D</i>(<i>a</i>, <i>b</i>) the Dijkstra walking distance on the nav graph, the patrol looks for the order <i>&pi;</i> of door stops that minimizes total walking distance:
+**The tour.** With <i>D</i>(<i>a</i>, <i>b</i>) the Dijkstra distance between stops, we want the stop order <i>&pi;</i> with the shortest walk:
 
 <p align="center">
   <picture>
@@ -224,7 +224,7 @@ We also train the full vision projector, the layer that turns image patches into
   </picture>
 </p>
 
-Exact TSP is too slow to rerun per floor, so we build a greedy nearest-neighbor tour and improve it with 2-opt. 2-opt reverses the stretch between stops *b* and *c* whenever
+We start from a greedy nearest-neighbor tour. 2-opt then reverses the stretch between stops *b* and *c* whenever
 
 <p align="center">
   <picture>
@@ -233,9 +233,9 @@ Exact TSP is too slow to rerun per floor, so we build a greedy nearest-neighbor 
   </picture>
 </p>
 
-and repeats until no swap helps. We keep the best of 10 random starts.
+until no swap helps. We keep the best of 10 random starts.
 
-**Seeing obstacles.** Nav2 builds its local costmap from the 360° LiDAR, so a box or a person that isn't in the building model still gets avoided.
+**Obstacles.** Nav2's local costmap comes from the 360° LiDAR, so it avoids things the building model doesn't have, like a box or a person.
 
 <p align="center">
   <img src="docs/media/lidar-diagram.png" alt="Top-down diagram of a 20-ray 360-degree LiDAR scan with a 10 m range around the robot, with rays stopping at box obstacles" width="45%">
@@ -258,19 +258,18 @@ Qwen3-VL-2B-Instruct, before (zero-shot) and after fine-tuning:
 | Door, unseen door instance / swing (**synthetic**) | 7,776 | 84.1% | **90.2%** | +6.1 |
 | Real-world door photos (Diercks Hall, MSOE) | 100 | 100.0% | 93.0% | −7.0 |
 
-- **Fine-tuning fixed what the base model couldn't do.** Cracked vs. intact glass went from 37.5% to 97.2%. Synthetic door frames went from 74.9% to 97.4%.
-- **On real door photos it lost ground.** The base model already got all 100 right. The fine-tuned model got 93: every closed door right, 88.3% of open doors. Training only on synthetic images cost some accuracy on this easy real set. Closing that gap is the first item under [What's next](#whats-next).
-- Diercks Hall is an existing MSOE building from the same architect, with the same design language.
+- **Fine-tuning fixed glass and synthetic doors.** Glass: 37.5% → 97.2%. Doors: 74.9% → 97.4%.
+- **It lost ground on real doors.** The base model got all 100 right; the fine-tuned one got 93 (every closed door, 88.3% of open ones). Diercks Hall is an existing MSOE building by the same architect. Closing this gap is first under [What's next](#whats-next).
 
 <p align="center">
   <img src="docs/media/zeroshot-vs-finetuned.png" alt="Two bar charts of zero-shot versus fine-tuned accuracy: door state on an unseen door (84.1% to 90.2%) and glass state (37.6% to 97.2%)" width="100%">
 </p>
-<p align="center"><sub>Zero-shot vs. fine-tuned. Left: door state on the unseen-door test. Right: cracked vs. intact glass, where the base model scored below chance.</sub></p>
+<p align="center"><sub>Zero-shot vs. fine-tuned. Left: unseen-door test. Right: glass, where the base model scored below chance.</sub></p>
 
 <p align="center">
   <img src="docs/media/diercks-doors.jpg" alt="Two real photos of the same Diercks Hall door, labeled CLOSED and OPEN" width="55%">
 </p>
-<p align="center"><sub>A door from the 100-photo real-world test in Diercks Hall, closed and open.</sub></p>
+<p align="center"><sub>One door from the 100-photo Diercks Hall test.</sub></p>
 
 <details>
 <summary><b>Confusion matrices and per-door accuracy</b></summary>
@@ -281,7 +280,7 @@ Qwen3-VL-2B-Instruct, before (zero-shot) and after fine-tuning:
   <img src="docs/media/confusion-matrices.png" alt="Three confusion matrices: held-out synthetic doors (97.4%), held-out synthetic glass (97.2%), and real Diercks Hall doors (93.0%)" width="100%">
 </p>
 
-On real doors every miss is the same kind: an open door called closed (7 of 60). The model never calls a closed door open.
+Every real-door miss is an open door called closed (7 of 60). It never calls a closed door open.
 
 <p align="center">
   <img src="docs/media/per-door-accuracy.png" alt="Bar chart of accuracy per held-out door, split into overall, closed and open" width="55%">
@@ -313,8 +312,8 @@ Raw results: `data/*.json` on the `tanner_vlm` branch (`eval_baseline_unified.js
 
 Each of these changed the design.
 
-- **A one-door dataset made the model memorize that door.** Our first dataset used a single door from a single Revit family. The model scored high on it and **0%** on a door it had never seen: it had learned that door's look, not "open vs. closed". We rebuilt the data across 8 doors and several door families, randomized lighting and viewpoint, and held whole doors out for testing. On an unseen door the current model scores 90.2%.
-- **The base model said OPEN every time.** Zero-shot Qwen2-VL labeled every synthetic door open: 0% on closed doors, 100% on open ones. It was trained on real photos, and our renders' lighting and textures gave it nothing to go on, so it fell back on one answer. After fine-tuning it separates the two states (see [Results](#results)).
+- **A one-door dataset.** Our first dataset had a single door. The model aced it and scored **0%** on a new door. We rebuilt the data across 8 doors and several door families, randomized lighting and viewpoint, and held whole doors out for testing. On an unseen door it now scores 90.2%.
+- **The base model said OPEN every time.** Zero-shot Qwen2-VL had learned from real photos. On our renders it found nothing to go on and answered "open" for every door.
 
 <p align="center">
   <img src="docs/media/qwen2-baseline-open.png" alt="Bar chart of zero-shot Qwen2-VL-2B: 0% accuracy on closed doors, 50% overall, 100% on open doors" width="45%">
@@ -322,20 +321,19 @@ Each of these changed the design.
 </p>
 <p align="center"><sub>Left: zero-shot Qwen2-VL calls every door open. Right: train and validation loss for its LoRA fine-tune (3 epochs, log scale).</sub></p>
 
-- **The saved model reloaded as the base model.** PEFT's default save keeps the LoRA weights but drops the trained vision projector unless it's listed in `modules_to_save`. The reloaded model looked fine and scored like the untrained baseline. The trainable projector weights also had to be cast to fp32, or mixed-precision gradient scaling failed.
-- **The robot fell through the floor, and doors swung through walls.** The first import had no colliders and no hinge information. See [How we made the twin behave like a building](#1-build-the-twin).
-- **Nav2 drove into walls.** A Y-axis convention mismatch mirrored the map (16.1% of cells wrong). See the occupancy-map details in [Build the twin](#1-build-the-twin).
-- **Synthetic-only training cost accuracy on real doors.** The base model got 100 of 100 real Diercks Hall photos right; the fine-tuned model got 93. See [What's next](#whats-next).
+- **The saved model reloaded as the base model.** PEFT's default save drops the trained vision projector unless it's in `modules_to_save`. The reloaded model scored like the untrained one. The projector also needed an fp32 cast for mixed-precision training.
+- **The robot fell through the floor; doors swung through walls; Nav2 drove into walls.** Missing colliders, missing hinges, and a mirrored map. All three are in [Build the twin](#1-build-the-twin).
+- **Synthetic-only training cost real-door accuracy** (100 → 93 of 100). See [Results](#results).
 
 ### The reinforcement-learning attempt
 
-Before Nav2, we tried to teach the robot to drive itself with reinforcement learning. The plan: train a policy in Isaac Lab on Rosie, move it into the BIM building, then onto the real Nova Carter. We completed 15 training runs on Rosie. The policy learned to head toward a goal but never learned to get around clutter reliably, so it never made it into the building. We dropped it for Nav2.
+Before Nav2, we trained a driving policy with reinforcement learning in Isaac Lab, meant to move into the building and then onto the real robot. Over 15 runs on Rosie it learned to head for a goal but never learned to get around clutter, so it never left the test room.
 
-**Setup.** PPO (Stable-Baselines3, a 2 × 256 MLP) with 256 parallel environments on one T4 GPU, at 12 control steps a second. The robot sees 26 numbers: 20 LiDAR distances, the goal's position and heading, and its own speed and turn rate. It outputs a forward speed and a turn rate.
+**Setup.** PPO (Stable-Baselines3, 2 × 256 MLP), 256 parallel environments on one T4, 12 Hz control. Input: 20 LiDAR distances, goal position and heading, speed, turn rate. Output: speed and turn rate.
 
-**First try: one cluttered room.** A 10 m × 10 m room with 7 furniture pieces in random spots, trained for 131M steps (about 10.5 hours). The policy passed **none** of our 6 test scenarios.
+**Try 1: one cluttered room.** 10 m × 10 m, 7 random furniture pieces, 131M steps (10.5 hours). It passed **none** of our 6 test scenarios.
 
-**Second try: a curriculum.** We rewrote the reward and trained in three stages: an open room, then 3 obstacles, then 7. Each new stage knocked the reward down, and the policy had to recover.
+**Try 2: a curriculum.** A new reward and three stages: open room, then 3 obstacles, then 7.
 
 <p align="center">
   <img src="docs/media/rl-curriculum.gif" alt="Three side-by-side simulations of the robot driving toward a green goal arrow: an open room, a room with 3 obstacles, and a room with 7 obstacles" width="100%">
@@ -344,9 +342,9 @@ Before Nav2, we tried to teach the robot to drive itself with reinforcement lear
 <p align="center">
   <img src="docs/media/rl-reward-curve.png" alt="TensorBoard chart of mean episode reward: it climbs to about 450 by 40M steps, drops to near zero when stage 2 starts, recovers to about 120 by 90M steps, then drops again when stage 3 starts" width="70%">
 </p>
-<p align="center"><sub>Mean episode reward. The two cliffs at about 40M and 92M steps are curriculum stage changes. At 102M steps (14.6 hours) the policy was still learning stage 3.</sub></p>
+<p align="center"><sub>Mean episode reward. Each cliff (40M, 92M steps) is a new stage. At 102M steps (14.6 hours) it was still learning stage 3.</sub></p>
 
-The best checkpoint on the same 6 scenarios:
+Best checkpoint, same 6 scenarios:
 
 | Scenario | Difficulty | Goals reached | Final distance | Collisions | Passed |
 |---|---|---|---|---|---|
@@ -357,14 +355,14 @@ The best checkpoint on the same 6 scenarios:
 | Cluttered room | Hard | 0/1 | 7.24 m | 320 | ❌ |
 | Full patrol | Hard | 3/6 | 1.99 m | 1,032 | ❌ |
 
-It drives toward open goals and threads a clear gap. With furniture in the way, it pushes into it. A patrol robot that hits something more than a thousand times on one route can't go near a real hallway. Nav2 plans around whatever the LiDAR costmap shows, so we switched the patrol to Nav2.
+It reaches open goals and threads a clear gap, but pushes into furniture: 1,032 collisions on one patrol route. That can't go near a real hallway, so we switched to Nav2.
 
 <details>
-<summary><b>The reward, the drive equations, and what we learned designing them</b></summary>
+<summary><b>Reward, drive equations, and design lessons</b></summary>
 
 <br>
 
-The policy outputs a linear velocity <i>v</i> and angular velocity <i>&omega;</i>. A differential-drive action turns them into wheel speeds, with wheel base <i>b</i> = 0.4 m and wheel radius <i>r</i> = 0.14 m:
+Speed <i>v</i> and turn rate <i>&omega;</i> become wheel speeds (wheel base <i>b</i> = 0.4 m, radius <i>r</i> = 0.14 m):
 
 <p align="center">
   <picture>
@@ -373,7 +371,7 @@ The policy outputs a linear velocity <i>v</i> and angular velocity <i>&omega;</i
   </picture>
 </p>
 
-The second-try reward per step, with <i>d</i> the distance to the goal:
+Try-2 reward per step, with <i>d</i> the distance to the goal:
 
 <p align="center">
   <picture>
@@ -382,19 +380,19 @@ The second-try reward per step, with <i>d</i> the distance to the goal:
   </picture>
 </p>
 
-Progress toward the goal earns reward, the tanh term pulls the robot in on the final approach, and the small constant penalty stops it from circling. Driving backward and touching anything cost reward, and arrival pays a large one-time bonus.
+Progress pays; the tanh term pulls the robot in at the end; the constant penalty stops circling. Reversing and contact cost reward; arrival pays a big bonus.
 
-Choices that came from failed runs:
+Lessons from failed runs:
 
-- **Collisions cost reward but don't end the episode.** Ending on collision caused a death spiral: a robot that spawned next to furniture crashed at once and never collected enough experience to learn.
-- **No heading reward.** A "face the goal" term punishes the right move when the robot has to turn away from the goal to get around an obstacle. The robot learns heading from the distance terms instead.
-- **Contact sensor, not LiDAR, for collisions.** The LiDAR sits 0.36 m behind the bumper, so a LiDAR threshold missed real hits. A force sensor on the chassis catches contact from any side.
+- **Collisions don't end the episode.** When they did, robots that spawned next to furniture crashed instantly and never learned.
+- **No heading reward.** "Face the goal" punishes turning away to get around an obstacle.
+- **A contact sensor, not LiDAR, detects collisions.** The LiDAR sits 0.36 m behind the bumper and missed real hits.
 
 <p align="center">
   <img src="training/reward_calibration.png" alt="Three-panel reward calibration figure for the RL policy" width="100%">
 </p>
 
-The code is archived in [`training/`](training/) and on the `archive/rl-building-finetune` branch.
+Code: [`training/`](training/) and the `archive/rl-building-finetune` branch.
 
 </details>
 
