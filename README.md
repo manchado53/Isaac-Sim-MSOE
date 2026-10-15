@@ -156,8 +156,8 @@ Nav2 kept driving the robot into walls. Our generator writes row 0 of the map im
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/media/eq/door-label-dark.svg">
-    <img src="docs/media/eq/door-label.svg" alt="y_{door} = \begin{cases} \text{closed} &amp; \theta \le 5^\circ \\ \text{open} &amp; \theta &gt; 5^\circ \end{cases}">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/eq/door-label-dark.png">
+    <img src="docs/media/eq/door-label.png" width="212" alt="y_{\text{door}} = \begin{cases} \text{closed} &amp; \theta \le 5^\circ \\ \text{open} &amp; \theta &gt; 5^\circ \end{cases}">
   </picture>
 </p>
 
@@ -171,8 +171,8 @@ Nav2 kept driving the robot into walls. Our generator writes row 0 of the map im
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/media/eq/kmeans-curation-dark.svg">
-    <img src="docs/media/eq/kmeans-curation.svg" alt="\min_{\mu_1,\dots,\mu_k} \sum_{c=1}^{k} \sum_{i \in C_c} \lVert z_i - \mu_c \rVert^2, \qquad i^*_c = \arg\min_{i \in C_c} \lVert z_i - \mu_c \rVert">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/eq/kmeans-curation-dark.png">
+    <img src="docs/media/eq/kmeans-curation.png" width="452" alt="\min_{\mu_1,\dots,\mu_k} \sum_{c=1}^{k} \sum_{i \in C_c} \lVert z_i - \mu_c \rVert^2, \qquad i^*_c = \arg\min_{i \in C_c} \lVert z_i - \mu_c \rVert">
   </picture>
 </p>
 
@@ -182,8 +182,8 @@ We keep frame <i>i</i><sup>*</sup><sub>c</sub>, the one nearest each centroid. B
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/media/eq/lora-dark.svg">
-    <img src="docs/media/eq/lora.svg" alt="W = W_0 + \frac{\alpha}{r} BA, \qquad B \in \mathbb{R}^{d \times r},\ A \in \mathbb{R}^{r \times k},\ r = 16,\ \alpha = 32">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/eq/lora-dark.png">
+    <img src="docs/media/eq/lora.png" width="527" alt="W = W_0 + \frac{\alpha}{r} BA, \qquad B \in \mathbb{R}^{d \times r},\ A \in \mathbb{R}^{r \times k},\ r = 16,\ \alpha = 32">
   </picture>
 </p>
 
@@ -219,8 +219,8 @@ We also train the full vision projector, the layer that turns image patches into
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/media/eq/tsp-objective-dark.svg">
-    <img src="docs/media/eq/tsp-objective.svg" alt="\min_{\pi} \sum_{t=1}^{n-1} D(\pi_t, \pi_{t+1})">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/eq/tsp-objective-dark.png">
+    <img src="docs/media/eq/tsp-objective.png" width="167" alt="\min_{\pi} \sum_{t=1}^{n-1} D(\pi_t, \pi_{t+1})">
   </picture>
 </p>
 
@@ -228,8 +228,8 @@ Exact TSP is too slow to rerun per floor, so we build a greedy nearest-neighbor 
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/media/eq/two-opt-dark.svg">
-    <img src="docs/media/eq/two-opt.svg" alt="D(a,b) + D(c,d) &gt; D(a,c) + D(b,d)">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/eq/two-opt-dark.png">
+    <img src="docs/media/eq/two-opt.png" width="322" alt="D(a,b) + D(c,d) &gt; D(a,c) + D(b,d)">
   </picture>
 </p>
 
@@ -368,8 +368,8 @@ The policy outputs a linear velocity <i>v</i> and angular velocity <i>&omega;</i
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/media/eq/diff-drive-dark.svg">
-    <img src="docs/media/eq/diff-drive.svg" alt="v_L = \frac{v - \omega b/2}{r}, \qquad v_R = \frac{v + \omega b/2}{r}">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/eq/diff-drive-dark.png">
+    <img src="docs/media/eq/diff-drive.png" width="319" alt="v_L = \frac{v - \omega b/2}{r}, \qquad v_R = \frac{v + \omega b/2}{r}">
   </picture>
 </p>
 
@@ -377,8 +377,8 @@ The second-try reward per step, with <i>d</i> the distance to the goal:
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/media/eq/rl-reward-dark.svg">
-    <img src="docs/media/eq/rl-reward.svg" alt="R = 3.0\,(d_{prev} - d_{cur}) + 1.0\,\bigl(1 - \tanh(d/0.3)\bigr) - 0.05 - 2.0\,\max(0, -v_{fwd}) + 100\,\mathbb{1}[d &lt; 0.75\,\text{m}] - 10\,\mathbb{1}[F_{contact} &gt; 1\,\text{N}]">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/eq/rl-reward-dark.png">
+    <img src="docs/media/eq/rl-reward.png" width="1005" alt="R = 3.0\,(d_{\text{prev}} - d_{\text{cur}}) + 1.0\,\bigl(1 - \tanh(d/0.3)\bigr) - 0.05 - 2.0\,\max(0, -v_{\text{fwd}}) + 100\,\mathbb{1}[d &lt; 0.75\,\text{m}] - 10\,\mathbb{1}[F_{\text{contact}} &gt; 1\,\text{N}]">
   </picture>
 </p>
 
