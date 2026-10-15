@@ -154,9 +154,12 @@ Nav2 kept driving the robot into walls. Our generator writes row 0 of the map im
 
 **Door labels come from the joint.** Each door is a revolute joint, so we read its angle θ from the simulator and threshold it:
 
-```math
-y_{door} = \begin{cases} \text{closed} & \theta \le 5^\circ \\ \text{open} & \theta > 5^\circ \end{cases}
-```
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/eq/door-label-dark.svg">
+    <img src="docs/media/eq/door-label.svg" alt="y_{door} = \begin{cases} \text{closed} &amp; \theta \le 5^\circ \\ \text{open} &amp; \theta &gt; 5^\circ \end{cases}">
+  </picture>
+</p>
 
 <p align="center">
   <img src="docs/media/door-angles.jpg" alt="Three renders of the same doorway with the door at increasing swing angles" width="100%">
@@ -166,17 +169,23 @@ y_{door} = \begin{cases} \text{closed} & \theta \le 5^\circ \\ \text{open} & \th
 
 **Picking a varied subset.** Frames from one camera sweep look almost identical, so we train on a varied subset. We embed each frame with DINOv2 (768-d, L2-normalized) and run k-means separately inside each label group *g*:
 
-```math
-\min_{\mu_1,\dots,\mu_k} \sum_{c=1}^{k} \sum_{i \in C_c} \lVert z_i - \mu_c \rVert^2, \qquad i^*_c = \arg\min_{i \in C_c} \lVert z_i - \mu_c \rVert
-```
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/eq/kmeans-curation-dark.svg">
+    <img src="docs/media/eq/kmeans-curation.svg" alt="\min_{\mu_1,\dots,\mu_k} \sum_{c=1}^{k} \sum_{i \in C_c} \lVert z_i - \mu_c \rVert^2, \qquad i^*_c = \arg\min_{i \in C_c} \lVert z_i - \mu_c \rVert">
+  </picture>
+</p>
 
-We keep frame $i^*_c$, the one nearest each centroid. Because every $z_i$ has unit length, $\lVert a-b \rVert^2 = 2 - 2\cos(a,b)$, so this is k-means on cosine distance. Running it per label group gives an exact 50/50 class split.
+We keep frame <i>i</i><sup>*</sup><sub>c</sub>, the one nearest each centroid. Because every <i>z</i><sub>i</sub> has unit length, &#8214;<i>a</i> &minus; <i>b</i>&#8214;<sup>2</sup> = 2 &minus; 2&nbsp;cos(<i>a</i>, <i>b</i>), so this is k-means on cosine distance. Running it per label group gives an exact 50/50 class split.
 
-**What fine-tuning changes.** LoRA freezes each weight matrix $W_0$ and learns a low-rank update on the attention projections `q_proj` and `v_proj`:
+**What fine-tuning changes.** LoRA freezes each weight matrix <i>W</i><sub>0</sub> and learns a low-rank update on the attention projections `q_proj` and `v_proj`:
 
-```math
-W = W_0 + \frac{\alpha}{r} BA, \qquad B \in \mathbb{R}^{d \times r},\ A \in \mathbb{R}^{r \times k},\ r = 16,\ \alpha = 32
-```
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/eq/lora-dark.svg">
+    <img src="docs/media/eq/lora.svg" alt="W = W_0 + \frac{\alpha}{r} BA, \qquad B \in \mathbb{R}^{d \times r},\ A \in \mathbb{R}^{r \times k},\ r = 16,\ \alpha = 32">
+  </picture>
+</p>
 
 We also train the full vision projector, the layer that turns image patches into tokens the language model reads. It was built for real photos, and without adapting it the LLM gets no useful signal from synthetic frames. Together that is about 2.2M LoRA weights plus 34M projector weights, 1.62% of the model.
 
@@ -206,17 +215,23 @@ We also train the full vision projector, the layer that turns image patches into
 
 <br>
 
-**The tour.** With $D(a,b)$ the Dijkstra walking distance on the nav graph, the patrol looks for the order $\pi$ of door stops that minimizes total walking distance:
+**The tour.** With <i>D</i>(<i>a</i>, <i>b</i>) the Dijkstra walking distance on the nav graph, the patrol looks for the order <i>&pi;</i> of door stops that minimizes total walking distance:
 
-```math
-\min_{\pi} \sum_{t=1}^{n-1} D(\pi_t, \pi_{t+1})
-```
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/eq/tsp-objective-dark.svg">
+    <img src="docs/media/eq/tsp-objective.svg" alt="\min_{\pi} \sum_{t=1}^{n-1} D(\pi_t, \pi_{t+1})">
+  </picture>
+</p>
 
 Exact TSP is too slow to rerun per floor, so we build a greedy nearest-neighbor tour and improve it with 2-opt. 2-opt reverses the stretch between stops *b* and *c* whenever
 
-```math
-D(a,b) + D(c,d) > D(a,c) + D(b,d)
-```
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/eq/two-opt-dark.svg">
+    <img src="docs/media/eq/two-opt.svg" alt="D(a,b) + D(c,d) &gt; D(a,c) + D(b,d)">
+  </picture>
+</p>
 
 and repeats until no swap helps. We keep the best of 10 random starts.
 
@@ -349,17 +364,23 @@ It drives toward open goals and threads a clear gap. With furniture in the way, 
 
 <br>
 
-The policy outputs a linear velocity $v$ and angular velocity $\omega$. A differential-drive action turns them into wheel speeds, with wheel base $b = 0.4$ m and wheel radius $r = 0.14$ m:
+The policy outputs a linear velocity <i>v</i> and angular velocity <i>&omega;</i>. A differential-drive action turns them into wheel speeds, with wheel base <i>b</i> = 0.4 m and wheel radius <i>r</i> = 0.14 m:
 
-```math
-v_L = \frac{v - \omega b/2}{r}, \qquad v_R = \frac{v + \omega b/2}{r}
-```
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/eq/diff-drive-dark.svg">
+    <img src="docs/media/eq/diff-drive.svg" alt="v_L = \frac{v - \omega b/2}{r}, \qquad v_R = \frac{v + \omega b/2}{r}">
+  </picture>
+</p>
 
-The second-try reward per step, with $d$ the distance to the goal:
+The second-try reward per step, with <i>d</i> the distance to the goal:
 
-```math
-R = 3.0\,(d_{prev} - d_{cur}) + 1.0\,\bigl(1 - \tanh(d/0.3)\bigr) - 0.05 - 2.0\,\max(0, -v_{fwd}) + 100\,\mathbb{1}[d < 0.75\,\text{m}] - 10\,\mathbb{1}[F_{contact} > 1\,\text{N}]
-```
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/eq/rl-reward-dark.svg">
+    <img src="docs/media/eq/rl-reward.svg" alt="R = 3.0\,(d_{prev} - d_{cur}) + 1.0\,\bigl(1 - \tanh(d/0.3)\bigr) - 0.05 - 2.0\,\max(0, -v_{fwd}) + 100\,\mathbb{1}[d &lt; 0.75\,\text{m}] - 10\,\mathbb{1}[F_{contact} &gt; 1\,\text{N}]">
+  </picture>
+</p>
 
 Progress toward the goal earns reward, the tanh term pulls the robot in on the final approach, and the small constant penalty stops it from circling. Driving backward and touching anything cost reward, and arrival pays a large one-time bonus.
 
