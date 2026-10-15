@@ -303,41 +303,77 @@ Each of these changed the design.
 
 <p align="center">
   <img src="docs/media/qwen2-baseline-open.png" alt="Bar chart of zero-shot Qwen2-VL-2B: 0% accuracy on closed doors, 50% overall, 100% on open doors" width="45%">
+  <img src="docs/media/qwen2-loss.png" alt="Training and validation loss on a log scale over three epochs of Qwen2-VL-2B LoRA fine-tuning" width="45%">
 </p>
+<p align="center"><sub>Left: zero-shot Qwen2-VL calls every door open. Right: train and validation loss for its LoRA fine-tune (3 epochs, log scale).</sub></p>
 
 - **The saved model reloaded as the base model.** PEFT's default save keeps the LoRA weights but drops the trained vision projector unless it's listed in `modules_to_save`. The reloaded model looked fine and scored like the untrained baseline. The trainable projector weights also had to be cast to fp32, or mixed-precision gradient scaling failed.
 - **The robot fell through the floor, and doors swung through walls.** The first import had no colliders and no hinge information. See [How we made the twin behave like a building](#1-build-the-twin).
 - **Nav2 drove into walls.** A Y-axis convention mismatch mirrored the map (16.1% of cells wrong). See the occupancy-map details in [Build the twin](#1-build-the-twin).
-- **Reinforcement learning was slower to make reliable than Nav2.** We trained a PPO driving policy first and moved to Nav2 for the patrol. The RL work is archived in [`training/`](training/).
 - **Synthetic-only training cost accuracy on real doors.** The base model got 100 of 100 real Diercks Hall photos right; the fine-tuned model got 93. See [What's next](#whats-next).
 
+### The reinforcement-learning attempt
+
+Before Nav2, we tried to teach the robot to drive itself with reinforcement learning. The plan: train a policy in Isaac Lab on Rosie, move it into the BIM building, then onto the real Nova Carter. We completed 15 training runs on Rosie. The policy learned to head toward a goal but never learned to get around clutter reliably, so it never made it into the building. We dropped it for Nav2.
+
+**Setup.** PPO (Stable-Baselines3, a 2 × 256 MLP) with 256 parallel environments on one T4 GPU, at 12 control steps a second. The robot sees 26 numbers: 20 LiDAR distances, the goal's position and heading, and its own speed and turn rate. It outputs a forward speed and a turn rate.
+
+**First try: one cluttered room.** A 10 m × 10 m room with 7 furniture pieces in random spots, trained for 131M steps (about 10.5 hours). The policy passed **none** of our 6 test scenarios.
+
+**Second try: a curriculum.** We rewrote the reward and trained in three stages: an open room, then 3 obstacles, then 7. Each new stage knocked the reward down, and the policy had to recover.
+
+<p align="center">
+  <img src="docs/media/rl-curriculum.gif" alt="Three side-by-side simulations of the robot driving toward a green goal arrow: an open room, a room with 3 obstacles, and a room with 7 obstacles" width="100%">
+</p>
+
+<p align="center">
+  <img src="docs/media/rl-reward-curve.png" alt="TensorBoard chart of mean episode reward: it climbs to about 450 by 40M steps, drops to near zero when stage 2 starts, recovers to about 120 by 90M steps, then drops again when stage 3 starts" width="70%">
+</p>
+<p align="center"><sub>Mean episode reward. The two cliffs at about 40M and 92M steps are curriculum stage changes. At 102M steps (14.6 hours) the policy was still learning stage 3.</sub></p>
+
+The best checkpoint on the same 6 scenarios:
+
+| Scenario | Difficulty | Goals reached | Final distance | Collisions | Passed |
+|---|---|---|---|---|---|
+| Open run | Easy | 1/1 | 0.73 m | 0 | ✅ |
+| Obstacle between | Medium | 0/1 | 4.70 m | 0 | ❌ |
+| Narrow gap | Med-hard | 1/1 | 0.72 m | 0 | ✅ |
+| Goal behind furniture | Hard | 0/1 | 0.97 m | 269 | ❌ |
+| Cluttered room | Hard | 0/1 | 7.24 m | 320 | ❌ |
+| Full patrol | Hard | 3/6 | 1.99 m | 1,032 | ❌ |
+
+It drives toward open goals and threads a clear gap. With furniture in the way, it pushes into it. A patrol robot that hits something more than a thousand times on one route can't go near a real hallway. Nav2 plans around whatever the LiDAR costmap shows, so we switched the patrol to Nav2.
+
 <details>
-<summary><b>Archived work: the RL reward and drive equations, and the Qwen2 loss curve</b></summary>
+<summary><b>The reward, the drive equations, and what we learned designing them</b></summary>
 
 <br>
 
-The policy outputs a linear velocity $v$ and angular velocity $\omega$. A differential-drive action turns them into wheel targets, with wheel separation $d$ and wheel radius $r$:
+The policy outputs a linear velocity $v$ and angular velocity $\omega$. A differential-drive action turns them into wheel speeds, with wheel base $b = 0.4$ m and wheel radius $r = 0.14$ m:
 
 ```math
-v_L = \frac{v - \omega d/2}{r}, \qquad v_R = \frac{v + \omega d/2}{r}
+v_L = \frac{v - \omega b/2}{r}, \qquad v_R = \frac{v + \omega b/2}{r}
 ```
 
-The per-step reward, with $d$ here the distance to the goal:
+The second-try reward per step, with $d$ the distance to the goal:
 
 ```math
 R = 3.0\,(d_{prev} - d_{cur}) + 1.0\,\bigl(1 - \tanh(d/0.3)\bigr) - 0.05 - 2.0\,\max(0, -v_{fwd}) + 100\,\mathbb{1}[d < 0.75\,\text{m}] - 10\,\mathbb{1}[F_{contact} > 1\,\text{N}]
 ```
 
-Progress toward the goal earns reward, the tanh term pulls the robot in on the final approach, and the small constant penalty stops it from circling. Driving backward and touching anything cost reward, and reaching the goal pays a large one-time bonus.
+Progress toward the goal earns reward, the tanh term pulls the robot in on the final approach, and the small constant penalty stops it from circling. Driving backward and touching anything cost reward, and arrival pays a large one-time bonus.
+
+Choices that came from failed runs:
+
+- **Collisions cost reward but don't end the episode.** Ending on collision caused a death spiral: a robot that spawned next to furniture crashed at once and never collected enough experience to learn.
+- **No heading reward.** A "face the goal" term punishes the right move when the robot has to turn away from the goal to get around an obstacle. The robot learns heading from the distance terms instead.
+- **Contact sensor, not LiDAR, for collisions.** The LiDAR sits 0.36 m behind the bumper, so a LiDAR threshold missed real hits. A force sensor on the chassis catches contact from any side.
 
 <p align="center">
   <img src="training/reward_calibration.png" alt="Three-panel reward calibration figure for the RL policy" width="100%">
 </p>
 
-<p align="center">
-  <img src="docs/media/qwen2-loss.png" alt="Training and validation loss on a log scale over three epochs of Qwen2-VL-2B LoRA fine-tuning" width="50%">
-</p>
-<p align="center"><sub>Also archived: train and validation loss for the earlier Qwen2-VL fine-tune (3 epochs, log scale).</sub></p>
+The code is archived in [`training/`](training/) and on the `archive/rl-building-finetune` branch.
 
 </details>
 
