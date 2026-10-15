@@ -72,11 +72,9 @@ Student research project at the Milwaukee School of Engineering (MSOE). The targ
 
 ## How it works
 
-```
-Revit model ──► USD ──► Isaac Sim twin ──► labeled camera frames ──► fine-tuned VLM
-                              │                                          │
-                              └──► occupancy maps ──► patrol route ──► Nav2 robot
-```
+<p align="center">
+  <img src="docs/media/pipeline-overview.png" alt="Pipeline diagram: the Revit BIM model becomes a physics-accurate Isaac Sim twin, which feeds three streams: routing (occupancy map, nav graph, TSP route), local navigation (ROS 2 Nav2 with LiDAR), and perception (Qwen3-VL with LoRA on synthetic anomalies), combined into an autonomous building patrol" width="65%">
+</p>
 
 ### 1. Build the twin
 
@@ -84,17 +82,105 @@ Revit model ──► USD ──► Isaac Sim twin ──► labeled camera fram
 - **Doors that move.** Each hinged door becomes a revolute joint. The robot sees doors at many angles, and every frame is labeled automatically.
 - **Occupancy maps.** We ray-trace each floor of the twin to get the grid maps Nav2 uses. See [`floorplan_vision/`](floorplan_vision/README.md).
 
+<p align="center">
+  <img src="docs/media/revit-cleanup.jpg" alt="Left: the full Revit model including the old science building next door. Right: the same model cut down to the new building's walls, floors and structure" width="100%">
+</p>
+<p align="center"><sub>The Revit file came with the old science building, HVAC, electrical, plumbing, and furniture. We kept walls, floors, ceilings, stairs, and railings, which cut the file from 818 MB to 35 MB.</sub></p>
+
+<details>
+<summary><b>How we made the twin behave like a building</b></summary>
+
+<br>
+
+Our first import had no physics, so the robot fell straight through the floor.
+
+<p align="center">
+  <img src="docs/media/physics-fix.jpg" alt="Two Isaac Sim frames of the atrium: on the left the robot hangs in the air with physics off, on the right it rests on the mezzanine floor with physics on" width="100%">
+</p>
+
+The fix is a pipeline that sorts all 8,268 Revit elements by type. Walls, floors, and ceilings get static triangle-mesh colliders. Doors get convex-hull colliders and a revolute joint each.
+
+<p align="center">
+  <img src="assets/demos/physics_pipeline_diagram.png" alt="Flowchart of the physics pipeline: load the USD, categorize 8,268 elements, add static mesh colliders, convex-hull door colliders, revolute joints, export, validate" width="45%">
+  <img src="docs/media/collision-wireframe.jpg" alt="The Kern Center rendered normally next to its collision wireframe, color-coded by element type" width="100%">
+</p>
+<p align="center"><sub>Collision view: blue is structure, cyan is glazing, orange is doors, green is stairs.</sub></p>
+
+Revit doesn't say which edge of a door is the hinge. With the default pivot, doors swung through their own frames. We compute the hinge edge from each door's geometry instead.
+
+<p align="center">
+  <img src="docs/media/door-hinge.jpg" alt="Left: a glass door rotated around the wrong pivot so it cuts through its frame. Right: the same doorway with its computed edges highlighted" width="100%">
+</p>
+
+</details>
+
+<p align="center">
+  <img src="docs/media/occupancy-scan.gif" alt="Animation of floor 1's occupancy map being filled in by a ray-trace scan" width="45%">
+</p>
+<p align="center"><sub>Ray-tracing floor 1 to build its occupancy map. Dark cells are walls; light cells are open floor.</sub></p>
+
+<details>
+<summary><b>All four floors, and the bug that drove the robot into walls</b></summary>
+
+<br>
+
+<p align="center">
+  <img src="docs/media/occupancy-floors.png" alt="Occupancy maps for floors 1 to 4 of the Kern Center" width="100%">
+</p>
+
+Nav2 kept driving the robot into walls. Our generator writes row 0 of the map image as the world's lowest y, and Nav2 reads row 0 as the highest. Nav2 planned on a vertically mirrored map, where 271,056 of 1,683,278 cells (16.1%) disagree with the building. Making both sides agree on row 0 fixed it.
+
+<p align="center">
+  <img src="paper_figures/methods/y_flip_explainer.png" alt="Explainer figure comparing the occupancy map's Y-axis convention with Nav2's, showing the mismatched cells" width="80%">
+</p>
+
+</details>
+
 ### 2. Teach a VLM to spot problems
 
 - **Synthetic frames.** The robot's camera records doors and glass panels under random lighting and viewpoints. Cracked glass comes from swapping generated crack materials onto random panels. See [`SyntheticDataGen/cracked_glass/`](SyntheticDataGen/cracked_glass/README.md).
 - **Pick a varied training set.** We embed every frame with DINOv2 and run k-means inside each label group. Keeping the frame closest to each cluster center gives varied images and an exact 50/50 class split. See [`curate_diversity.py`](SyntheticDataGen/cracked_glass/curate_diversity.py).
 - **Fine-tune.** We started with Qwen2-VL and moved to **Qwen3-VL-2B-Instruct**, which had the best zero-shot score of the small VLMs we tried. LoRA plus the vision projector trains about 1.6% of the weights. One model answers one question with four answers: door open, door closed, glass cracked, glass intact. See [`vlm/qwen3vl_unified_lora_v4/`](vlm/qwen3vl_unified_lora_v4/USAGE.md).
-- **What went wrong first.** Our first dataset used one door. The model scored high on it and **0%** on a door it had never seen, because it had memorized that one door. We rebuilt the data across 8 doors and several Revit door families, and held some doors out for testing.
 
 <p align="center">
-  <img src="paper_figures/hero/hero_cracked_panel.jpg" alt="Synthetic cracked-glass panel rendered in Isaac Sim" width="60%">
+  <img src="docs/media/crack-types.jpg" alt="Six renders of the same glass panel: intact, impact spider-web, stress, edge, thermal, and tempered dice cracks" width="100%">
 </p>
-<p align="center"><sub>A synthetic cracked-glass panel from the training data.</sub></p>
+<p align="center"><sub>One glass panel, intact and with five crack types. The simulator writes the label at render time, so every frame comes labeled.</sub></p>
+
+<details>
+<summary><b>How the labels and the training set are built</b></summary>
+
+<br>
+
+**Door labels come from the joint.** Each door is a revolute joint, so we read its angle θ from the simulator and threshold it:
+
+```math
+y_{door} = \begin{cases} \text{closed} & \theta \le 5^\circ \\ \text{open} & \theta > 5^\circ \end{cases}
+```
+
+<p align="center">
+  <img src="docs/media/door-angles.jpg" alt="Three renders of the same doorway with the door at increasing swing angles" width="100%">
+</p>
+
+**Glass is randomized on seven axes:** 13 panels, 5 lighting presets, 4 glass states, 3 camera angles, 3 distances, 3 crack textures, and 4 camera heights.
+
+**Picking a varied subset.** Frames from one camera sweep look almost identical, so we train on a varied subset. We embed each frame with DINOv2 (768-d, L2-normalized) and run k-means separately inside each label group *g*:
+
+```math
+\min_{\mu_1,\dots,\mu_k} \sum_{c=1}^{k} \sum_{i \in C_c} \lVert z_i - \mu_c \rVert^2, \qquad i^*_c = \arg\min_{i \in C_c} \lVert z_i - \mu_c \rVert
+```
+
+We keep frame $i^*_c$, the one nearest each centroid. Because every $z_i$ has unit length, $\lVert a-b \rVert^2 = 2 - 2\cos(a,b)$, so this is k-means on cosine distance. Running it per label group gives an exact 50/50 class split.
+
+**What fine-tuning changes.** LoRA freezes each weight matrix $W_0$ and learns a low-rank update on the attention projections `q_proj` and `v_proj`:
+
+```math
+W = W_0 + \frac{\alpha}{r} BA, \qquad B \in \mathbb{R}^{d \times r},\ A \in \mathbb{R}^{r \times k},\ r = 16,\ \alpha = 32
+```
+
+We also train the full vision projector, the layer that turns image patches into tokens the language model reads. It was built for real photos, and without adapting it the LLM gets no useful signal from synthetic frames. Together that is about 2.2M LoRA weights plus 34M projector weights, 1.62% of the model.
+
+</details>
 
 ### 3. Patrol
 
@@ -109,6 +195,38 @@ Revit model ──► USD ──► Isaac Sim twin ──► labeled camera fram
   <img src="docs/media/floor4_navgraph.png" alt="Floor 4 occupancy map with the auto-generated navigation graph" width="90%">
 </p>
 <p align="center"><sub>Floor 4 of the Kern Center: occupancy map with the auto-generated navigation graph (red nodes, blue edges).</sub></p>
+
+<p align="center">
+  <img src="docs/media/nav2-patrol.jpg" alt="Left: follow camera behind the Nova Carter at a patrol waypoint facing a glass door. Right: the robot's own camera view of the same door" width="100%">
+</p>
+<p align="center"><sub>At a patrol stop. Left: a follow camera. Right: what the robot's camera sees, which is the frame the VLM classifies.</sub></p>
+
+<details>
+<summary><b>How the route and the driving work</b></summary>
+
+<br>
+
+**The tour.** With $D(a,b)$ the Dijkstra walking distance on the nav graph, the patrol looks for the order $\pi$ of door stops that minimizes total walking distance:
+
+```math
+\min_{\pi} \sum_{t=1}^{n-1} D(\pi_t, \pi_{t+1})
+```
+
+Exact TSP is too slow to rerun per floor, so we build a greedy nearest-neighbor tour and improve it with 2-opt. 2-opt reverses the stretch between stops *b* and *c* whenever
+
+```math
+D(a,b) + D(c,d) > D(a,c) + D(b,d)
+```
+
+and repeats until no swap helps. We keep the best of 10 random starts.
+
+**Seeing obstacles.** Nav2 builds its local costmap from the 360° LiDAR, so a box or a person that isn't in the building model still gets avoided.
+
+<p align="center">
+  <img src="docs/media/lidar-diagram.png" alt="Top-down diagram of a 20-ray 360-degree LiDAR scan with a 10 m range around the robot, with rays stopping at box obstacles" width="45%">
+</p>
+
+</details>
 
 ---
 
@@ -129,6 +247,33 @@ Qwen3-VL-2B-Instruct, before (zero-shot) and after fine-tuning:
 - **On real door photos it lost ground.** The base model already got all 100 right. The fine-tuned model got 93: every closed door right, 88.3% of open doors. Training only on synthetic images cost some accuracy on this easy real set. Closing that gap is the first item under [What's next](#whats-next).
 - Diercks Hall is an existing MSOE building from the same architect, with the same design language.
 
+<p align="center">
+  <img src="docs/media/zeroshot-vs-finetuned.png" alt="Two bar charts of zero-shot versus fine-tuned accuracy: door state on an unseen door (84.1% to 90.2%) and glass state (37.6% to 97.2%)" width="100%">
+</p>
+<p align="center"><sub>Zero-shot vs. fine-tuned. Left: door state on the unseen-door test. Right: cracked vs. intact glass, where the base model scored below chance.</sub></p>
+
+<p align="center">
+  <img src="docs/media/diercks-doors.jpg" alt="Two real photos of the same Diercks Hall door, labeled CLOSED and OPEN" width="55%">
+</p>
+<p align="center"><sub>A door from the 100-photo real-world test in Diercks Hall, closed and open.</sub></p>
+
+<details>
+<summary><b>Confusion matrices and per-door accuracy</b></summary>
+
+<br>
+
+<p align="center">
+  <img src="docs/media/confusion-matrices.png" alt="Three confusion matrices: held-out synthetic doors (97.4%), held-out synthetic glass (97.2%), and real Diercks Hall doors (93.0%)" width="100%">
+</p>
+
+On real doors every miss is the same kind: an open door called closed (7 of 60). The model never calls a closed door open.
+
+<p align="center">
+  <img src="docs/media/per-door-accuracy.png" alt="Bar chart of accuracy per held-out door, split into overall, closed and open" width="55%">
+</p>
+
+</details>
+
 **Picking the base model.** We compared six small open VLMs zero-shot on synthetic door frames. None was usable as-is; Qwen3-VL-2B was the best and the smallest:
 
 | Model | Params | Zero-shot accuracy |
@@ -146,6 +291,55 @@ Raw results: `data/*.json` on the `tanner_vlm` branch (`eval_baseline_unified.js
 
 - Scale: the pipeline was applied to a six-building digital campus, using over 3,500 GPU jobs and about 2,000 GPU-hours on Rosie.
 <!-- TODO(Adrian): add Nav2 patrol metrics (route completion, collisions, time per tour) once tabulated. -->
+
+---
+
+## What didn't work
+
+Each of these changed the design.
+
+- **A one-door dataset made the model memorize that door.** Our first dataset used a single door from a single Revit family. The model scored high on it and **0%** on a door it had never seen: it had learned that door's look, not "open vs. closed". We rebuilt the data across 8 doors and several door families, randomized lighting and viewpoint, and held whole doors out for testing. On an unseen door the current model scores 90.2%.
+- **The base model said OPEN every time.** Zero-shot Qwen2-VL labeled every synthetic door open: 0% on closed doors, 100% on open ones. It was trained on real photos, and our renders' lighting and textures gave it nothing to go on, so it fell back on one answer. After fine-tuning it separates the two states (see [Results](#results)).
+
+<p align="center">
+  <img src="docs/media/qwen2-baseline-open.png" alt="Bar chart of zero-shot Qwen2-VL-2B: 0% accuracy on closed doors, 50% overall, 100% on open doors" width="45%">
+</p>
+
+- **The saved model reloaded as the base model.** PEFT's default save keeps the LoRA weights but drops the trained vision projector unless it's listed in `modules_to_save`. The reloaded model looked fine and scored like the untrained baseline. The trainable projector weights also had to be cast to fp32, or mixed-precision gradient scaling failed.
+- **The robot fell through the floor, and doors swung through walls.** The first import had no colliders and no hinge information. See [How we made the twin behave like a building](#1-build-the-twin).
+- **Nav2 drove into walls.** A Y-axis convention mismatch mirrored the map (16.1% of cells wrong). See the occupancy-map details in [Build the twin](#1-build-the-twin).
+- **Reinforcement learning was slower to make reliable than Nav2.** We trained a PPO driving policy first and moved to Nav2 for the patrol. The RL work is archived in [`training/`](training/).
+- **Synthetic-only training cost accuracy on real doors.** The base model got 100 of 100 real Diercks Hall photos right; the fine-tuned model got 93. See [What's next](#whats-next).
+
+<details>
+<summary><b>Archived work: the RL reward and drive equations, and the Qwen2 loss curve</b></summary>
+
+<br>
+
+The policy outputs a linear velocity $v$ and angular velocity $\omega$. A differential-drive action turns them into wheel targets, with wheel separation $d$ and wheel radius $r$:
+
+```math
+v_L = \frac{v - \omega d/2}{r}, \qquad v_R = \frac{v + \omega d/2}{r}
+```
+
+The per-step reward, with $d$ here the distance to the goal:
+
+```math
+R = 3.0\,(d_{prev} - d_{cur}) + 1.0\,\bigl(1 - \tanh(d/0.3)\bigr) - 0.05 - 2.0\,\max(0, -v_{fwd}) + 100\,\mathbb{1}[d < 0.75\,\text{m}] - 10\,\mathbb{1}[F_{contact} > 1\,\text{N}]
+```
+
+Progress toward the goal earns reward, the tanh term pulls the robot in on the final approach, and the small constant penalty stops it from circling. Driving backward and touching anything cost reward, and reaching the goal pays a large one-time bonus.
+
+<p align="center">
+  <img src="training/reward_calibration.png" alt="Three-panel reward calibration figure for the RL policy" width="100%">
+</p>
+
+<p align="center">
+  <img src="docs/media/qwen2-loss.png" alt="Training and validation loss on a log scale over three epochs of Qwen2-VL-2B LoRA fine-tuning" width="50%">
+</p>
+<p align="center"><sub>Also archived: train and validation loss for the earlier Qwen2-VL fine-tune (3 epochs, log scale).</sub></p>
+
+</details>
 
 ---
 
